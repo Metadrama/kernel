@@ -1,4 +1,4 @@
-import { Settings, Trash2, GripVertical } from 'lucide-react';
+import { Settings, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { WidgetSchema } from '@/types/dashboard';
 
@@ -13,12 +13,7 @@ export default function WidgetShell({ widget, onConfigure, onDelete }: WidgetShe
   const displayDescription = widget.config?.description || 'Click configure to add content';
   
   return (
-    <div className="group relative h-full w-full rounded-lg border-2 bg-card text-card-foreground shadow-sm transition-all hover:shadow-md hover:border-primary/50">
-      {/* Drag Handle */}
-      <div className="absolute left-3 top-3 cursor-move opacity-0 transition-opacity group-hover:opacity-100 z-10">
-        <GripVertical className="h-5 w-5 text-muted-foreground" />
-      </div>
-
+    <div className="group relative h-full w-full rounded-lg border-2 bg-card text-card-foreground shadow-sm transition-all hover:shadow-md hover:border-primary/50 cursor-move">
       {/* Actions */}
       <div className="absolute right-3 top-3 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 z-10">
         <Button

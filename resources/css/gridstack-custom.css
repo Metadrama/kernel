@@ -22,48 +22,50 @@
   z-index: 100;
 }
 
-/* Resize handles */
+/* Resize handles - completely hidden, only functional on hover */
 .ui-resizable-handle {
   position: absolute;
   z-index: 10;
+  background: transparent !important;
+  border: none !important;
 }
 
 .ui-resizable-e {
   cursor: e-resize;
-  width: 10px;
-  right: 0;
+  width: 8px;
+  right: -4px;
   top: 0;
   height: 100%;
 }
 
 .ui-resizable-s {
   cursor: s-resize;
-  height: 10px;
-  bottom: 0;
+  height: 8px;
+  bottom: -4px;
   left: 0;
   width: 100%;
 }
 
 .ui-resizable-se {
   cursor: se-resize;
-  width: 20px;
-  height: 20px;
-  right: 0;
-  bottom: 0;
+  width: 16px;
+  height: 16px;
+  right: -4px;
+  bottom: -4px;
 }
 
 .ui-resizable-sw {
   cursor: sw-resize;
-  width: 20px;
-  height: 20px;
-  left: 0;
-  bottom: 0;
+  width: 16px;
+  height: 16px;
+  left: -4px;
+  bottom: -4px;
 }
 
 .ui-resizable-w {
   cursor: w-resize;
-  width: 10px;
-  left: 0;
+  width: 8px;
+  left: -4px;
   top: 0;
   height: 100%;
 }
