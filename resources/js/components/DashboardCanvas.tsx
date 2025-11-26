@@ -86,13 +86,15 @@ export default function DashboardCanvas() {
   };
 
   const deleteWidget = (id: string) => {
-    setWidgets((prev) => prev.filter((w) => w.id !== id));
+    // Remove from Gridstack first
     if (gridInstanceRef.current) {
       const element = document.getElementById(id);
       if (element) {
-        gridInstanceRef.current.removeWidget(element);
+        gridInstanceRef.current.removeWidget(element, false);
       }
     }
+    // Then update state
+    setWidgets((prev) => prev.filter((w) => w.id !== id));
   };
 
   const configureWidget = (widgetId: string) => {
@@ -187,7 +189,7 @@ export default function DashboardCanvas() {
                 Your canvas is empty
               </h3>
               <p className="text-sm text-muted-foreground max-w-sm">
-                Click "Add Component" to start building your dashboard
+                Click "Add Widget" to start building your dashboard
               </p>
             </div>
           </div>
@@ -243,7 +245,7 @@ export default function DashboardCanvas() {
           </Button>
           <Button variant="outline" size="sm" onClick={() => addWidget()}>
             <Plus className="mr-2 h-4 w-4" />
-            Add Component
+            Add Widget
           </Button>
           <Button size="sm">Save</Button>
         </div>

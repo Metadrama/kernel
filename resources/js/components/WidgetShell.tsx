@@ -23,7 +23,10 @@ export default function WidgetShell({ widget, onConfigure, onDelete, isGhostBox 
             variant="ghost"
             size="icon"
             className="h-8 w-8 bg-background/80 backdrop-blur-sm text-destructive hover:text-destructive"
-            onClick={onDelete}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete?.();
+            }}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -61,7 +64,10 @@ export default function WidgetShell({ widget, onConfigure, onDelete, isGhostBox 
           variant="ghost"
           size="icon"
           className="h-8 w-8 bg-background/80 backdrop-blur-sm"
-          onClick={onConfigure}
+          onClick={(e) => {
+            e.stopPropagation();
+            onConfigure?.();
+          }}
         >
           <Settings className="h-4 w-4" />
         </Button>
@@ -69,7 +75,10 @@ export default function WidgetShell({ widget, onConfigure, onDelete, isGhostBox 
           variant="ghost"
           size="icon"
           className="h-8 w-8 bg-background/80 backdrop-blur-sm text-destructive hover:text-destructive"
-          onClick={onDelete}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete?.();
+          }}
         >
           <Trash2 className="h-4 w-4" />
         </Button>
@@ -89,7 +98,15 @@ export default function WidgetShell({ widget, onConfigure, onDelete, isGhostBox 
               {displayDescription}
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={onConfigure} className="mt-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={(e) => {
+              e.stopPropagation();
+              onConfigure?.();
+            }} 
+            className="mt-2"
+          >
             <Settings className="mr-2 h-3 w-3" />
             Configure Widget
           </Button>
