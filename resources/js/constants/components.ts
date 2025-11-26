@@ -9,6 +9,7 @@ export const AVAILABLE_COMPONENTS: ComponentCard[] = [
     icon: 'BarChart3',
     category: 'components',
     isFavorite: false,
+    defaultSize: { w: 60, h: 45 },  // Medium rectangle for charts
   },
   {
     id: 'chart-bar',
@@ -17,6 +18,7 @@ export const AVAILABLE_COMPONENTS: ComponentCard[] = [
     icon: 'BarChart3',
     category: 'components',
     isFavorite: false,
+    defaultSize: { w: 60, h: 45 },  // Medium rectangle for charts
   },
   {
     id: 'chart-doughnut',
@@ -25,6 +27,7 @@ export const AVAILABLE_COMPONENTS: ComponentCard[] = [
     icon: 'BarChart3',
     category: 'components',
     isFavorite: false,
+    defaultSize: { w: 40, h: 40 },  // Square for doughnut
   },
   // Text
   {
@@ -34,6 +37,7 @@ export const AVAILABLE_COMPONENTS: ComponentCard[] = [
     icon: 'FileText',
     category: 'components',
     isFavorite: false,
+    defaultSize: { w: 90, h: 15 },  // Wide but short for heading
   },
 ];
 

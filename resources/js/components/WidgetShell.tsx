@@ -281,9 +281,9 @@ export default function WidgetShell({
           const dropX = ((e.clientX - rect.left) / rect.width) * 100;
           const dropY = ((e.clientY - rect.top) / rect.height) * 100;
           
-          // Desired size for new component
-          const desiredWidth = 50;
-          const desiredHeight = 50;
+          // Use component's default size or fallback to medium size
+          const desiredWidth = parsed.defaultSize?.w || 50;
+          const desiredHeight = parsed.defaultSize?.h || 50;
           
           // Find valid drop position avoiding existing components
           const existingBounds = getAllComponentBounds();
@@ -322,13 +322,15 @@ export default function WidgetShell({
         onDragLeave={handleExternalDragLeave}
         onDrop={handleExternalDrop}
       >
-        {/* Widget toolbar */}
-        <div className="widget-drag-handle absolute inset-x-0 top-0 h-8 flex items-center justify-between px-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-move bg-gradient-to-b from-background/80 to-transparent">
-          <GripVertical className="h-4 w-4 text-muted-foreground" />
+        {/* Widget toolbar - bottom-right corner */}
+        <div className="absolute bottom-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+          <div className="widget-drag-handle cursor-move px-2 py-1 rounded bg-muted/90 backdrop-blur-sm border shadow-sm hover:bg-muted">
+            <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+          </div>
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
+            className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10 bg-muted/90 backdrop-blur-sm border shadow-sm"
             onClick={(e) => {
               e.stopPropagation();
               onDelete?.();
@@ -368,21 +370,25 @@ export default function WidgetShell({
       onDragLeave={handleExternalDragLeave}
       onDrop={handleExternalDrop}
     >
-      {/* Widget toolbar - top bar for drag and delete */}
-      <div className="widget-drag-handle absolute inset-x-0 top-0 h-7 flex items-center justify-between px-2 opacity-0 group-hover:opacity-100 transition-opacity z-30 cursor-move bg-gradient-to-b from-muted/90 to-transparent rounded-t-lg">
-        <GripVertical className="h-4 w-4 text-muted-foreground" />
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-5 w-5 text-destructive hover:text-destructive hover:bg-destructive/10"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete?.();
-          }}
-        >
-          <Trash2 className="h-3 w-3" />
-        </Button>
-      </div>
+      {/* Widget toolbar - bottom-right corner to avoid interfering with top components */}
+      {!draggingId && !resizingId && (
+        <div className="absolute bottom-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-30">
+          <div className="widget-drag-handle cursor-move px-2 py-1 rounded bg-muted/90 backdrop-blur-sm border shadow-sm hover:bg-muted">
+            <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10 bg-muted/90 backdrop-blur-sm border shadow-sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete?.();
+            }}
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+      )}
 
       {/* Snap grid overlay - visible during drag/resize */}
       {(draggingId || resizingId) && (

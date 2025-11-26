@@ -77,12 +77,12 @@ const MOCK_DOUGHNUT_DATA = {
   ],
 };
 
-const chartOptions = {
+const getChartOptions = (showLegend: boolean) => ({
   responsive: true,
   maintainAspectRatio: false,
   plugins: {
     legend: {
-      display: true,
+      display: showLegend,
       position: 'bottom' as const,
       labels: {
         usePointStyle: true,
@@ -134,14 +134,14 @@ const chartOptions = {
       },
     },
   },
-};
+});
 
-const doughnutOptions = {
+const getDoughnutOptions = (showLegend: boolean) => ({
   responsive: true,
   maintainAspectRatio: false,
   plugins: {
     legend: {
-      display: true,
+      display: showLegend,
       position: 'bottom' as const,
       labels: {
         usePointStyle: true,
@@ -153,18 +153,22 @@ const doughnutOptions = {
     },
   },
   cutout: '60%',
-};
+});
 
 interface ChartComponentConfigProps {
   config?: {
     chartType?: 'line' | 'bar' | 'doughnut';
     title?: string;
+    showTitle?: boolean;
+    showLegend?: boolean;
   };
 }
 
 export default function ChartComponent({ config }: ChartComponentConfigProps) {
   const chartType = config?.chartType || 'line';
   const title = config?.title;
+  const showTitle = config?.showTitle ?? false;  // Default: no title
+  const showLegend = config?.showLegend ?? false;  // Default: no legend
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Force chart resize when container size changes
@@ -181,14 +185,18 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
   }, []);
 
   const renderChart = () => {
+    const options = chartType === 'doughnut' 
+      ? getDoughnutOptions(showLegend)
+      : getChartOptions(showLegend);
+      
     switch (chartType) {
       case 'bar':
-        return <Bar data={MOCK_BAR_DATA} options={chartOptions} />;
+        return <Bar data={MOCK_BAR_DATA} options={options} />;
       case 'doughnut':
-        return <Doughnut data={MOCK_DOUGHNUT_DATA} options={doughnutOptions} />;
+        return <Doughnut data={MOCK_DOUGHNUT_DATA} options={options} />;
       case 'line':
       default:
-        return <Line data={MOCK_LINE_DATA} options={chartOptions} />;
+        return <Line data={MOCK_LINE_DATA} options={options} />;
     }
   };
 
@@ -200,8 +208,10 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
   }[chartType];
 
   return (
-    <div ref={containerRef} className="h-full w-full p-3 flex flex-col overflow-hidden">
-      <h3 className="text-xs font-medium text-muted-foreground mb-2 shrink-0">{displayTitle}</h3>
+    <div ref={containerRef} className="h-full w-full flex flex-col overflow-hidden" style={{ padding: showTitle ? '12px' : '8px' }}>
+      {showTitle && (
+        <h3 className="text-xs font-medium text-muted-foreground mb-2 shrink-0">{displayTitle}</h3>
+      )}
       <div className="flex-1 min-h-0 min-w-0">
         {renderChart()}
       </div>

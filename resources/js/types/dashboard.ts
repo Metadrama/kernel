@@ -5,6 +5,10 @@ export interface ComponentCard {
   icon: string;
   category: 'components' | 'presets';
   isFavorite?: boolean;
+  defaultSize?: {
+    w: number;  // percentage width
+    h: number;  // percentage height
+  };
 }
 
 // Instance of a component placed inside a widget
