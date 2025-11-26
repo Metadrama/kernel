@@ -4,13 +4,16 @@ import { Button } from '@/components/ui/button';
 import { GridStack } from 'gridstack';
 import 'gridstack/dist/gridstack.min.css';
 import WidgetShell from '@/components/WidgetShell';
+import ComponentToolbox from '@/components/ComponentToolbox';
 import type { WidgetSchema } from '@/types/dashboard';
+import type { ComponentCard } from '@/types/dashboard';
 
 export default function DashboardCanvas() {
   const gridRef = useRef<HTMLDivElement>(null);
   const gridInstanceRef = useRef<GridStack | null>(null);
   const [widgets, setWidgets] = useState<WidgetSchema[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [configuringWidgetId, setConfiguringWidgetId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!gridRef.current) return;
@@ -90,6 +93,32 @@ export default function DashboardCanvas() {
         gridInstanceRef.current.removeWidget(element);
       }
     }
+  };
+
+  const configureWidget = (widgetId: string) => {
+    setConfiguringWidgetId(widgetId);
+  };
+
+  const handleComponentSelect = (component: ComponentCard) => {
+    if (!configuringWidgetId) return;
+
+    setWidgets((prev) =>
+      prev.map((widget) =>
+        widget.id === configuringWidgetId
+          ? {
+              ...widget,
+              componentType: component.id,
+              config: {
+                name: component.name,
+                description: component.description,
+                icon: component.icon,
+              },
+            }
+          : widget
+      )
+    );
+
+    setConfiguringWidgetId(null);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -182,7 +211,8 @@ export default function DashboardCanvas() {
               <div className="grid-stack-item-content">
                 <WidgetShell
                   widget={widget}
-                  onConfigure={() => console.log('Configure', widget.id)}
+                  isGhostBox={widget.componentType === 'empty'}
+                  onConfigure={() => configureWidget(widget.id)}
                   onDelete={() => deleteWidget(widget.id)}
                 />
               </div>
@@ -190,6 +220,13 @@ export default function DashboardCanvas() {
           ))}
         </div>
       </div>
+
+      {/* Component Toolbox Modal */}
+      <ComponentToolbox
+        open={configuringWidgetId !== null}
+        onOpenChange={(open) => !open && setConfiguringWidgetId(null)}
+        onSelectComponent={handleComponentSelect}
+      />
 
       {/* Top Bar (for future toolbar) */}
       <div className="absolute top-0 left-0 right-0 flex h-14 items-center justify-between border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6 z-10">
