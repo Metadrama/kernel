@@ -138,7 +138,15 @@ export default function ComponentSidebar() {
               {groupedComponents['stores-utility'].map((component) => {
                 const IconComponent = ICON_MAP[component.icon as keyof typeof ICON_MAP];
                 return (
-                  <Card key={component.id} className="group cursor-pointer p-3 transition-colors hover:bg-accent">
+                  <Card
+                    key={component.id}
+                    className="group cursor-grab p-3 transition-colors hover:bg-accent active:cursor-grabbing"
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.effectAllowed = 'copy';
+                      e.dataTransfer.setData('application/json', JSON.stringify(component));
+                    }}
+                  >
                     <div className="flex items-start gap-3">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
                         {IconComponent && <IconComponent className="h-5 w-5 text-primary" />}
