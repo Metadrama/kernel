@@ -61,7 +61,7 @@ export default function DashboardCanvas() {
     };
   }, []);
 
-  const addWidget = (componentData?: any) => {
+  const addWidget = (componentData?: ComponentCard) => {
     const newWidget: WidgetSchema = {
       id: `widget-${Date.now()}`,
       x: 0,
@@ -241,7 +241,7 @@ export default function DashboardCanvas() {
           <Button variant="ghost" size="sm">
             Preview
           </Button>
-          <Button variant="outline" size="sm" onClick={addWidget}>
+          <Button variant="outline" size="sm" onClick={() => addWidget()}>
             <Plus className="mr-2 h-4 w-4" />
             Add Component
           </Button>

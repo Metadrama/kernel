@@ -1,14 +1,14 @@
 import { Head } from '@inertiajs/react';
-import { useState } from 'react';
 import ComponentSidebar from '@/components/ComponentSidebar';
 import DashboardCanvas from '@/components/DashboardCanvas';
+import type { DashboardLayout } from '@/types/dashboard';
 
 interface DashboardProps {
-  dashboards: any[];
-  currentDashboard: any | null;
+  dashboards: DashboardLayout[];
+  currentDashboard: DashboardLayout | null;
 }
 
-export default function Dashboard({ dashboards, currentDashboard }: DashboardProps) {
+export default function Dashboard(_props: DashboardProps) {
   return (
     <>
       <Head title="Dashboard Builder" />

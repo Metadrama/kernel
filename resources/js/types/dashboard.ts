@@ -14,7 +14,7 @@ export interface WidgetSchema {
   w: number;
   h: number;
   componentType: string;
-  config?: Record<string, any>;
+  config?: Record<string, unknown>;
 }
 
 export interface DashboardLayout {
