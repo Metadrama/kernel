@@ -1,24 +1,29 @@
 import { useState, useEffect, useRef } from 'react';
-import { GripVertical } from 'lucide-react';
 
 interface HeadingComponentProps {
-  text?: string;
-  level?: 1 | 2 | 3 | 4;
-  align?: 'left' | 'center' | 'right';
-  editable?: boolean;
-  onTextChange?: (text: string) => void;
+  config?: {
+    text?: string;
+    level?: 1 | 2 | 3 | 4;
+    align?: 'left' | 'center' | 'right';
+  };
+  onConfigChange?: (config: Record<string, unknown>) => void;
 }
 
 export default function HeadingComponent({ 
-  text = 'Heading Text', 
-  level = 2, 
-  align = 'left',
-  editable = true,
-  onTextChange,
+  config,
+  onConfigChange,
 }: HeadingComponentProps) {
+  const text = config?.text ?? 'Heading';
+  const level = config?.level ?? 2;
+  const align = config?.align ?? 'left';
+  
   const [isEditing, setIsEditing] = useState(false);
   const [currentText, setCurrentText] = useState(text);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setCurrentText(text);
+  }, [text]);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -28,20 +33,22 @@ export default function HeadingComponent({
   }, [isEditing]);
 
   const handleDoubleClick = () => {
-    if (editable) {
-      setIsEditing(true);
-    }
+    setIsEditing(true);
   };
 
   const handleBlur = () => {
     setIsEditing(false);
-    onTextChange?.(currentText);
+    if (currentText !== text) {
+      onConfigChange?.({ ...config, text: currentText });
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       setIsEditing(false);
-      onTextChange?.(currentText);
+      if (currentText !== text) {
+        onConfigChange?.({ ...config, text: currentText });
+      }
     }
     if (e.key === 'Escape') {
       setCurrentText(text);
@@ -50,21 +57,21 @@ export default function HeadingComponent({
   };
 
   const textSizeClass = {
-    1: 'text-4xl font-bold',
-    2: 'text-2xl font-semibold',
-    3: 'text-xl font-semibold',
-    4: 'text-lg font-medium',
+    1: 'text-3xl font-bold',
+    2: 'text-xl font-semibold',
+    3: 'text-lg font-semibold',
+    4: 'text-base font-medium',
   }[level];
 
   const alignClass = {
-    left: 'text-left',
-    center: 'text-center',
-    right: 'text-right',
+    left: 'justify-start text-left',
+    center: 'justify-center text-center',
+    right: 'justify-end text-right',
   }[align];
 
   if (isEditing) {
     return (
-      <div className="h-full w-full p-4 flex items-center">
+      <div className={`h-full w-full px-4 py-3 flex items-center ${alignClass}`}>
         <input
           ref={inputRef}
           type="text"
@@ -72,7 +79,7 @@ export default function HeadingComponent({
           onChange={(e) => setCurrentText(e.target.value)}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
-          className={`w-full bg-transparent border-b-2 border-primary outline-none ${textSizeClass} ${alignClass}`}
+          className={`w-full bg-transparent border-b-2 border-primary outline-none ${textSizeClass}`}
         />
       </div>
     );
@@ -80,22 +87,13 @@ export default function HeadingComponent({
 
   return (
     <div 
-      className={`h-full w-full p-4 flex items-center cursor-text group/heading ${alignClass}`}
+      className={`h-full w-full px-4 py-3 flex items-center cursor-text ${alignClass} hover:bg-muted/30 transition-colors`}
       onDoubleClick={handleDoubleClick}
+      title="Double-click to edit"
     >
-      <div className="flex items-center gap-2 w-full">
-        {editable && (
-          <GripVertical className="h-4 w-4 text-muted-foreground/30 opacity-0 group-hover/heading:opacity-100 transition-opacity cursor-grab shrink-0" />
-        )}
-        <span className={`${textSizeClass} text-foreground flex-1 ${alignClass}`}>
-          {currentText}
-        </span>
-      </div>
-      {editable && (
-        <span className="text-xs text-muted-foreground opacity-0 group-hover/heading:opacity-100 transition-opacity ml-2">
-          Double-click to edit
-        </span>
-      )}
+      <span className={`${textSizeClass} text-foreground`}>
+        {currentText}
+      </span>
     </div>
   );
 }

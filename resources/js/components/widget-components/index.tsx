@@ -23,34 +23,27 @@ function ComponentLoader() {
 export const COMPONENT_REGISTRY: Record<string, React.ComponentType<{config?: Record<string, unknown>}>> = {
   'chart': ({ config }) => (
     <Suspense fallback={<ComponentLoader />}>
-      <ChartComponent 
-        chartType={(config?.chartType as 'line' | 'bar' | 'doughnut') || 'line'}
-        title={config?.title as string}
-      />
+      <ChartComponent config={{ ...config, chartType: (config?.chartType as 'line' | 'bar' | 'doughnut') || 'line' }} />
     </Suspense>
   ),
   'chart-line': ({ config }) => (
     <Suspense fallback={<ComponentLoader />}>
-      <ChartComponent chartType="line" title={config?.title as string || 'Revenue Trend'} />
+      <ChartComponent config={{ ...config, chartType: 'line' }} />
     </Suspense>
   ),
   'chart-bar': ({ config }) => (
     <Suspense fallback={<ComponentLoader />}>
-      <ChartComponent chartType="bar" title={config?.title as string || 'Weekly Activity'} />
+      <ChartComponent config={{ ...config, chartType: 'bar' }} />
     </Suspense>
   ),
   'chart-doughnut': ({ config }) => (
     <Suspense fallback={<ComponentLoader />}>
-      <ChartComponent chartType="doughnut" title={config?.title as string || 'Device Distribution'} />
+      <ChartComponent config={{ ...config, chartType: 'doughnut' }} />
     </Suspense>
   ),
   'heading': ({ config }) => (
     <Suspense fallback={<ComponentLoader />}>
-      <HeadingComponent 
-        text={config?.text as string || 'Heading'}
-        level={(config?.level as 1 | 2 | 3 | 4) || 2}
-        align={(config?.align as 'left' | 'center' | 'right') || 'left'}
-      />
+      <HeadingComponent config={config} />
     </Suspense>
   ),
 };

@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { Trash2, Plus, GripVertical, X } from 'lucide-react';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { Trash2, Plus, X, GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { isComponentRegistered, getComponent } from '@/components/widget-components';
 import type { WidgetSchema, ComponentCard, WidgetComponent } from '@/types/dashboard';
@@ -13,45 +13,172 @@ interface WidgetShellProps {
   onUpdateComponentConfig?: (instanceId: string, config: Record<string, unknown>) => void;
 }
 
+// Each component has position and size within the widget
+interface ComponentPosition {
+  x: number; // percentage 0-100
+  y: number; // percentage 0-100
+  w: number; // percentage 0-100
+  h: number; // percentage 0-100
+}
+
 export default function WidgetShell({ 
   widget, 
   onDelete, 
   onAddComponent,
   onRemoveComponent,
-  onReorderComponents,
+  onUpdateComponentConfig,
 }: WidgetShellProps) {
   const [isDragOver, setIsDragOver] = useState(false);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  const [draggingInstanceId, setDraggingInstanceId] = useState<string | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [resizingId, setResizingId] = useState<string | null>(null);
+  const [resizeHandle, setResizeHandle] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const dragStartRef = useRef<{ mouseX: number; mouseY: number; startX: number; startY: number; startW: number; startH: number } | null>(null);
 
   const components = widget.components || [];
   const isEmpty = components.length === 0;
 
-  // Handle external component drop (from sidebar)
-  const handleDragOver = useCallback((e: React.DragEvent) => {
+  // Get component position from config, or calculate default
+  const getComponentPosition = useCallback((component: WidgetComponent, index: number): ComponentPosition => {
+    if (component.config?.position) {
+      return component.config.position as ComponentPosition;
+    }
+    // Default: stack vertically, each taking equal height
+    const totalComponents = components.length;
+    const heightPerComponent = 100 / totalComponents;
+    return {
+      x: 0,
+      y: index * heightPerComponent,
+      w: 100,
+      h: heightPerComponent,
+    };
+  }, [components.length]);
+
+  // Handle mouse move for dragging/resizing
+  useEffect(() => {
+    if (!draggingId && !resizingId) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!containerRef.current || !dragStartRef.current) return;
+      
+      const rect = containerRef.current.getBoundingClientRect();
+      const deltaX = ((e.clientX - dragStartRef.current.mouseX) / rect.width) * 100;
+      const deltaY = ((e.clientY - dragStartRef.current.mouseY) / rect.height) * 100;
+
+      if (draggingId) {
+        // Dragging - update position
+        const component = components.find(c => c.instanceId === draggingId);
+        if (component) {
+          const pos = getComponentPosition(component, components.indexOf(component));
+          const newX = Math.max(0, Math.min(100 - pos.w, dragStartRef.current.startX + deltaX));
+          const newY = Math.max(0, Math.min(100 - pos.h, dragStartRef.current.startY + deltaY));
+          
+          onUpdateComponentConfig?.(draggingId, {
+            ...component.config,
+            position: { ...pos, x: newX, y: newY },
+          });
+        }
+      } else if (resizingId && resizeHandle) {
+        // Resizing
+        const component = components.find(c => c.instanceId === resizingId);
+        if (component) {
+          const pos = getComponentPosition(component, components.indexOf(component));
+          let newX = pos.x, newY = pos.y, newW = pos.w, newH = pos.h;
+
+          if (resizeHandle.includes('e')) {
+            newW = Math.max(20, Math.min(100 - pos.x, dragStartRef.current.startW + deltaX));
+          }
+          if (resizeHandle.includes('w')) {
+            const widthDelta = -deltaX;
+            newW = Math.max(20, dragStartRef.current.startW + widthDelta);
+            newX = Math.max(0, dragStartRef.current.startX - widthDelta);
+          }
+          if (resizeHandle.includes('s')) {
+            newH = Math.max(15, Math.min(100 - pos.y, dragStartRef.current.startH + deltaY));
+          }
+          if (resizeHandle.includes('n')) {
+            const heightDelta = -deltaY;
+            newH = Math.max(15, dragStartRef.current.startH + heightDelta);
+            newY = Math.max(0, dragStartRef.current.startY - heightDelta);
+          }
+
+          onUpdateComponentConfig?.(resizingId, {
+            ...component.config,
+            position: { x: newX, y: newY, w: newW, h: newH },
+          });
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      setDraggingId(null);
+      setResizingId(null);
+      setResizeHandle(null);
+      dragStartRef.current = null;
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [draggingId, resizingId, resizeHandle, components, getComponentPosition, onUpdateComponentConfig]);
+
+  const startDrag = useCallback((e: React.MouseEvent, component: WidgetComponent) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    // Check if this is an external component drag
-    const types = e.dataTransfer.types;
-    if (types.includes('application/json')) {
-      e.dataTransfer.dropEffect = 'copy';
-      setIsDragOver(true);
+    const pos = getComponentPosition(component, components.indexOf(component));
+    dragStartRef.current = {
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+      startX: pos.x,
+      startY: pos.y,
+      startW: pos.w,
+      startH: pos.h,
+    };
+    setDraggingId(component.instanceId);
+  }, [components, getComponentPosition]);
+
+  const startResize = useCallback((e: React.MouseEvent, component: WidgetComponent, handle: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const pos = getComponentPosition(component, components.indexOf(component));
+    dragStartRef.current = {
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+      startX: pos.x,
+      startY: pos.y,
+      startW: pos.w,
+      startH: pos.h,
+    };
+    setResizingId(component.instanceId);
+    setResizeHandle(handle);
+  }, [components, getComponentPosition]);
+
+  // Handle external component drop (from sidebar) - this uses HTML5 drag API
+  const handleExternalDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
+    setIsDragOver(true);
+  }, []);
+
+  const handleExternalDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = e.clientX;
+    const y = e.clientY;
+    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+      setIsDragOver(false);
     }
   }, []);
 
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
+  const handleExternalDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
-    setDragOverIndex(null);
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent, insertIndex?: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(false);
-    setDragOverIndex(null);
     
     try {
       const data = e.dataTransfer.getData('application/json');
@@ -59,161 +186,164 @@ export default function WidgetShell({
       
       const parsed = JSON.parse(data);
       
-      // Check if it's an internal reorder (has instanceId) or external drop (ComponentCard)
-      if (parsed.instanceId && parsed.fromWidgetId === widget.id) {
-        // Internal reorder
-        if (insertIndex !== undefined && onReorderComponents) {
-          const newComponents = [...components];
-          const fromIndex = components.findIndex(c => c.instanceId === parsed.instanceId);
-          if (fromIndex !== -1 && fromIndex !== insertIndex) {
-            const [removed] = newComponents.splice(fromIndex, 1);
-            const adjustedIndex = insertIndex > fromIndex ? insertIndex - 1 : insertIndex;
-            newComponents.splice(adjustedIndex, 0, removed);
-            onReorderComponents(newComponents);
-          }
+      // Calculate drop position as percentage
+      if (parsed.id && parsed.category && containerRef.current) {
+        // If it's the first component in the widget, make it fill the space
+        // Otherwise give it a reasonable size at drop location
+        const isFirstComponent = components.length === 0;
+        
+        if (isFirstComponent) {
+          // First component fills the widget
+          const componentWithPosition = {
+            ...parsed,
+            initialPosition: {
+              x: 2,
+              y: 2,
+              w: 96,
+              h: 96,
+            },
+          };
+          onAddComponent?.(componentWithPosition as ComponentCard);
+        } else {
+          // Additional components get placed at drop position
+          const rect = containerRef.current.getBoundingClientRect();
+          const dropX = ((e.clientX - rect.left) / rect.width) * 100;
+          const dropY = ((e.clientY - rect.top) / rect.height) * 100;
+          
+          const componentWithPosition = {
+            ...parsed,
+            initialPosition: {
+              x: Math.max(0, Math.min(50, dropX - 25)),
+              y: Math.max(0, Math.min(50, dropY - 25)),
+              w: 50,
+              h: 50,
+            },
+          };
+          onAddComponent?.(componentWithPosition as ComponentCard);
         }
-      } else if (parsed.id && parsed.category) {
-        // External component from sidebar
-        onAddComponent?.(parsed as ComponentCard);
       }
     } catch (error) {
       console.error('Failed to parse dropped data:', error);
     }
-  }, [widget.id, components, onAddComponent, onReorderComponents]);
-
-  // Handle internal component drag start
-  const handleComponentDragStart = useCallback((e: React.DragEvent, component: WidgetComponent) => {
-    e.stopPropagation();
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('application/json', JSON.stringify({
-      ...component,
-      fromWidgetId: widget.id,
-    }));
-    setDraggingInstanceId(component.instanceId);
-  }, [widget.id]);
-
-  const handleComponentDragEnd = useCallback(() => {
-    setDraggingInstanceId(null);
-    setDragOverIndex(null);
-  }, []);
-
-  const handleComponentDragOver = useCallback((e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOverIndex(index);
-  }, []);
+  }, [onAddComponent]);
 
   // Empty widget state
   if (isEmpty) {
     return (
       <div 
+        ref={containerRef}
         className={`group relative h-full w-full rounded-lg border-2 border-dashed bg-card text-card-foreground shadow-sm transition-all duration-200 ease-out hover:shadow-md ${
           isDragOver 
             ? 'border-primary bg-primary/5 shadow-lg scale-[1.01]' 
             : 'hover:border-primary/50'
         }`}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={(e) => handleDrop(e)}
+        onDragOver={handleExternalDragOver}
+        onDragLeave={handleExternalDragLeave}
+        onDrop={handleExternalDrop}
       >
-        {/* Delete button */}
-        <div className="absolute right-3 top-3 flex gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 z-10">
+        {/* Widget toolbar */}
+        <div className="widget-drag-handle absolute inset-x-0 top-0 h-8 flex items-center justify-between px-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-move bg-gradient-to-b from-background/80 to-transparent">
+          <GripVertical className="h-4 w-4 text-muted-foreground" />
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 bg-background/80 backdrop-blur-sm text-destructive hover:text-destructive hover:bg-destructive/10 transition-colors"
+            className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
             onClick={(e) => {
               e.stopPropagation();
               onDelete?.();
             }}
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
 
         {/* Empty state content */}
         <div className="flex h-full items-center justify-center p-6">
           <div className={`text-center space-y-3 max-w-xs transition-all duration-200 ${isDragOver ? 'scale-95 opacity-50' : ''}`}>
-            <div className={`mx-auto h-14 w-14 rounded-full border-2 border-dashed flex items-center justify-center transition-all duration-200 ${
+            <div className={`mx-auto h-12 w-12 rounded-full border-2 border-dashed flex items-center justify-center transition-all duration-200 ${
               isDragOver 
                 ? 'border-primary bg-primary/10' 
                 : 'border-muted-foreground/30'
             }`}>
-              <Plus className={`h-6 w-6 ${isDragOver ? 'text-primary animate-pulse' : 'text-muted-foreground/50'}`} />
+              <Plus className={`h-5 w-5 ${isDragOver ? 'text-primary animate-pulse' : 'text-muted-foreground/50'}`} />
             </div>
-            <div className="space-y-1">
-              <h3 className="text-base font-semibold text-foreground">
-                {isDragOver ? 'Drop Component' : 'Empty Widget'}
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                {isDragOver 
-                  ? 'Release to add component' 
-                  : 'Drag components here'
-                }
-              </p>
-            </div>
+            <p className="text-sm text-muted-foreground">
+              {isDragOver ? 'Drop here' : 'Drop component'}
+            </p>
           </div>
         </div>
       </div>
     );
   }
 
-  // Widget with components
+  // Widget with components - FREE FORM CANVAS
   return (
     <div 
-      className={`group relative h-full w-full rounded-lg border-2 bg-card text-card-foreground shadow-sm transition-all duration-200 ease-out hover:shadow-md ${
-        isDragOver ? 'border-primary' : 'hover:border-primary/50'
-      }`}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={(e) => handleDrop(e, components.length)}
+      ref={containerRef}
+      className={`group relative h-full w-full rounded-lg border bg-card text-card-foreground shadow-sm transition-all duration-200 ease-out hover:shadow-md overflow-hidden ${
+        isDragOver ? 'border-primary ring-2 ring-primary/20' : 'border-border'
+      } ${draggingId || resizingId ? 'select-none' : ''}`}
+      onDragOver={handleExternalDragOver}
+      onDragLeave={handleExternalDragLeave}
+      onDrop={handleExternalDrop}
     >
-      {/* Widget actions */}
-      <div className="absolute right-3 top-3 flex gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 z-20">
+      {/* Widget toolbar - top bar for drag and delete */}
+      <div className="widget-drag-handle absolute inset-x-0 top-0 h-7 flex items-center justify-between px-2 opacity-0 group-hover:opacity-100 transition-opacity z-30 cursor-move bg-gradient-to-b from-muted/90 to-transparent rounded-t-lg">
+        <GripVertical className="h-4 w-4 text-muted-foreground" />
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7 bg-background/80 backdrop-blur-sm text-destructive hover:text-destructive hover:bg-destructive/10 transition-colors"
+          className="h-5 w-5 text-destructive hover:text-destructive hover:bg-destructive/10"
           onClick={(e) => {
             e.stopPropagation();
             onDelete?.();
           }}
         >
-          <Trash2 className="h-3.5 w-3.5" />
+          <Trash2 className="h-3 w-3" />
         </Button>
       </div>
 
-      {/* Components container */}
-      <div className="h-full w-full flex flex-col overflow-hidden">
+      {/* Free-form components canvas */}
+      <div className="absolute inset-0">
         {components.map((component, index) => {
           const ComponentToRender = getComponent(component.componentType);
           const isRegistered = isComponentRegistered(component.componentType);
-          const isDragging = draggingInstanceId === component.instanceId;
-          const isDropTarget = dragOverIndex === index;
+          const pos = getComponentPosition(component, index);
+          const isDragging = draggingId === component.instanceId;
+          const isResizing = resizingId === component.instanceId;
 
           return (
             <div
               key={component.instanceId}
-              className={`relative flex-1 min-h-0 group/component transition-all duration-150 ${
-                isDragging ? 'opacity-50' : ''
-              } ${isDropTarget ? 'border-t-2 border-primary' : ''}`}
-              draggable
-              onDragStart={(e) => handleComponentDragStart(e, component)}
-              onDragEnd={handleComponentDragEnd}
-              onDragOver={(e) => handleComponentDragOver(e, index)}
-              onDrop={(e) => handleDrop(e, index)}
+              className={`absolute group/component transition-shadow ${
+                isDragging ? 'z-20 shadow-xl cursor-grabbing' : 'z-10 hover:z-20'
+              } ${isResizing ? 'z-20' : ''}`}
+              style={{
+                left: `${pos.x}%`,
+                top: `${pos.y}%`,
+                width: `${pos.w}%`,
+                height: `${pos.h}%`,
+              }}
             >
-              {/* Component drag handle and remove button */}
-              <div className="absolute left-2 top-2 flex items-center gap-1 opacity-0 group-hover/component:opacity-100 transition-opacity z-10">
-                <div className="cursor-grab active:cursor-grabbing p-1 rounded bg-background/80 backdrop-blur-sm hover:bg-accent">
-                  <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+              {/* Component container with border on hover */}
+              <div className={`h-full w-full rounded-md border bg-background transition-all ${
+                isDragging || isResizing 
+                  ? 'border-primary shadow-lg ring-2 ring-primary/30' 
+                  : 'border-transparent group-hover/component:border-border group-hover/component:shadow-md'
+              }`}>
+                {/* Drag handle - top center */}
+                <div 
+                  className="absolute -top-0 left-1/2 -translate-x-1/2 opacity-0 group-hover/component:opacity-100 transition-opacity cursor-grab active:cursor-grabbing z-10 bg-background/90 backdrop-blur-sm rounded-b px-2 py-0.5 border border-t-0 shadow-sm"
+                  onMouseDown={(e) => startDrag(e, component)}
+                >
+                  <GripVertical className="h-3 w-3 text-muted-foreground rotate-90" />
                 </div>
-              </div>
-              <div className="absolute right-10 top-2 opacity-0 group-hover/component:opacity-100 transition-opacity z-10">
+
+                {/* Remove button */}
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6 bg-background/80 backdrop-blur-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  className="absolute -right-1 -top-1 h-5 w-5 opacity-0 group-hover/component:opacity-100 transition-opacity z-10 bg-background/90 backdrop-blur-sm rounded-full shadow-sm border text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                   onClick={(e) => {
                     e.stopPropagation();
                     onRemoveComponent?.(component.instanceId);
@@ -221,39 +351,76 @@ export default function WidgetShell({
                 >
                   <X className="h-3 w-3" />
                 </Button>
-              </div>
 
-              {/* Render the component */}
-              {isRegistered && ComponentToRender ? (
-                <div className="h-full w-full">
-                  <ComponentToRender config={component.config} />
+                {/* Render the component */}
+                <div className="h-full w-full overflow-hidden rounded-md">
+                  {isRegistered && ComponentToRender ? (
+                    <ComponentToRender config={component.config} />
+                  ) : (
+                    <div className="flex h-full items-center justify-center p-2">
+                      <p className="text-xs text-muted-foreground">
+                        Unknown: {component.componentType}
+                      </p>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div className="flex h-full items-center justify-center p-4">
-                  <p className="text-sm text-muted-foreground">
-                    Unknown component: {component.componentType}
-                  </p>
-                </div>
-              )}
+
+                {/* Resize handles - corners and edges */}
+                {/* SE corner */}
+                <div 
+                  className="absolute -right-1 -bottom-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/component:opacity-100 cursor-se-resize z-10 shadow-sm"
+                  onMouseDown={(e) => startResize(e, component, 'se')}
+                />
+                {/* SW corner */}
+                <div 
+                  className="absolute -left-1 -bottom-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/component:opacity-100 cursor-sw-resize z-10 shadow-sm"
+                  onMouseDown={(e) => startResize(e, component, 'sw')}
+                />
+                {/* NE corner */}
+                <div 
+                  className="absolute -right-1 -top-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/component:opacity-100 cursor-ne-resize z-10 shadow-sm"
+                  onMouseDown={(e) => startResize(e, component, 'ne')}
+                />
+                {/* NW corner */}
+                <div 
+                  className="absolute -left-1 -top-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/component:opacity-100 cursor-nw-resize z-10 shadow-sm"
+                  onMouseDown={(e) => startResize(e, component, 'nw')}
+                />
+                {/* E edge */}
+                <div 
+                  className="absolute -right-0.5 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary/50 rounded-full opacity-0 group-hover/component:opacity-100 cursor-e-resize z-10"
+                  onMouseDown={(e) => startResize(e, component, 'e')}
+                />
+                {/* W edge */}
+                <div 
+                  className="absolute -left-0.5 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary/50 rounded-full opacity-0 group-hover/component:opacity-100 cursor-w-resize z-10"
+                  onMouseDown={(e) => startResize(e, component, 'w')}
+                />
+                {/* S edge */}
+                <div 
+                  className="absolute left-1/2 -translate-x-1/2 -bottom-0.5 h-1 w-8 bg-primary/50 rounded-full opacity-0 group-hover/component:opacity-100 cursor-s-resize z-10"
+                  onMouseDown={(e) => startResize(e, component, 's')}
+                />
+                {/* N edge */}
+                <div 
+                  className="absolute left-1/2 -translate-x-1/2 -top-0.5 h-1 w-8 bg-primary/50 rounded-full opacity-0 group-hover/component:opacity-100 cursor-n-resize z-10"
+                  onMouseDown={(e) => startResize(e, component, 'n')}
+                />
+              </div>
             </div>
           );
         })}
-
-        {/* Drop zone at the bottom when dragging */}
-        {isDragOver && (
-          <div 
-            className="h-16 border-2 border-dashed border-primary/50 bg-primary/5 rounded-lg m-2 flex items-center justify-center"
-            onDragOver={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setDragOverIndex(components.length);
-            }}
-            onDrop={(e) => handleDrop(e, components.length)}
-          >
-            <Plus className="h-5 w-5 text-primary/50" />
-          </div>
-        )}
       </div>
+
+      {/* Drop indicator overlay */}
+      {isDragOver && (
+        <div className="absolute inset-0 flex items-center justify-center bg-primary/10 rounded-lg pointer-events-none z-20">
+          <div className="flex items-center gap-2 text-primary bg-background/90 px-4 py-2 rounded-lg shadow-lg">
+            <Plus className="h-5 w-5" />
+            <span className="text-sm font-medium">Drop to add</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -24,6 +24,9 @@ export default function DashboardCanvas() {
         margin: 8,
         float: false,
         animate: true,
+        draggable: {
+          handle: '.widget-drag-handle',
+        },
         resizable: {
           handles: 'e, se, s, sw, w',
         },
@@ -107,7 +110,7 @@ export default function DashboardCanvas() {
   };
 
   // Add a component to a widget
-  const handleAddComponentToWidget = (widgetId: string, component: ComponentCard) => {
+  const handleAddComponentToWidget = (widgetId: string, component: ComponentCard & { initialPosition?: { x: number; y: number; w: number; h: number } }) => {
     const newComponent: WidgetComponent = {
       instanceId: `comp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       componentType: component.id,
@@ -115,6 +118,13 @@ export default function DashboardCanvas() {
         name: component.name,
         description: component.description,
         icon: component.icon,
+        // Use the initial position from drop location, or default
+        position: component.initialPosition || {
+          x: 5,
+          y: 5,
+          w: 90,
+          h: 90,
+        },
       },
     };
 
@@ -195,6 +205,7 @@ export default function DashboardCanvas() {
       const componentData = JSON.parse(e.dataTransfer.getData('application/json')) as ComponentCard;
       
       // When dropping on canvas, create a new widget with the component inside
+      // Component fills most of the widget by default
       const newComponent: WidgetComponent = {
         instanceId: `comp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         componentType: componentData.id,
@@ -202,6 +213,12 @@ export default function DashboardCanvas() {
           name: componentData.name,
           description: componentData.description,
           icon: componentData.icon,
+          position: {
+            x: 2,
+            y: 2,
+            w: 96,
+            h: 96,
+          },
         },
       };
 

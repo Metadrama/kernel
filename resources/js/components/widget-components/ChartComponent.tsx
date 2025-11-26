@@ -86,9 +86,9 @@ const chartOptions = {
       position: 'bottom' as const,
       labels: {
         usePointStyle: true,
-        padding: 16,
+        padding: 8,
         font: {
-          size: 11,
+          size: 10,
         },
       },
     },
@@ -98,8 +98,8 @@ const chartOptions = {
       bodyColor: 'hsl(var(--popover-foreground))',
       borderColor: 'hsl(var(--border))',
       borderWidth: 1,
-      padding: 12,
-      cornerRadius: 8,
+      padding: 8,
+      cornerRadius: 6,
     },
   },
   scales: {
@@ -109,17 +109,27 @@ const chartOptions = {
       },
       ticks: {
         font: {
-          size: 10,
+          size: 9,
         },
+        maxRotation: 0,
       },
     },
     y: {
+      beginAtZero: false,
       grid: {
         color: 'hsl(var(--border) / 0.5)',
       },
       ticks: {
         font: {
-          size: 10,
+          size: 9,
+        },
+        maxTicksLimit: 5,
+        callback: function(value: number | string) {
+          if (typeof value === 'number') {
+            if (value >= 1000) return (value / 1000).toFixed(0) + 'k';
+            return value;
+          }
+          return value;
         },
       },
     },
@@ -135,9 +145,9 @@ const doughnutOptions = {
       position: 'bottom' as const,
       labels: {
         usePointStyle: true,
-        padding: 16,
+        padding: 8,
         font: {
-          size: 11,
+          size: 10,
         },
       },
     },
@@ -145,7 +155,16 @@ const doughnutOptions = {
   cutout: '60%',
 };
 
-export default function ChartComponent({ chartType = 'line', title }: ChartComponentProps) {
+interface ChartComponentConfigProps {
+  config?: {
+    chartType?: 'line' | 'bar' | 'doughnut';
+    title?: string;
+  };
+}
+
+export default function ChartComponent({ config }: ChartComponentConfigProps) {
+  const chartType = config?.chartType || 'line';
+  const title = config?.title;
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Force chart resize when container size changes
@@ -173,12 +192,17 @@ export default function ChartComponent({ chartType = 'line', title }: ChartCompo
     }
   };
 
+  // Get chart title from config or derive from type
+  const displayTitle = title || {
+    line: 'Revenue Trend',
+    bar: 'Weekly Activity',
+    doughnut: 'Device Distribution',
+  }[chartType];
+
   return (
-    <div ref={containerRef} className="h-full w-full p-4 flex flex-col">
-      {title && (
-        <h3 className="text-sm font-semibold text-foreground mb-3">{title}</h3>
-      )}
-      <div className="flex-1 min-h-0">
+    <div ref={containerRef} className="h-full w-full p-3 flex flex-col overflow-hidden">
+      <h3 className="text-xs font-medium text-muted-foreground mb-2 shrink-0">{displayTitle}</h3>
+      <div className="flex-1 min-h-0 min-w-0">
         {renderChart()}
       </div>
     </div>
