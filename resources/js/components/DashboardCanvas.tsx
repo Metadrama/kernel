@@ -4,8 +4,7 @@ import { Button } from '@/components/ui/button';
 import { GridStack } from 'gridstack';
 import 'gridstack/dist/gridstack.min.css';
 import WidgetShell from '@/components/WidgetShell';
-import ComponentToolbox from '@/components/ComponentToolbox';
-import type { WidgetSchema } from '@/types/dashboard';
+import type { WidgetSchema, WidgetComponent } from '@/types/dashboard';
 import type { ComponentCard } from '@/types/dashboard';
 
 export default function DashboardCanvas() {
@@ -13,7 +12,6 @@ export default function DashboardCanvas() {
   const gridInstanceRef = useRef<GridStack | null>(null);
   const [widgets, setWidgets] = useState<WidgetSchema[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
-  const [configuringWidgetId, setConfiguringWidgetId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!gridRef.current) return;
@@ -61,15 +59,14 @@ export default function DashboardCanvas() {
     };
   }, []);
 
-  const addWidget = (componentData?: ComponentCard) => {
+  const addWidget = () => {
     const newWidget: WidgetSchema = {
       id: `widget-${Date.now()}`,
       x: 0,
       y: 0,
       w: 6,
       h: 4,
-      componentType: componentData?.name || 'empty',
-      config: componentData ? { ...componentData } : undefined,
+      components: [],
     };
 
     setWidgets((prev) => [...prev, newWidget]);
@@ -86,41 +83,97 @@ export default function DashboardCanvas() {
   };
 
   const deleteWidget = (id: string) => {
-    // Remove from Gridstack first
-    if (gridInstanceRef.current) {
-      const element = document.getElementById(id);
-      if (element) {
-        gridInstanceRef.current.removeWidget(element, false);
-      }
-    }
-    // Then update state
-    setWidgets((prev) => prev.filter((w) => w.id !== id));
+    // Update state first to trigger React re-render
+    setWidgets((prev) => {
+      const newWidgets = prev.filter((w) => w.id !== id);
+      
+      // Remove from Gridstack after state update
+      requestAnimationFrame(() => {
+        if (gridInstanceRef.current) {
+          const element = document.getElementById(id);
+          if (element) {
+            try {
+              gridInstanceRef.current.removeWidget(element, false);
+            } catch (e) {
+              // Element may already be removed from DOM
+              console.debug('Widget already removed from grid:', id);
+            }
+          }
+        }
+      });
+      
+      return newWidgets;
+    });
   };
 
-  const configureWidget = (widgetId: string) => {
-    setConfiguringWidgetId(widgetId);
-  };
-
-  const handleComponentSelect = (component: ComponentCard) => {
-    if (!configuringWidgetId) return;
+  // Add a component to a widget
+  const handleAddComponentToWidget = (widgetId: string, component: ComponentCard) => {
+    const newComponent: WidgetComponent = {
+      instanceId: `comp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      componentType: component.id,
+      config: {
+        name: component.name,
+        description: component.description,
+        icon: component.icon,
+      },
+    };
 
     setWidgets((prev) =>
       prev.map((widget) =>
-        widget.id === configuringWidgetId
+        widget.id === widgetId
           ? {
               ...widget,
-              componentType: component.id,
-              config: {
-                name: component.name,
-                description: component.description,
-                icon: component.icon,
-              },
+              components: [...(widget.components || []), newComponent],
             }
           : widget
       )
     );
+  };
 
-    setConfiguringWidgetId(null);
+  // Remove a component from a widget
+  const handleRemoveComponentFromWidget = (widgetId: string, instanceId: string) => {
+    setWidgets((prev) =>
+      prev.map((widget) =>
+        widget.id === widgetId
+          ? {
+              ...widget,
+              components: (widget.components || []).filter(c => c.instanceId !== instanceId),
+            }
+          : widget
+      )
+    );
+  };
+
+  // Reorder components within a widget
+  const handleReorderComponents = (widgetId: string, newComponents: WidgetComponent[]) => {
+    setWidgets((prev) =>
+      prev.map((widget) =>
+        widget.id === widgetId
+          ? {
+              ...widget,
+              components: newComponents,
+            }
+          : widget
+      )
+    );
+  };
+
+  // Update a component's config within a widget
+  const handleUpdateComponentConfig = (widgetId: string, instanceId: string, newConfig: Record<string, unknown>) => {
+    setWidgets((prev) =>
+      prev.map((widget) =>
+        widget.id === widgetId
+          ? {
+              ...widget,
+              components: (widget.components || []).map(c =>
+                c.instanceId === instanceId
+                  ? { ...c, config: { ...c.config, ...newConfig } }
+                  : c
+              ),
+            }
+          : widget
+      )
+    );
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -139,8 +192,39 @@ export default function DashboardCanvas() {
     setIsDragOver(false);
 
     try {
-      const componentData = JSON.parse(e.dataTransfer.getData('application/json'));
-      addWidget(componentData);
+      const componentData = JSON.parse(e.dataTransfer.getData('application/json')) as ComponentCard;
+      
+      // When dropping on canvas, create a new widget with the component inside
+      const newComponent: WidgetComponent = {
+        instanceId: `comp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        componentType: componentData.id,
+        config: {
+          name: componentData.name,
+          description: componentData.description,
+          icon: componentData.icon,
+        },
+      };
+
+      const newWidget: WidgetSchema = {
+        id: `widget-${Date.now()}`,
+        x: 0,
+        y: 0,
+        w: 6,
+        h: 4,
+        components: [newComponent],
+      };
+
+      setWidgets((prev) => [...prev, newWidget]);
+
+      // Add to Gridstack
+      setTimeout(() => {
+        if (gridInstanceRef.current) {
+          const element = document.getElementById(newWidget.id);
+          if (element) {
+            gridInstanceRef.current.makeWidget(element);
+          }
+        }
+      }, 10);
     } catch (error) {
       console.error('Failed to parse dropped component:', error);
     }
@@ -189,7 +273,7 @@ export default function DashboardCanvas() {
                 Your canvas is empty
               </h3>
               <p className="text-sm text-muted-foreground max-w-sm">
-                Click "Add Widget" to start building your dashboard
+                Click "Add Widget" to create an empty widget, then drag components into it
               </p>
             </div>
           </div>
@@ -213,22 +297,17 @@ export default function DashboardCanvas() {
               <div className="grid-stack-item-content">
                 <WidgetShell
                   widget={widget}
-                  isGhostBox={widget.componentType === 'empty'}
-                  onConfigure={() => configureWidget(widget.id)}
                   onDelete={() => deleteWidget(widget.id)}
+                  onAddComponent={(component) => handleAddComponentToWidget(widget.id, component)}
+                  onRemoveComponent={(instanceId) => handleRemoveComponentFromWidget(widget.id, instanceId)}
+                  onReorderComponents={(components) => handleReorderComponents(widget.id, components)}
+                  onUpdateComponentConfig={(instanceId, config) => handleUpdateComponentConfig(widget.id, instanceId, config)}
                 />
               </div>
             </div>
           ))}
         </div>
       </div>
-
-      {/* Component Toolbox Modal */}
-      <ComponentToolbox
-        open={configuringWidgetId !== null}
-        onOpenChange={(open) => !open && setConfiguringWidgetId(null)}
-        onSelectComponent={handleComponentSelect}
-      />
 
       {/* Top Bar (for future toolbar) */}
       <div className="absolute top-0 left-0 right-0 flex h-14 items-center justify-between border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6 z-10">

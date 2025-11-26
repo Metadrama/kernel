@@ -1,24 +1,26 @@
 import { useState, useEffect } from 'react';
-import { Search, ChevronRight, ChevronDown, PanelLeftClose, PanelLeft, Database, Table, Webhook, Code, FileText, BarChart3, Star } from 'lucide-react';
+import { Search, ChevronRight, ChevronDown, PanelLeftClose, PanelLeft, Database, Table, Webhook, Code, FileText, BarChart3, Star, Layers, LayoutTemplate } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AVAILABLE_COMPONENTS } from '@/constants/components';
+import { AVAILABLE_COMPONENTS, AVAILABLE_PRESETS } from '@/constants/components';
 import type { ComponentCard } from '@/types/dashboard';
 
-const ICON_MAP = {
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Database,
   Table,
   Webhook,
   Code,
   FileText,
   BarChart3,
+  Layers,
+  LayoutTemplate,
 };
 
 export default function ComponentSidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedSections, setExpandedSections] = useState<string[]>(['stores-utility']);
+  const [expandedSections, setExpandedSections] = useState<string[]>(['components']);
 
   // Load collapsed state from localStorage
   useEffect(() => {
@@ -43,18 +45,56 @@ export default function ComponentSidebar() {
     );
   };
 
-  const filteredComponents = AVAILABLE_COMPONENTS.filter(component =>
-    component.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    component.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filterItems = (items: ComponentCard[]) => 
+    items.filter(item =>
+      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.description.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
-  const groupedComponents = filteredComponents.reduce((acc, component) => {
-    if (!acc[component.category]) {
-      acc[component.category] = [];
-    }
-    acc[component.category].push(component);
-    return acc;
-  }, {} as Record<string, ComponentCard[]>);
+  const filteredComponents = filterItems(AVAILABLE_COMPONENTS);
+  const filteredPresets = filterItems(AVAILABLE_PRESETS);
+
+  const renderComponentCard = (component: ComponentCard) => {
+    const IconComponent = ICON_MAP[component.icon];
+    return (
+      <Card
+        key={component.id}
+        className="group cursor-grab p-3 transition-all duration-150 hover:bg-accent hover:shadow-md active:cursor-grabbing active:scale-[0.98] active:shadow-lg"
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.effectAllowed = 'copy';
+          e.dataTransfer.setData('application/json', JSON.stringify(component));
+          const target = e.currentTarget as HTMLElement;
+          target.style.opacity = '0.5';
+        }}
+        onDragEnd={(e) => {
+          const target = e.currentTarget as HTMLElement;
+          target.style.opacity = '1';
+        }}
+      >
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+            {IconComponent && <IconComponent className="h-5 w-5 text-primary" />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-medium text-sm">{component.name}</h3>
+              <Star
+                className={`h-4 w-4 shrink-0 ${
+                  component.isFavorite
+                    ? 'fill-yellow-400 text-yellow-400'
+                    : 'text-muted-foreground opacity-0 group-hover:opacity-100'
+                }`}
+              />
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
+              {component.description}
+            </p>
+          </div>
+        </div>
+      </Card>
+    );
+  };
 
   if (isCollapsed) {
     return (
@@ -94,7 +134,7 @@ export default function ComponentSidebar() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Search data components"
+            placeholder="Search components..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -104,105 +144,62 @@ export default function ComponentSidebar() {
 
       {/* Component List */}
       <div className="flex-1 overflow-y-auto">
-        {/* Functions Section */}
+        {/* Components Section */}
         <div className="border-b">
           <button
-            onClick={() => toggleSection('functions')}
-            className="flex w-full items-center gap-2 px-4 py-3 text-sm font-medium hover:bg-accent"
+            onClick={() => toggleSection('components')}
+            className="flex w-full items-center gap-2 px-4 py-3 text-sm font-medium hover:bg-accent transition-colors"
           >
-            {expandedSections.includes('functions') ? (
+            {expandedSections.includes('components') ? (
               <ChevronDown className="h-4 w-4" />
             ) : (
               <ChevronRight className="h-4 w-4" />
             )}
-            FUNCTIONS
-          </button>
-        </div>
-
-        {/* Stores & Utility Section */}
-        <div className="border-b">
-          <button
-            onClick={() => toggleSection('stores-utility')}
-            className="flex w-full items-center gap-2 px-4 py-3 text-sm font-medium hover:bg-accent"
-          >
-            {expandedSections.includes('stores-utility') ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )}
-            STORES & UTILITY
+            <Layers className="h-4 w-4 text-muted-foreground" />
+            COMPONENTS
+            <span className="ml-auto text-xs text-muted-foreground">
+              {filteredComponents.length}
+            </span>
           </button>
 
-          {expandedSections.includes('stores-utility') && groupedComponents['stores-utility'] && (
-            <div className="space-y-2 p-4">
-              {groupedComponents['stores-utility'].map((component) => {
-                const IconComponent = ICON_MAP[component.icon as keyof typeof ICON_MAP];
-                return (
-                  <Card
-                    key={component.id}
-                    className="group cursor-grab p-3 transition-colors hover:bg-accent active:cursor-grabbing"
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.effectAllowed = 'copy';
-                      e.dataTransfer.setData('application/json', JSON.stringify(component));
-                    }}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                        {IconComponent && <IconComponent className="h-5 w-5 text-primary" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <h3 className="font-medium text-sm">{component.name}</h3>
-                          <Star
-                            className={`h-4 w-4 shrink-0 ${
-                              component.isFavorite
-                                ? 'fill-yellow-400 text-yellow-400'
-                                : 'text-muted-foreground'
-                            }`}
-                          />
-                        </div>
-                        <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
-                          {component.description}
-                        </p>
-                      </div>
-                    </div>
-                  </Card>
-                );
-              })}
+          {expandedSections.includes('components') && filteredComponents.length > 0 && (
+            <div className="space-y-2 p-4 pt-0">
+              {filteredComponents.map(renderComponentCard)}
             </div>
           )}
         </div>
 
-        {/* Marketplace Section */}
+        {/* Presets Section */}
         <div className="border-b">
           <button
-            onClick={() => toggleSection('marketplace')}
-            className="flex w-full items-center gap-2 px-4 py-3 text-sm font-medium hover:bg-accent"
+            onClick={() => toggleSection('presets')}
+            className="flex w-full items-center gap-2 px-4 py-3 text-sm font-medium hover:bg-accent transition-colors"
           >
-            {expandedSections.includes('marketplace') ? (
+            {expandedSections.includes('presets') ? (
               <ChevronDown className="h-4 w-4" />
             ) : (
               <ChevronRight className="h-4 w-4" />
             )}
-            MARKETPLACE
+            <LayoutTemplate className="h-4 w-4 text-muted-foreground" />
+            PRESETS
+            <span className="ml-auto text-xs text-muted-foreground">
+              {filteredPresets.length}
+            </span>
           </button>
-        </div>
 
-        {/* Node Files Section */}
-        <div>
-          <button
-            onClick={() => toggleSection('node-files')}
-            className="flex w-full items-center gap-2 px-4 py-3 text-sm font-medium hover:bg-accent"
-          >
-            {expandedSections.includes('node-files') ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )}
-            NODE FILES
-          </button>
+          {expandedSections.includes('presets') && filteredPresets.length > 0 && (
+            <div className="space-y-2 p-4 pt-0">
+              {filteredPresets.map(renderComponentCard)}
+            </div>
+          )}
         </div>
+      </div>
+
+      {/* Footer hint */}
+      <div className="border-t p-3">
+        <p className="text-xs text-muted-foreground text-center">
+          Drag components onto the canvas or into widgets
+        </p>
       </div>
     </div>
   );

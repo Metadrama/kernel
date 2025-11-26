@@ -3,8 +3,15 @@ export interface ComponentCard {
   name: string;
   description: string;
   icon: string;
-  category: 'functions' | 'stores-utility' | 'marketplace' | 'node-files';
+  category: 'components' | 'presets';
   isFavorite?: boolean;
+}
+
+// Instance of a component placed inside a widget
+export interface WidgetComponent {
+  instanceId: string;
+  componentType: string;
+  config?: Record<string, unknown>;
 }
 
 export interface WidgetSchema {
@@ -13,7 +20,10 @@ export interface WidgetSchema {
   y: number;
   w: number;
   h: number;
-  componentType: string;
+  // Support multiple components per widget
+  components: WidgetComponent[];
+  // Legacy single component support (deprecated)
+  componentType?: string;
   config?: Record<string, unknown>;
 }
 
