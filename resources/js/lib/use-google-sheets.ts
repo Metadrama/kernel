@@ -146,8 +146,11 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
       setError(null);
 
       try {
+        // Escape sheet name for Google Sheets API (wrap in single quotes if it contains special characters)
+        const escapedSheetName = /[^\w]/.test(sheetName) ? `'${sheetName.replace(/'/g, "''")}'` : sheetName;
+        
         // First, fetch headers to get column indices
-        const headerRange = `${sheetName}!A${headerRow}:ZZ${headerRow}`;
+        const headerRange = `${escapedSheetName}!A${headerRow}:ZZ${headerRow}`;
         const headerResponse = await fetch('/api/sheets/read', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -175,7 +178,7 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
         }
 
         // Fetch data rows
-        const dataRange = `${sheetName}!A${dataStartRow}:ZZ`;
+        const dataRange = `${escapedSheetName}!A${dataStartRow}:ZZ`;
         const dataResponse = await fetch('/api/sheets/read', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

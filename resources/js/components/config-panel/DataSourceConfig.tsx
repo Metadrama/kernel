@@ -81,10 +81,14 @@ export function DataSourceConfig({ value, onChange, disabled }: DataSourceConfig
     if (!spreadsheetId || !sheetName) return;
     
     setLoading(true);
+    setError(null);
     
     try {
+      // Escape sheet name for Google Sheets API (wrap in single quotes if it contains special characters)
+      const escapedSheetName = /[^\w]/.test(sheetName) ? `'${sheetName.replace(/'/g, "''")}'` : sheetName;
+      
       // Fetch header row and a few sample rows
-      const range = `${sheetName}!A${headerRow}:Z${headerRow + 3}`;
+      const range = `${escapedSheetName}!A${headerRow}:Z${headerRow + 3}`;
       const response = await fetch('/api/sheets/read', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -98,12 +102,21 @@ export function DataSourceConfig({ value, onChange, disabled }: DataSourceConfig
       
       if (data.success && data.data?.length > 0) {
         setColumns({
-          headers: data.data[0] || [],
-          sampleData: data.data.slice(1) || [],
+          headers: (data.data[0] || []).map((h: unknown) => String(h || '')),
+          sampleData: (data.data.slice(1) || []).map((row: unknown[]) => 
+            (row || []).map((cell: unknown) => String(cell || ''))
+          ),
         });
+      } else {
+        setColumns({ headers: [], sampleData: [] });
+        if (!data.success) {
+          setError(data.error || 'Failed to fetch columns');
+        }
       }
     } catch (err) {
       console.error('Failed to fetch columns:', err);
+      setError('Failed to fetch column data');
+      setColumns({ headers: [], sampleData: [] });
     } finally {
       setLoading(false);
     }
@@ -239,11 +252,11 @@ export function DataSourceConfig({ value, onChange, disabled }: DataSourceConfig
           </div>
 
           {/* Sheet Selection */}
-          {metadata && (
+          {metadata && metadata.sheets.length > 0 && (
             <div className="space-y-2">
               <Label className="text-sm font-medium">Sheet</Label>
               <Select 
-                value={gsConfig?.sheetName || ''} 
+                value={gsConfig?.sheetName || undefined} 
                 onValueChange={(v) => updateGoogleSheets({ sheetName: v })}
                 disabled={disabled}
               >
@@ -251,16 +264,13 @@ export function DataSourceConfig({ value, onChange, disabled }: DataSourceConfig
                   <SelectValue placeholder="Select a sheet" />
                 </SelectTrigger>
                 <SelectContent>
-                  {metadata.sheets.map((sheet) => (
-                    <SelectItem key={sheet.sheetId} value={sheet.title}>
-                      <div className="flex items-center justify-between gap-4">
-                        <span>{sheet.title}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {sheet.rowCount} rows
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
+                  {metadata.sheets
+                    .filter(sheet => sheet.title && sheet.title.trim() !== '')
+                    .map((sheet) => (
+                      <SelectItem key={sheet.sheetId} value={sheet.title}>
+                        {sheet.title} ({sheet.rowCount} rows)
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
@@ -300,7 +310,7 @@ export function DataSourceConfig({ value, onChange, disabled }: DataSourceConfig
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Label Column</Label>
                 <Select 
-                  value={gsConfig?.labelColumn || ''} 
+                  value={gsConfig?.labelColumn || undefined} 
                   onValueChange={(v) => updateGoogleSheets({ labelColumn: v })}
                   disabled={disabled}
                 >
@@ -310,12 +320,7 @@ export function DataSourceConfig({ value, onChange, disabled }: DataSourceConfig
                   <SelectContent>
                     {columns.headers.map((header, idx) => (
                       <SelectItem key={idx} value={header || `Column ${idx + 1}`}>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs text-muted-foreground">
-                            {String.fromCharCode(65 + idx)}
-                          </span>
-                          <span>{header || `Column ${idx + 1}`}</span>
-                        </div>
+                        {String.fromCharCode(65 + idx)}: {header || `Column ${idx + 1}`}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -325,7 +330,7 @@ export function DataSourceConfig({ value, onChange, disabled }: DataSourceConfig
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Value Column</Label>
                 <Select 
-                  value={gsConfig?.valueColumn || ''} 
+                  value={gsConfig?.valueColumn || undefined} 
                   onValueChange={(v) => updateGoogleSheets({ valueColumn: v })}
                   disabled={disabled}
                 >
@@ -333,22 +338,17 @@ export function DataSourceConfig({ value, onChange, disabled }: DataSourceConfig
                     <SelectValue placeholder="Select column for values" />
                   </SelectTrigger>
                   <SelectContent>
-                    {columns.headers.map((header, idx) => (
-                      <SelectItem key={idx} value={header || `Column ${idx + 1}`}>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs text-muted-foreground">
-                            {String.fromCharCode(65 + idx)}
-                          </span>
-                          <span>{header || `Column ${idx + 1}`}</span>
-                          {columns.sampleData[0]?.[idx] && (
-                            <span className="text-xs text-muted-foreground ml-auto">
-                              e.g., {columns.sampleData[0][idx].substring(0, 20)}
-                              {columns.sampleData[0][idx].length > 20 ? '...' : ''}
-                            </span>
-                          )}
-                        </div>
-                      </SelectItem>
-                    ))}
+                    {columns.headers.map((header, idx) => {
+                      const sampleValue = columns.sampleData?.[0]?.[idx];
+                      const displaySample = sampleValue 
+                        ? ` (e.g., ${String(sampleValue).substring(0, 15)}${String(sampleValue).length > 15 ? '...' : ''})` 
+                        : '';
+                      return (
+                        <SelectItem key={idx} value={header || `Column ${idx + 1}`}>
+                          {String.fromCharCode(65 + idx)}: {header || `Column ${idx + 1}`}{displaySample}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
@@ -358,15 +358,15 @@ export function DataSourceConfig({ value, onChange, disabled }: DataSourceConfig
                 <Label className="text-sm font-medium">Filter (Optional)</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <Select 
-                    value={gsConfig?.filterColumn || ''} 
-                    onValueChange={(v) => updateGoogleSheets({ filterColumn: v || undefined })}
+                    value={gsConfig?.filterColumn || '__none__'} 
+                    onValueChange={(v) => updateGoogleSheets({ filterColumn: v === '__none__' ? undefined : v })}
                     disabled={disabled}
                   >
                     <SelectTrigger className="h-9">
                       <SelectValue placeholder="Filter by column" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No filter</SelectItem>
+                      <SelectItem value="__none__">No filter</SelectItem>
                       {columns.headers.map((header, idx) => (
                         <SelectItem key={idx} value={header || `Column ${idx + 1}`}>
                           {header || `Column ${idx + 1}`}
