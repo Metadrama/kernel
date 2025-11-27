@@ -5,7 +5,8 @@ export interface ComponentCard {
   name: string;
   description: string;
   icon: string;
-  category: 'components' | 'presets';
+  category: string;
+  subcategory?: string;
   isFavorite?: boolean;
 }
 

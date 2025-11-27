@@ -1,5 +1,6 @@
 import type { ComponentCard } from '@/types/dashboard';
 
+// Test components organized by subcategory
 export const AVAILABLE_COMPONENTS: ComponentCard[] = [
   // Charts
   {
@@ -7,7 +8,8 @@ export const AVAILABLE_COMPONENTS: ComponentCard[] = [
     name: 'Line Chart',
     description: 'Line chart for trend visualization',
     icon: 'BarChart3',
-    category: 'components',
+    category: 'test-components',
+    subcategory: 'chart',
     isFavorite: false,
   },
   {
@@ -15,7 +17,8 @@ export const AVAILABLE_COMPONENTS: ComponentCard[] = [
     name: 'Bar Chart',
     description: 'Bar chart for comparative data',
     icon: 'BarChart3',
-    category: 'components',
+    category: 'test-components',
+    subcategory: 'chart',
     isFavorite: false,
   },
   {
@@ -23,7 +26,8 @@ export const AVAILABLE_COMPONENTS: ComponentCard[] = [
     name: 'Doughnut Chart',
     description: 'Doughnut chart for proportional data',
     icon: 'BarChart3',
-    category: 'components',
+    category: 'test-components',
+    subcategory: 'chart',
     isFavorite: false,
   },
   // Text
@@ -32,19 +36,8 @@ export const AVAILABLE_COMPONENTS: ComponentCard[] = [
     name: 'Heading',
     description: 'Editable heading text component',
     icon: 'FileText',
-    category: 'components',
-    isFavorite: false,
-  },
-];
-
-// Presets are pre-configured widget layouts
-export const AVAILABLE_PRESETS: ComponentCard[] = [
-  {
-    id: 'preset-analytics',
-    name: 'Analytics Dashboard',
-    description: 'Pre-built analytics view with charts',
-    icon: 'BarChart3',
-    category: 'presets',
+    category: 'test-components',
+    subcategory: 'text',
     isFavorite: false,
   },
 ];
