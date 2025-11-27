@@ -19,6 +19,8 @@ interface WidgetShellProps {
   onRemoveComponent?: (instanceId: string) => void;
   onReorderComponents?: (components: WidgetComponent[]) => void;
   onUpdateComponentLayout?: (instanceId: string, gridPosition: GridPosition) => void;
+  onSelectComponent?: (component: WidgetComponent) => void;
+  selectedComponentId?: string;
 }
 
 export default function WidgetShell({ 
@@ -27,6 +29,8 @@ export default function WidgetShell({
   onAddComponent,
   onRemoveComponent,
   onUpdateComponentLayout,
+  onSelectComponent,
+  selectedComponentId,
 }: WidgetShellProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -396,25 +400,32 @@ export default function WidgetShell({
           const isDragging = draggingId === component.instanceId;
           const isResizing = resizingId === component.instanceId;
           const isActive = isDragging || isResizing;
+          const isSelected = selectedComponentId === component.instanceId;
 
           return (
             <div
               key={component.instanceId}
               className={`absolute group/component transition-all duration-150 ${
                 isDragging ? 'z-20 shadow-xl cursor-grabbing' : 'z-10 hover:z-15'
-              } ${isResizing ? 'z-20' : ''}`}
+              } ${isResizing ? 'z-20' : ''} ${isSelected ? 'z-25' : ''}`}
               style={{
                 left: layout.pixelBounds.x,
                 top: layout.pixelBounds.y,
                 width: layout.pixelBounds.width,
                 height: layout.pixelBounds.height,
               }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectComponent?.(component);
+              }}
             >
               {/* Component container */}
               <div className={`h-full w-full rounded-md border bg-background transition-all ${
-                isActive
-                  ? 'border-primary shadow-lg ring-2 ring-primary/30' 
-                  : 'border-transparent group-hover/component:border-border group-hover/component:shadow-sm'
+                isSelected
+                  ? 'border-primary ring-2 ring-primary/30 shadow-md'
+                  : isActive
+                    ? 'border-primary shadow-lg ring-2 ring-primary/30' 
+                    : 'border-transparent group-hover/component:border-border group-hover/component:shadow-sm'
               }`}>
                 {/* Move handle - top center */}
                 <div 

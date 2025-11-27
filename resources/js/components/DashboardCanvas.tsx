@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GridStack } from 'gridstack';
 import 'gridstack/dist/gridstack.min.css';
 import WidgetShell from '@/components/WidgetShell';
+import { ComponentInspector } from '@/components/config-panel';
 import type { WidgetSchema, WidgetComponent } from '@/types/dashboard';
 import type { ComponentCard } from '@/types/dashboard';
 import type { GridPosition } from '@/lib/component-layout';
@@ -14,6 +15,15 @@ export default function DashboardCanvas() {
   const [widgets, setWidgets] = useState<WidgetSchema[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [scale, setScale] = useState(1);
+  
+  // Component selection state for inspector
+  const [selectedComponent, setSelectedComponent] = useState<{
+    widgetId: string;
+    component: WidgetComponent;
+  } | null>(null);
+  
+  // Show inspector panel
+  const [showInspector, setShowInspector] = useState(false);
 
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
@@ -215,6 +225,43 @@ export default function DashboardCanvas() {
     );
   };
 
+  // Handle component selection for inspector
+  const handleSelectComponent = useCallback((widgetId: string, component: WidgetComponent) => {
+    setSelectedComponent({ widgetId, component });
+    setShowInspector(true);
+  }, []);
+
+  // Handle component config change from inspector
+  const handleComponentConfigChange = useCallback((instanceId: string, config: Record<string, unknown>) => {
+    setWidgets((prev) =>
+      prev.map((widget) => ({
+        ...widget,
+        components: (widget.components || []).map(c =>
+          c.instanceId === instanceId
+            ? { ...c, config }
+            : c
+        ),
+      }))
+    );
+    
+    // Update selected component reference
+    setSelectedComponent((prev) => {
+      if (prev && prev.component.instanceId === instanceId) {
+        return {
+          ...prev,
+          component: { ...prev.component, config },
+        };
+      }
+      return prev;
+    });
+  }, []);
+
+  // Close inspector
+  const handleCloseInspector = useCallback(() => {
+    setShowInspector(false);
+    setSelectedComponent(null);
+  }, []);
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
@@ -271,7 +318,9 @@ export default function DashboardCanvas() {
   };
 
   return (
-    <div className="flex h-screen flex-1 flex-col overflow-hidden bg-muted/30">
+    <div className="flex h-screen flex-1 overflow-hidden">
+      {/* Main Canvas Area */}
+      <div className="flex flex-1 flex-col overflow-hidden bg-muted/30">
       {/* Top Bar (for future toolbar) - Fixed */}
       <div className="relative z-50 flex h-14 shrink-0 items-center justify-between border-b bg-background/95 backdrop-blur px-6 supports-[backdrop-filter]:bg-background/60">
         <div className="flex items-center gap-2">
@@ -416,6 +465,8 @@ export default function DashboardCanvas() {
                         onRemoveComponent={(instanceId) => handleRemoveComponentFromWidget(widget.id, instanceId)}
                         onReorderComponents={(components) => handleReorderComponents(widget.id, components)}
                         onUpdateComponentLayout={(instanceId, gridPosition) => handleUpdateComponentLayout(widget.id, instanceId, gridPosition)}
+                        onSelectComponent={(component) => handleSelectComponent(widget.id, component)}
+                        selectedComponentId={selectedComponent?.widgetId === widget.id ? selectedComponent.component.instanceId : undefined}
                       />
                     </div>
                   </div>
@@ -425,6 +476,16 @@ export default function DashboardCanvas() {
           </div>
         </div>
       </div>
+      </div>
+      
+      {/* Component Inspector Panel */}
+      {showInspector && (
+        <ComponentInspector
+          component={selectedComponent?.component || null}
+          onConfigChange={handleComponentConfigChange}
+          onClose={handleCloseInspector}
+        />
+      )}
     </div>
   );
 }
