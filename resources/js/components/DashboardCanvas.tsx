@@ -6,6 +6,7 @@ import 'gridstack/dist/gridstack.min.css';
 import WidgetShell from '@/components/WidgetShell';
 import type { WidgetSchema, WidgetComponent } from '@/types/dashboard';
 import type { ComponentCard } from '@/types/dashboard';
+import type { GridPosition } from '@/lib/component-layout';
 
 export default function DashboardCanvas() {
   const gridRef = useRef<HTMLDivElement>(null);
@@ -144,21 +145,15 @@ export default function DashboardCanvas() {
   };
 
   // Add a component to a widget
-  const handleAddComponentToWidget = (widgetId: string, component: ComponentCard & { initialPosition?: { x: number; y: number; w: number; h: number } }) => {
+  const handleAddComponentToWidget = (widgetId: string, component: ComponentCard) => {
     const newComponent: WidgetComponent = {
       instanceId: `comp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       componentType: component.id,
+      // gridPosition will be calculated by the layout system
       config: {
         name: component.name,
         description: component.description,
         icon: component.icon,
-        // Use the initial position from drop location, or default
-        position: component.initialPosition || {
-          x: 5,
-          y: 5,
-          w: 90,
-          h: 90,
-        },
       },
     };
 
@@ -202,8 +197,8 @@ export default function DashboardCanvas() {
     );
   };
 
-  // Update a component's config within a widget
-  const handleUpdateComponentConfig = (widgetId: string, instanceId: string, newConfig: Record<string, unknown>) => {
+  // Update a component's grid layout within a widget
+  const handleUpdateComponentLayout = (widgetId: string, instanceId: string, gridPosition: GridPosition) => {
     setWidgets((prev) =>
       prev.map((widget) =>
         widget.id === widgetId
@@ -211,7 +206,7 @@ export default function DashboardCanvas() {
             ...widget,
             components: (widget.components || []).map(c =>
               c.instanceId === instanceId
-                ? { ...c, config: { ...c.config, ...newConfig } }
+                ? { ...c, gridPosition }
                 : c
             ),
           }
@@ -239,7 +234,7 @@ export default function DashboardCanvas() {
       const componentData = JSON.parse(e.dataTransfer.getData('application/json')) as ComponentCard;
 
       // When dropping on canvas, create a new widget with the component inside
-      // Component fills most of the widget by default
+      // Layout system will auto-size based on component's intrinsic size
       const newComponent: WidgetComponent = {
         instanceId: `comp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         componentType: componentData.id,
@@ -247,12 +242,6 @@ export default function DashboardCanvas() {
           name: componentData.name,
           description: componentData.description,
           icon: componentData.icon,
-          position: {
-            x: 2,
-            y: 2,
-            w: 96,
-            h: 96,
-          },
         },
       };
 
@@ -426,7 +415,7 @@ export default function DashboardCanvas() {
                         onAddComponent={(component) => handleAddComponentToWidget(widget.id, component)}
                         onRemoveComponent={(instanceId) => handleRemoveComponentFromWidget(widget.id, instanceId)}
                         onReorderComponents={(components) => handleReorderComponents(widget.id, components)}
-                        onUpdateComponentConfig={(instanceId, config) => handleUpdateComponentConfig(widget.id, instanceId, config)}
+                        onUpdateComponentLayout={(instanceId, gridPosition) => handleUpdateComponentLayout(widget.id, instanceId, gridPosition)}
                       />
                     </div>
                   </div>

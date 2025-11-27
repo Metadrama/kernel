@@ -1,17 +1,16 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { Trash2, Plus, X, GripVertical } from 'lucide-react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { Trash2, Plus, X, GripVertical, Move } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { isComponentRegistered, getComponent } from '@/components/widget-components';
 import type { WidgetSchema, ComponentCard, WidgetComponent } from '@/types/dashboard';
 import {
-  DEFAULT_SNAP_GRID_SIZE,
-  snapToGrid,
-  wouldCollide,
-  calculateValidResizeBounds,
-  findValidDropPosition,
-  type Bounds,
-  type ComponentWithBounds,
-} from '@/lib/collision-utils';
+  calculateWidgetLayout,
+  getComponentIntrinsicSize,
+  DEFAULT_WIDGET_GRID,
+  type LayoutResult,
+  type GridPosition,
+  type WidgetGridConfig,
+} from '@/lib/component-layout';
 
 interface WidgetShellProps {
   widget: WidgetSchema;
@@ -19,15 +18,7 @@ interface WidgetShellProps {
   onAddComponent?: (component: ComponentCard) => void;
   onRemoveComponent?: (instanceId: string) => void;
   onReorderComponents?: (components: WidgetComponent[]) => void;
-  onUpdateComponentConfig?: (instanceId: string, config: Record<string, unknown>) => void;
-}
-
-// Each component has position and size within the widget
-interface ComponentPosition {
-  x: number; // percentage 0-100
-  y: number; // percentage 0-100
-  w: number; // percentage 0-100
-  h: number; // percentage 0-100
+  onUpdateComponentLayout?: (instanceId: string, gridPosition: GridPosition) => void;
 }
 
 export default function WidgetShell({ 
@@ -35,45 +26,70 @@ export default function WidgetShell({
   onDelete, 
   onAddComponent,
   onRemoveComponent,
-  onUpdateComponentConfig,
+  onUpdateComponentLayout,
 }: WidgetShellProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [resizingId, setResizingId] = useState<string | null>(null);
-  const [resizeHandle, setResizeHandle] = useState<string | null>(null);
-  const [hasCollisionWarning, setHasCollisionWarning] = useState(false);
+  const [resizeDirection, setResizeDirection] = useState<'e' | 's' | 'se' | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const dragStartRef = useRef<{ mouseX: number; mouseY: number; startX: number; startY: number; startW: number; startH: number } | null>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+  
+  // Drag state for grid-based movement
+  const dragStartRef = useRef<{
+    mouseX: number;
+    mouseY: number;
+    startCol: number;
+    startRow: number;
+    startColSpan: number;
+    startRowSpan: number;
+  } | null>(null);
 
-  // Grid size for snapping (percentage)
-  const SNAP_GRID = DEFAULT_SNAP_GRID_SIZE;
-
+  const gridConfig: WidgetGridConfig = DEFAULT_WIDGET_GRID;
   const components = widget.components || [];
   const isEmpty = components.length === 0;
 
-  // Get component position from config, or calculate default
-  const getComponentPosition = useCallback((component: WidgetComponent, index: number): ComponentPosition => {
-    if (component.config?.position) {
-      return component.config.position as ComponentPosition;
-    }
-    // Default: stack vertically, each taking equal height
-    const totalComponents = components.length;
-    const heightPerComponent = 100 / totalComponents;
-    return {
-      x: 0,
-      y: index * heightPerComponent,
-      w: 100,
-      h: heightPerComponent,
-    };
-  }, [components.length]);
+  // Measure container width for layout calculations
+  useEffect(() => {
+    if (!containerRef.current) return;
+    
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerWidth(entry.contentRect.width);
+      }
+    });
+    
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
-  // Get all component bounds for collision detection
-  const getAllComponentBounds = useCallback((): ComponentWithBounds[] => {
-    return components.map((comp, index) => ({
+  // Calculate layout for all components
+  const layouts = useMemo(() => {
+    if (containerWidth === 0 || components.length === 0) return [];
+    
+    const componentInputs = components.map(comp => ({
       instanceId: comp.instanceId,
-      bounds: getComponentPosition(comp, index) as Bounds,
+      componentType: comp.componentType,
+      config: comp.gridPosition ? { layout: { gridPosition: comp.gridPosition } } : undefined,
     }));
-  }, [components, getComponentPosition]);
+    
+    return calculateWidgetLayout(componentInputs, containerWidth, gridConfig);
+  }, [components, containerWidth, gridConfig]);
+
+  // Create a map for quick lookup
+  const layoutMap = useMemo(() => {
+    const map = new Map<string, LayoutResult>();
+    for (const layout of layouts) {
+      map.set(layout.instanceId, layout);
+    }
+    return map;
+  }, [layouts]);
+
+  // Calculate grid cell dimensions
+  const gridCellWidth = useMemo(() => {
+    if (containerWidth === 0) return 0;
+    return (containerWidth - (gridConfig.gap * (gridConfig.columns - 1))) / gridConfig.columns;
+  }, [containerWidth, gridConfig]);
 
   // Handle mouse move for dragging/resizing
   useEffect(() => {
@@ -82,100 +98,91 @@ export default function WidgetShell({
     const handleMouseMove = (e: MouseEvent) => {
       if (!containerRef.current || !dragStartRef.current) return;
       
-      const rect = containerRef.current.getBoundingClientRect();
-      const deltaX = ((e.clientX - dragStartRef.current.mouseX) / rect.width) * 100;
-      const deltaY = ((e.clientY - dragStartRef.current.mouseY) / rect.height) * 100;
+      const deltaX = e.clientX - dragStartRef.current.mouseX;
+      const deltaY = e.clientY - dragStartRef.current.mouseY;
+      
+      const cellWidth = gridCellWidth + gridConfig.gap;
+      const cellHeight = gridConfig.rowHeight + gridConfig.gap;
+      
+      // Convert pixel delta to grid cell delta
+      const deltaCols = Math.round(deltaX / cellWidth);
+      const deltaRows = Math.round(deltaY / cellHeight);
 
       if (draggingId) {
-        // Dragging - update position with snapping and collision detection
+        // Moving component
         const component = components.find(c => c.instanceId === draggingId);
         if (component) {
-          const pos = getComponentPosition(component, components.indexOf(component));
+          const newCol = Math.max(0, Math.min(
+            gridConfig.columns - dragStartRef.current.startColSpan,
+            dragStartRef.current.startCol + deltaCols
+          ));
+          const newRow = Math.max(0, dragStartRef.current.startRow + deltaRows);
           
-          // Calculate raw new position
-          const rawX = dragStartRef.current.startX + deltaX;
-          const rawY = dragStartRef.current.startY + deltaY;
-          
-          // Snap to grid
-          const snappedX = snapToGrid(rawX, SNAP_GRID);
-          const snappedY = snapToGrid(rawY, SNAP_GRID);
-          
-          // Clamp to container bounds
-          const clampedX = Math.max(0, Math.min(100 - pos.w, snappedX));
-          const clampedY = Math.max(0, Math.min(100 - pos.h, snappedY));
-          
-          // Check for collision
-          const newBounds: Bounds = {
-            x: clampedX,
-            y: clampedY,
-            w: pos.w,
-            h: pos.h,
+          const newPosition: GridPosition = {
+            col: newCol,
+            row: newRow,
+            colSpan: dragStartRef.current.startColSpan,
+            rowSpan: dragStartRef.current.startRowSpan,
           };
           
-          const allBounds = getAllComponentBounds();
-          const hasCollision = wouldCollide(newBounds, draggingId, allBounds);
-          
-          // Update collision warning state
-          setHasCollisionWarning(hasCollision);
-          
-          // Only update position if no collision
-          if (!hasCollision) {
-            onUpdateComponentConfig?.(draggingId, {
-              ...component.config,
-              position: { ...pos, x: clampedX, y: clampedY },
-            });
-          }
+          onUpdateComponentLayout?.(draggingId, newPosition);
         }
-      } else if (resizingId && resizeHandle) {
-        // Resizing with collision detection
+      } else if (resizingId && resizeDirection) {
+        // Resizing component
         const component = components.find(c => c.instanceId === resizingId);
         if (component) {
-          const pos = getComponentPosition(component, components.indexOf(component));
-          let newX = pos.x, newY = pos.y, newW = pos.w, newH = pos.h;
-
-          if (resizeHandle.includes('e')) {
-            newW = Math.max(20, Math.min(100 - pos.x, dragStartRef.current.startW + deltaX));
-          }
-          if (resizeHandle.includes('w')) {
-            const widthDelta = -deltaX;
-            newW = Math.max(20, dragStartRef.current.startW + widthDelta);
-            newX = Math.max(0, dragStartRef.current.startX - widthDelta);
-          }
-          if (resizeHandle.includes('s')) {
-            newH = Math.max(15, Math.min(100 - pos.y, dragStartRef.current.startH + deltaY));
-          }
-          if (resizeHandle.includes('n')) {
-            const heightDelta = -deltaY;
-            newH = Math.max(15, dragStartRef.current.startH + heightDelta);
-            newY = Math.max(0, dragStartRef.current.startY - heightDelta);
-          }
-
-          // Calculate valid resize bounds with collision detection
-          const desiredBounds: Bounds = { x: newX, y: newY, w: newW, h: newH };
-          const currentBounds: Bounds = { x: pos.x, y: pos.y, w: pos.w, h: pos.h };
-          const allBounds = getAllComponentBounds();
+          const intrinsic = getComponentIntrinsicSize(component.componentType);
+          let newColSpan = dragStartRef.current.startColSpan;
+          let newRowSpan = dragStartRef.current.startRowSpan;
           
-          const validBounds = calculateValidResizeBounds(
-            currentBounds,
-            desiredBounds,
-            resizingId,
-            allBounds,
-            SNAP_GRID
-          );
+          if (resizeDirection.includes('e')) {
+            newColSpan = Math.max(
+              intrinsic.minCols,
+              Math.min(
+                Math.min(intrinsic.maxCols, gridConfig.columns - dragStartRef.current.startCol),
+                dragStartRef.current.startColSpan + deltaCols
+              )
+            );
+          }
           
-          // Check if resize was blocked
-          const wasBlocked = 
-            validBounds.x === currentBounds.x &&
-            validBounds.y === currentBounds.y &&
-            validBounds.w === currentBounds.w &&
-            validBounds.h === currentBounds.h;
+          if (resizeDirection.includes('s')) {
+            newRowSpan = Math.max(
+              intrinsic.minRows,
+              Math.min(
+                intrinsic.maxRows,
+                dragStartRef.current.startRowSpan + deltaRows
+              )
+            );
+          }
           
-          setHasCollisionWarning(wasBlocked);
-
-          onUpdateComponentConfig?.(resizingId, {
-            ...component.config,
-            position: validBounds,
-          });
+          // Maintain aspect ratio if required
+          if (intrinsic.aspectRatio && intrinsic.sizeMode === 'fixed-ratio') {
+            if (resizeDirection === 'e') {
+              const targetHeight = (newColSpan * gridCellWidth) / intrinsic.aspectRatio;
+              newRowSpan = Math.max(
+                intrinsic.minRows,
+                Math.min(intrinsic.maxRows, Math.round(targetHeight / gridConfig.rowHeight))
+              );
+            } else if (resizeDirection === 's') {
+              const targetWidth = (newRowSpan * gridConfig.rowHeight) * intrinsic.aspectRatio;
+              newColSpan = Math.max(
+                intrinsic.minCols,
+                Math.min(
+                  Math.min(intrinsic.maxCols, gridConfig.columns - dragStartRef.current.startCol),
+                  Math.round(targetWidth / gridCellWidth)
+                )
+              );
+            }
+          }
+          
+          const newPosition: GridPosition = {
+            col: dragStartRef.current.startCol,
+            row: dragStartRef.current.startRow,
+            colSpan: newColSpan,
+            rowSpan: newRowSpan,
+          };
+          
+          onUpdateComponentLayout?.(resizingId, newPosition);
         }
       }
     };
@@ -183,8 +190,7 @@ export default function WidgetShell({
     const handleMouseUp = () => {
       setDraggingId(null);
       setResizingId(null);
-      setResizeHandle(null);
-      setHasCollisionWarning(false);
+      setResizeDirection(null);
       dragStartRef.current = null;
     };
 
@@ -194,40 +200,46 @@ export default function WidgetShell({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [draggingId, resizingId, resizeHandle, components, getComponentPosition, onUpdateComponentConfig]);
+  }, [draggingId, resizingId, resizeDirection, components, gridCellWidth, gridConfig, onUpdateComponentLayout]);
 
   const startDrag = useCallback((e: React.MouseEvent, component: WidgetComponent) => {
     e.preventDefault();
     e.stopPropagation();
-    const pos = getComponentPosition(component, components.indexOf(component));
+    
+    const layout = layoutMap.get(component.instanceId);
+    if (!layout) return;
+    
     dragStartRef.current = {
       mouseX: e.clientX,
       mouseY: e.clientY,
-      startX: pos.x,
-      startY: pos.y,
-      startW: pos.w,
-      startH: pos.h,
+      startCol: layout.gridPosition.col,
+      startRow: layout.gridPosition.row,
+      startColSpan: layout.gridPosition.colSpan,
+      startRowSpan: layout.gridPosition.rowSpan,
     };
     setDraggingId(component.instanceId);
-  }, [components, getComponentPosition]);
+  }, [layoutMap]);
 
-  const startResize = useCallback((e: React.MouseEvent, component: WidgetComponent, handle: string) => {
+  const startResize = useCallback((e: React.MouseEvent, component: WidgetComponent, direction: 'e' | 's' | 'se') => {
     e.preventDefault();
     e.stopPropagation();
-    const pos = getComponentPosition(component, components.indexOf(component));
+    
+    const layout = layoutMap.get(component.instanceId);
+    if (!layout) return;
+    
     dragStartRef.current = {
       mouseX: e.clientX,
       mouseY: e.clientY,
-      startX: pos.x,
-      startY: pos.y,
-      startW: pos.w,
-      startH: pos.h,
+      startCol: layout.gridPosition.col,
+      startRow: layout.gridPosition.row,
+      startColSpan: layout.gridPosition.colSpan,
+      startRowSpan: layout.gridPosition.rowSpan,
     };
     setResizingId(component.instanceId);
-    setResizeHandle(handle);
-  }, [components, getComponentPosition]);
+    setResizeDirection(direction);
+  }, [layoutMap]);
 
-  // Handle external component drop (from sidebar) - this uses HTML5 drag API
+  // Handle external component drop (from sidebar)
   const handleExternalDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -257,56 +269,21 @@ export default function WidgetShell({
       
       const parsed = JSON.parse(data);
       
-      // Calculate drop position as percentage
-      if (parsed.id && parsed.category && containerRef.current) {
-        // If it's the first component in the widget, make it fill the space
-        // Otherwise find a valid non-overlapping position
-        const isFirstComponent = components.length === 0;
-        
-        if (isFirstComponent) {
-          // First component fills the widget
-          const componentWithPosition = {
-            ...parsed,
-            initialPosition: {
-              x: 2,
-              y: 2,
-              w: 96,
-              h: 96,
-            },
-          };
-          onAddComponent?.(componentWithPosition as ComponentCard);
-        } else {
-          // Additional components get placed at drop position with collision avoidance
-          const rect = containerRef.current.getBoundingClientRect();
-          const dropX = ((e.clientX - rect.left) / rect.width) * 100;
-          const dropY = ((e.clientY - rect.top) / rect.height) * 100;
-          
-          // Use component's default size or fallback to medium size
-          const desiredWidth = parsed.defaultSize?.w || 50;
-          const desiredHeight = parsed.defaultSize?.h || 50;
-          
-          // Find valid drop position avoiding existing components
-          const existingBounds = getAllComponentBounds();
-          const validPosition = findValidDropPosition(
-            dropX - desiredWidth / 2,  // Center on cursor
-            dropY - desiredHeight / 2,
-            desiredWidth,
-            desiredHeight,
-            existingBounds,
-            SNAP_GRID
-          );
-          
-          const componentWithPosition = {
-            ...parsed,
-            initialPosition: validPosition,
-          };
-          onAddComponent?.(componentWithPosition as ComponentCard);
-        }
+      if (parsed.id && parsed.category) {
+        // Component will be auto-positioned by the layout system
+        onAddComponent?.(parsed as ComponentCard);
       }
     } catch (error) {
       console.error('Failed to parse dropped data:', error);
     }
-  }, [components, getAllComponentBounds, onAddComponent, SNAP_GRID]);
+  }, [onAddComponent]);
+
+  // Calculate total content height
+  const contentHeight = useMemo(() => {
+    if (layouts.length === 0) return 0;
+    const maxBottom = Math.max(...layouts.map(l => l.pixelBounds.y + l.pixelBounds.height));
+    return maxBottom + gridConfig.gap;
+  }, [layouts, gridConfig.gap]);
 
   // Empty widget state
   if (isEmpty) {
@@ -359,18 +336,18 @@ export default function WidgetShell({
     );
   }
 
-  // Widget with components - FREE FORM CANVAS
+  // Widget with components - STRUCTURED GRID LAYOUT
   return (
     <div 
       ref={containerRef}
-      className={`group relative h-full w-full rounded-lg border bg-card text-card-foreground shadow-sm transition-all duration-200 ease-out hover:shadow-md overflow-hidden ${
+      className={`group relative h-full w-full rounded-lg border bg-card text-card-foreground shadow-sm transition-all duration-200 ease-out hover:shadow-md overflow-auto ${
         isDragOver ? 'border-primary ring-2 ring-primary/20' : 'border-border'
       } ${draggingId || resizingId ? 'select-none' : ''}`}
       onDragOver={handleExternalDragOver}
       onDragLeave={handleExternalDragLeave}
       onDrop={handleExternalDrop}
     >
-      {/* Widget toolbar - bottom-right corner to avoid interfering with top components */}
+      {/* Widget toolbar - bottom-right corner */}
       {!draggingId && !resizingId && (
         <div className="absolute bottom-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-30">
           <div className="widget-drag-handle cursor-move px-2 py-1 rounded bg-muted/90 backdrop-blur-sm border shadow-sm hover:bg-muted">
@@ -390,69 +367,61 @@ export default function WidgetShell({
         </div>
       )}
 
-      {/* Snap grid overlay - visible during drag/resize */}
+      {/* Grid overlay - visible during drag/resize */}
       {(draggingId || resizingId) && (
         <div 
           className="absolute inset-0 pointer-events-none z-[5]"
           style={{
+            backgroundSize: `${gridCellWidth + gridConfig.gap}px ${gridConfig.rowHeight + gridConfig.gap}px`,
             backgroundImage: `
-              repeating-linear-gradient(
-                to right,
-                hsl(var(--primary) / 0.08) 0px,
-                hsl(var(--primary) / 0.08) 1px,
-                transparent 1px,
-                transparent ${SNAP_GRID}%
-              ),
-              repeating-linear-gradient(
-                to bottom,
-                hsl(var(--primary) / 0.08) 0px,
-                hsl(var(--primary) / 0.08) 1px,
-                transparent 1px,
-                transparent ${SNAP_GRID}%
-              )
+              linear-gradient(to right, hsl(var(--primary) / 0.1) 1px, transparent 1px),
+              linear-gradient(to bottom, hsl(var(--primary) / 0.1) 1px, transparent 1px)
             `,
+            backgroundPosition: `${gridConfig.gap / 2}px ${gridConfig.gap / 2}px`,
           }}
         />
       )}
 
-      {/* Free-form components canvas */}
-      <div className="absolute inset-0">
-        {components.map((component, index) => {
+      {/* Grid-based components container */}
+      <div 
+        className="relative p-2"
+        style={{ minHeight: contentHeight + gridConfig.gap * 2 }}
+      >
+        {components.map((component) => {
+          const layout = layoutMap.get(component.instanceId);
+          if (!layout) return null;
+          
           const ComponentToRender = getComponent(component.componentType);
           const isRegistered = isComponentRegistered(component.componentType);
-          const pos = getComponentPosition(component, index);
           const isDragging = draggingId === component.instanceId;
           const isResizing = resizingId === component.instanceId;
-          const isActivelyMoving = isDragging || isResizing;
-          const showCollisionWarning = isActivelyMoving && hasCollisionWarning;
+          const isActive = isDragging || isResizing;
 
           return (
             <div
               key={component.instanceId}
-              className={`absolute group/component transition-shadow ${
-                isDragging ? 'z-20 shadow-xl cursor-grabbing' : 'z-10 hover:z-20'
+              className={`absolute group/component transition-all duration-150 ${
+                isDragging ? 'z-20 shadow-xl cursor-grabbing' : 'z-10 hover:z-15'
               } ${isResizing ? 'z-20' : ''}`}
               style={{
-                left: `${pos.x}%`,
-                top: `${pos.y}%`,
-                width: `${pos.w}%`,
-                height: `${pos.h}%`,
+                left: layout.pixelBounds.x,
+                top: layout.pixelBounds.y,
+                width: layout.pixelBounds.width,
+                height: layout.pixelBounds.height,
               }}
             >
-              {/* Component container with border on hover and collision warning */}
+              {/* Component container */}
               <div className={`h-full w-full rounded-md border bg-background transition-all ${
-                showCollisionWarning
-                  ? 'border-destructive shadow-lg ring-2 ring-destructive/30'
-                  : isActivelyMoving
-                    ? 'border-primary shadow-lg ring-2 ring-primary/30' 
-                    : 'border-transparent group-hover/component:border-border group-hover/component:shadow-md'
+                isActive
+                  ? 'border-primary shadow-lg ring-2 ring-primary/30' 
+                  : 'border-transparent group-hover/component:border-border group-hover/component:shadow-sm'
               }`}>
-                {/* Drag handle - top center */}
+                {/* Move handle - top center */}
                 <div 
                   className="absolute -top-0 left-1/2 -translate-x-1/2 opacity-0 group-hover/component:opacity-100 transition-opacity cursor-grab active:cursor-grabbing z-10 bg-background/90 backdrop-blur-sm rounded-b px-2 py-0.5 border border-t-0 shadow-sm"
                   onMouseDown={(e) => startDrag(e, component)}
                 >
-                  <GripVertical className="h-3 w-3 text-muted-foreground rotate-90" />
+                  <Move className="h-3 w-3 text-muted-foreground" />
                 </div>
 
                 {/* Remove button */}
@@ -481,46 +450,23 @@ export default function WidgetShell({
                   )}
                 </div>
 
-                {/* Resize handles - corners and edges */}
-                {/* SE corner */}
+                {/* Resize handles - simplified for grid-based layout */}
+                {/* East (right) resize */}
+                <div 
+                  className="absolute -right-1 top-1/2 -translate-y-1/2 w-2 h-8 bg-primary/60 rounded-full opacity-0 group-hover/component:opacity-100 cursor-e-resize z-10 hover:bg-primary"
+                  onMouseDown={(e) => startResize(e, component, 'e')}
+                />
+                
+                {/* South (bottom) resize */}
+                <div 
+                  className="absolute left-1/2 -translate-x-1/2 -bottom-1 h-2 w-8 bg-primary/60 rounded-full opacity-0 group-hover/component:opacity-100 cursor-s-resize z-10 hover:bg-primary"
+                  onMouseDown={(e) => startResize(e, component, 's')}
+                />
+                
+                {/* Southeast corner resize */}
                 <div 
                   className="absolute -right-1 -bottom-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/component:opacity-100 cursor-se-resize z-10 shadow-sm"
                   onMouseDown={(e) => startResize(e, component, 'se')}
-                />
-                {/* SW corner */}
-                <div 
-                  className="absolute -left-1 -bottom-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/component:opacity-100 cursor-sw-resize z-10 shadow-sm"
-                  onMouseDown={(e) => startResize(e, component, 'sw')}
-                />
-                {/* NE corner */}
-                <div 
-                  className="absolute -right-1 -top-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/component:opacity-100 cursor-ne-resize z-10 shadow-sm"
-                  onMouseDown={(e) => startResize(e, component, 'ne')}
-                />
-                {/* NW corner */}
-                <div 
-                  className="absolute -left-1 -top-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/component:opacity-100 cursor-nw-resize z-10 shadow-sm"
-                  onMouseDown={(e) => startResize(e, component, 'nw')}
-                />
-                {/* E edge */}
-                <div 
-                  className="absolute -right-0.5 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary/50 rounded-full opacity-0 group-hover/component:opacity-100 cursor-e-resize z-10"
-                  onMouseDown={(e) => startResize(e, component, 'e')}
-                />
-                {/* W edge */}
-                <div 
-                  className="absolute -left-0.5 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary/50 rounded-full opacity-0 group-hover/component:opacity-100 cursor-w-resize z-10"
-                  onMouseDown={(e) => startResize(e, component, 'w')}
-                />
-                {/* S edge */}
-                <div 
-                  className="absolute left-1/2 -translate-x-1/2 -bottom-0.5 h-1 w-8 bg-primary/50 rounded-full opacity-0 group-hover/component:opacity-100 cursor-s-resize z-10"
-                  onMouseDown={(e) => startResize(e, component, 's')}
-                />
-                {/* N edge */}
-                <div 
-                  className="absolute left-1/2 -translate-x-1/2 -top-0.5 h-1 w-8 bg-primary/50 rounded-full opacity-0 group-hover/component:opacity-100 cursor-n-resize z-10"
-                  onMouseDown={(e) => startResize(e, component, 'n')}
                 />
               </div>
             </div>

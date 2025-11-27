@@ -1,3 +1,5 @@
+import type { GridPosition } from '@/lib/component-layout';
+
 export interface ComponentCard {
   id: string;
   name: string;
@@ -5,16 +7,15 @@ export interface ComponentCard {
   icon: string;
   category: 'components' | 'presets';
   isFavorite?: boolean;
-  defaultSize?: {
-    w: number;  // percentage width
-    h: number;  // percentage height
-  };
 }
 
 // Instance of a component placed inside a widget
 export interface WidgetComponent {
   instanceId: string;
   componentType: string;
+  // Grid-based layout position (calculated by layout system if not provided)
+  gridPosition?: GridPosition;
+  // Component-specific configuration
   config?: Record<string, unknown>;
 }
 
