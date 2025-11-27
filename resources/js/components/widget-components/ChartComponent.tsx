@@ -37,6 +37,68 @@ ChartJS.register(
   ArcElement
 );
 
+// Vibrant color palettes for charts
+const COLOR_PALETTES = {
+  vibrant: [
+    '#3b82f6', // blue
+    '#10b981', // emerald
+    '#f59e0b', // amber
+    '#ef4444', // red
+    '#8b5cf6', // violet
+    '#ec4899', // pink
+    '#06b6d4', // cyan
+    '#f97316', // orange
+    '#84cc16', // lime
+    '#6366f1', // indigo
+  ],
+  pastel: [
+    '#93c5fd', // blue
+    '#6ee7b7', // emerald
+    '#fcd34d', // amber
+    '#fca5a5', // red
+    '#c4b5fd', // violet
+    '#f9a8d4', // pink
+    '#67e8f9', // cyan
+    '#fdba74', // orange
+    '#bef264', // lime
+    '#a5b4fc', // indigo
+  ],
+  cool: [
+    '#3b82f6', // blue
+    '#06b6d4', // cyan
+    '#8b5cf6', // violet
+    '#6366f1', // indigo
+    '#0ea5e9', // sky
+    '#a855f7', // purple
+    '#14b8a6', // teal
+    '#2563eb', // blue-600
+    '#7c3aed', // violet-600
+    '#0891b2', // cyan-600
+  ],
+  warm: [
+    '#f59e0b', // amber
+    '#ef4444', // red
+    '#f97316', // orange
+    '#ec4899', // pink
+    '#eab308', // yellow
+    '#dc2626', // red-600
+    '#ea580c', // orange-600
+    '#db2777', // pink-600
+    '#d97706', // amber-600
+    '#be123c', // rose-700
+  ],
+};
+
+// Get colors for a chart based on data count
+function getChartColors(count: number, palette: keyof typeof COLOR_PALETTES = 'vibrant'): string[] {
+  const colors = COLOR_PALETTES[palette];
+  const result: string[] = [];
+  for (let i = 0; i < count; i++) {
+    result.push(colors[i % colors.length]);
+  }
+  return result;
+}
+
 interface ChartComponentProps {
   chartType?: 'line' | 'bar' | 'doughnut';
   title?: string;
@@ -48,6 +110,7 @@ interface ChartComponentConfigProps {
     title?: string;
     showTitle?: boolean;
     showLegend?: boolean;
+    colorPalette?: 'vibrant' | 'pastel' | 'cool' | 'warm';
   };
 }
 
@@ -182,43 +245,52 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
     return MOCK_CHART_DATA[chartType] || MOCK_CHART_DATA.line;
   }, [useGoogleSheets, sheetsData, chartType]);
 
-  // Build Chart.js data object
-  const lineBarData = useMemo(() => ({
-    labels: chartData.labels,
-    datasets: [
-      {
-        label: title || (chartType === 'line' ? 'Revenue' : 'Value'),
-        data: chartData.values,
-        borderColor: config?.colors?.primary || 'hsl(var(--primary))',
-        backgroundColor: chartType === 'line' 
-          ? (config?.colors?.primary || 'hsl(var(--primary))').replace(')', ' / 0.1)')
-          : (config?.colors?.primary || 'hsl(var(--primary) / 0.8)'),
-        fill: chartType === 'line' ? ((config as LineChartConfig)?.fill ?? true) : undefined,
-        tension: chartType === 'line' ? ((config as LineChartConfig)?.tension ?? 0.4) : undefined,
-        pointRadius: chartType === 'line' ? ((config as LineChartConfig)?.pointRadius ?? 4) : undefined,
-        pointHoverRadius: chartType === 'line' ? 6 : undefined,
-        borderRadius: chartType === 'bar' ? ((config as BarChartConfig)?.borderRadius ?? 4) : undefined,
-      },
-    ],
-  }), [chartData, chartType, title, config]);
+  // Build Chart.js data object for Line/Bar charts
+  const lineBarData = useMemo(() => {
+    const palette = config?.colorPalette || 'vibrant';
+    const dataCount = chartData.values.length;
+    const colors = getChartColors(dataCount, palette);
+    const primaryColor = config?.colors?.primary || colors[0];
+    
+    return {
+      labels: chartData.labels,
+      datasets: [
+        {
+          label: title || (chartType === 'line' ? 'Revenue' : 'Value'),
+          data: chartData.values,
+          borderColor: chartType === 'bar' ? colors : primaryColor,
+          backgroundColor: chartType === 'line' 
+            ? `${primaryColor}20` // 20 = ~12% opacity in hex
+            : colors.map(c => `${c}cc`), // cc = 80% opacity
+          fill: chartType === 'line' ? ((config as LineChartConfig)?.fill ?? true) : undefined,
+          tension: chartType === 'line' ? ((config as LineChartConfig)?.tension ?? 0.4) : undefined,
+          pointRadius: chartType === 'line' ? ((config as LineChartConfig)?.pointRadius ?? 4) : undefined,
+          pointHoverRadius: chartType === 'line' ? 6 : undefined,
+          pointBackgroundColor: chartType === 'line' ? primaryColor : undefined,
+          borderRadius: chartType === 'bar' ? ((config as BarChartConfig)?.borderRadius ?? 4) : undefined,
+          borderWidth: chartType === 'bar' ? 0 : 2,
+        },
+      ],
+    };
+  }, [chartData, chartType, title, config]);
 
-  const doughnutData = useMemo(() => ({
-    labels: chartData.labels,
-    datasets: [
-      {
-        data: chartData.values,
-        backgroundColor: [
-          'hsl(var(--primary))',
-          'hsl(var(--primary) / 0.75)',
-          'hsl(var(--primary) / 0.5)',
-          'hsl(var(--primary) / 0.35)',
-          'hsl(var(--primary) / 0.2)',
-          'hsl(var(--muted-foreground) / 0.3)',
-        ],
-        borderWidth: 0,
-      },
-    ],
-  }), [chartData]);
+  const doughnutData = useMemo(() => {
+    const palette = config?.colorPalette || 'vibrant';
+    const colors = getChartColors(chartData.values.length, palette);
+    
+    return {
+      labels: chartData.labels,
+      datasets: [
+        {
+          data: chartData.values,
+          backgroundColor: colors,
+          borderColor: '#ffffff',
+          borderWidth: 2,
+          hoverOffset: 4,
+        },
+      ],
+    };
+  }, [chartData, config?.colorPalette]);
 
   const renderChart = () => {
     // Show loading state

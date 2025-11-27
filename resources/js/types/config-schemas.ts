@@ -17,6 +17,31 @@ const DATA_SOURCE_FIELD: ConfigFieldSchema = {
   description: 'Select where the chart data comes from',
 };
 
+const HEADER_ROW_FIELDS: ConfigFieldSchema[] = [
+  {
+    key: 'dataSource.headerRow',
+    label: 'Header Row',
+    type: 'number',
+    defaultValue: 2,
+    min: 1,
+    max: 100,
+    group: 'Data',
+    description: 'Row number containing column headers',
+    showWhen: { field: 'dataSource.type', operator: 'equals', value: 'google-sheets' },
+  },
+  {
+    key: 'dataSource.dataStartRow',
+    label: 'Data Start Row',
+    type: 'number',
+    defaultValue: 3,
+    min: 1,
+    max: 1000,
+    group: 'Data',
+    description: 'Row number where data begins',
+    showWhen: { field: 'dataSource.type', operator: 'equals', value: 'google-sheets' },
+  },
+];
+
 const COMMON_DISPLAY_FIELDS: ConfigFieldSchema[] = [
   {
     key: 'title',
@@ -64,11 +89,25 @@ const COMMON_DISPLAY_FIELDS: ConfigFieldSchema[] = [
 
 const COLOR_FIELDS: ConfigFieldSchema[] = [
   {
+    key: 'colorPalette',
+    label: 'Color Palette',
+    type: 'select',
+    defaultValue: 'vibrant',
+    group: 'Style',
+    options: [
+      { value: 'vibrant', label: 'Vibrant' },
+      { value: 'pastel', label: 'Pastel' },
+      { value: 'cool', label: 'Cool Tones' },
+      { value: 'warm', label: 'Warm Tones' },
+    ],
+  },
+  {
     key: 'colors.primary',
     label: 'Primary Color',
     type: 'color',
-    defaultValue: 'hsl(var(--primary))',
+    defaultValue: '#3b82f6',
     group: 'Style',
+    description: 'Override primary color (for line charts)',
   },
   {
     key: 'colors.backgroundColor',
@@ -84,6 +123,7 @@ export const LINE_CHART_SCHEMA: ComponentConfigSchema = {
   label: 'Line Chart',
   fields: [
     DATA_SOURCE_FIELD,
+    ...HEADER_ROW_FIELDS,
     {
       key: 'dataSource.labelColumn',
       label: 'Label Column',
@@ -172,6 +212,7 @@ export const BAR_CHART_SCHEMA: ComponentConfigSchema = {
   label: 'Bar Chart',
   fields: [
     DATA_SOURCE_FIELD,
+    ...HEADER_ROW_FIELDS,
     {
       key: 'dataSource.labelColumn',
       label: 'Category Column',
@@ -326,6 +367,7 @@ export const DOUGHNUT_CHART_SCHEMA: ComponentConfigSchema = {
   label: 'Doughnut Chart',
   fields: [
     DATA_SOURCE_FIELD,
+    ...HEADER_ROW_FIELDS,
     {
       key: 'dataSource.labelColumn',
       label: 'Category Column',
