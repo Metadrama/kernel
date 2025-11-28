@@ -33,7 +33,7 @@ export default function AddArtboardPanel({ onAddArtboard, onClose }: AddArtboard
     const defaultOpenGroups = ARTBOARD_CATEGORIES.map(c => c.id);
 
     return (
-        <div className="h-full flex flex-col bg-card border-l w-80">
+        <div className="h-full flex flex-col bg-card border-l w-80 overflow-hidden">
             {/* Header */}
             <div className="flex h-14 items-center justify-between px-4 border-b shrink-0">
                 <div className="flex items-center gap-2 min-w-0">
@@ -46,7 +46,7 @@ export default function AddArtboardPanel({ onAddArtboard, onClose }: AddArtboard
             </div>
 
             {/* Content */}
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 min-h-0">
                 <Accordion type="multiple" defaultValue={defaultOpenGroups} className="w-full">
                     {ARTBOARD_CATEGORIES.map((cat) => (
                         <AccordionItem key={cat.id} value={cat.id} className="border-b">
