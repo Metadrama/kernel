@@ -13,6 +13,7 @@ import ArtboardToolbar from '@/components/ArtboardToolbar';
 import ArtboardContainer from '@/components/ArtboardContainer';
 import ArtboardInspector from '@/components/ArtboardInspector';
 import { ComponentInspector } from '@/components/config-panel';
+import AddArtboardPanel from '@/components/AddArtboardPanel';
 import type { ArtboardSchema, CanvasPosition } from '@/types/artboard';
 import type { WidgetComponent } from '@/types/dashboard';
 
@@ -25,15 +26,15 @@ export default function ArtboardCanvas() {
   const [panStart, setPanStart] = useState<CanvasPosition>({ x: 0, y: 0 });
   const [selectedArtboardId, setSelectedArtboardId] = useState<string | null>(null);
   const selectedArtboard = artboards.find(a => a.id === selectedArtboardId) || null;
-  
+
   // Component selection state for inspector
   const [selectedComponent, setSelectedComponent] = useState<{
     artboardId: string;
     widgetId: string;
     component: WidgetComponent;
   } | null>(null);
-  
   const [showInspector, setShowInspector] = useState(false);
+  const [showAddArtboard, setShowAddArtboard] = useState(false);
 
   // ============================================================================
   // Zoom Controls
@@ -240,16 +241,18 @@ export default function ArtboardCanvas() {
               </Button>
             </div>
 
-            <Button variant="ghost" size="sm">Preview</Button>
+            <Button variant="outline" size="sm">Preview</Button>
             <ArtboardToolbar
-              onAddArtboard={(format) => {
-                // Lazy-load utilities to avoid circular deps during build
-                const { createArtboard } = require('@/lib/artboard-utils');
-                const newArtboard: ArtboardSchema = createArtboard({ format });
-                setArtboards((prev) => [...prev, newArtboard]);
+              onToggleAddArtboard={() => {
+                setShowAddArtboard(!showAddArtboard);
+                // Close other panels if needed
+                if (!showAddArtboard) {
+                  setShowInspector(false);
+                  setSelectedArtboardId(null);
+                }
               }}
             />
-            <Button size="sm">Save</Button>
+            <Button size="sm" className="bg-black text-white hover:bg-black/90">Save</Button>
           </div>
         </div>
 
@@ -342,6 +345,19 @@ export default function ArtboardCanvas() {
             handleUpdateArtboard(selectedArtboardId, updates);
           }}
           onClose={() => setSelectedArtboardId(null)}
+        />
+      )}
+
+      {/* Add Artboard Panel */}
+      {showAddArtboard && (
+        <AddArtboardPanel
+          onAddArtboard={(format) => {
+            // Lazy-load utilities to avoid circular deps during build
+            const { createArtboard } = require('@/lib/artboard-utils');
+            const newArtboard: ArtboardSchema = createArtboard({ format });
+            setArtboards((prev) => [...prev, newArtboard]);
+          }}
+          onClose={() => setShowAddArtboard(false)}
         />
       )}
     </div>

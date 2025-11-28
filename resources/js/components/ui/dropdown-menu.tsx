@@ -87,7 +87,7 @@ export function DropdownMenuContent({ align = 'start', className, children }: Co
       style={{
         left,
         top,
-        transform: align === 'center' ? 'translateX(-50%)' : undefined,
+        transform: align === 'center' ? 'translateX(-50%)' : align === 'end' ? 'translateX(-100%)' : undefined,
       }}
       role="menu"
     >

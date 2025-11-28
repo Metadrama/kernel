@@ -58,7 +58,7 @@ export default function ComponentSidebar() {
     );
   };
 
-  const filterItems = (items: ComponentCard[]) => 
+  const filterItems = (items: ComponentCard[]) =>
     items.filter(item =>
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.description.toLowerCase().includes(searchQuery.toLowerCase())
@@ -69,11 +69,11 @@ export default function ComponentSidebar() {
   // Group components by category and subcategory
   const groupedComponents = useMemo(() => {
     const groups: Record<string, Record<string, ComponentCard[]>> = {};
-    
+
     for (const component of filteredComponents) {
       const category = component.category;
       const subcategory = component.subcategory || 'other';
-      
+
       if (!groups[category]) {
         groups[category] = {};
       }
@@ -82,7 +82,7 @@ export default function ComponentSidebar() {
       }
       groups[category][subcategory].push(component);
     }
-    
+
     return groups;
   }, [filteredComponents]);
 
@@ -112,11 +112,10 @@ export default function ComponentSidebar() {
             <div className="flex items-center justify-between gap-2">
               <h3 className="font-medium text-sm">{component.name}</h3>
               <Star
-                className={`h-4 w-4 shrink-0 ${
-                  component.isFavorite
+                className={`h-4 w-4 shrink-0 ${component.isFavorite
                     ? 'fill-yellow-400 text-yellow-400'
                     : 'text-muted-foreground opacity-0 group-hover:opacity-100'
-                }`}
+                  }`}
               />
             </div>
             <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
@@ -149,7 +148,7 @@ export default function ComponentSidebar() {
     <div className="flex h-screen w-80 flex-col border-r bg-background">
       {/* Header */}
       <div className="flex h-14 items-center justify-between border-b px-4">
-        <h2 className="text-lg font-semibold">dataviser://</h2>
+        <h2 className="text-lg font-semibold">BM://</h2>
         <Button
           variant="ghost"
           size="icon"
