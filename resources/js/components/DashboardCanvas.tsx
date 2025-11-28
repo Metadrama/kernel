@@ -69,11 +69,13 @@ export default function DashboardCanvas() {
         margin: 8,
         float: false,
         animate: true,
+        minRow: 1,  // Allow grid to grow dynamically
         draggable: {
           handle: '.widget-drag-handle',
         },
         resizable: {
           handles: 'e, se, s, sw, w',
+          autoHide: false,  // Always show handles on hover
         },
       },
       gridRef.current
@@ -113,7 +115,7 @@ export default function DashboardCanvas() {
       x: 0,
       y: 0,
       w: 6,
-      h: 4,
+      h: 5,  // Increased default height for better ergonomics
       components: [],
     };
 
@@ -125,6 +127,12 @@ export default function DashboardCanvas() {
         const element = document.getElementById(newWidget.id);
         if (element) {
           gridInstanceRef.current.makeWidget(element);
+          // Ensure resize constraints are properly set
+          gridInstanceRef.current.update(element, {
+            minW: 2,
+            minH: 2,
+            maxW: 12,
+          });
         }
       }
     }, 10);
@@ -292,12 +300,24 @@ export default function DashboardCanvas() {
         },
       };
 
+      // Calculate appropriate widget size based on component intrinsics
+      // Import getComponentIntrinsicSize at the top if not already imported
+      const intrinsicSize = (() => {
+        try {
+          // Dynamically import to avoid circular dependencies
+          const { getComponentIntrinsicSize } = require('@/lib/component-layout');
+          return getComponentIntrinsicSize(componentData.id);
+        } catch {
+          return { defaultCols: 6, defaultRows: 4 };
+        }
+      })();
+
       const newWidget: WidgetSchema = {
         id: `widget-${Date.now()}`,
         x: 0,
         y: 0,
-        w: 6,
-        h: 4,
+        w: Math.max(3, Math.min(12, intrinsicSize.defaultCols)),  // Clamp between 3-12
+        h: Math.max(2, Math.min(8, intrinsicSize.defaultRows + 1)), // +1 for padding, clamp 2-8
         components: [newComponent],
       };
 
@@ -309,6 +329,16 @@ export default function DashboardCanvas() {
           const element = document.getElementById(newWidget.id);
           if (element) {
             gridInstanceRef.current.makeWidget(element);
+            // Force a re-render to ensure resize handles are properly initialized
+            gridInstanceRef.current.engine.nodes.forEach(node => {
+              if (node.id === newWidget.id) {
+                gridInstanceRef.current?.update(element, {
+                  minW: 2,
+                  minH: 2,
+                  maxW: 12,
+                });
+              }
+            });
           }
         }
       }, 10);
@@ -456,6 +486,9 @@ export default function DashboardCanvas() {
                     gs-y={widget.y}
                     gs-w={widget.w}
                     gs-h={widget.h}
+                    gs-min-w={2}
+                    gs-min-h={2}
+                    gs-max-w={12}
                   >
                     <div className="grid-stack-item-content">
                       <WidgetShell

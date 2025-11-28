@@ -1,4 +1,5 @@
 import type { GridPosition } from '@/lib/component-layout';
+import type { ArtboardSchema } from './artboard';
 
 export interface ComponentCard {
   id: string;
@@ -36,7 +37,10 @@ export interface WidgetSchema {
 export interface DashboardLayout {
   id: string;
   name: string;
-  widgets: WidgetSchema[];
+  // Artboards contain widgets (new architecture)
+  artboards: ArtboardSchema[];
+  // Legacy: Direct widgets on canvas (deprecated, kept for backward compatibility)
+  widgets?: WidgetSchema[];
   createdAt: string;
   updatedAt: string;
 }

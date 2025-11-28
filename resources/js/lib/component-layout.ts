@@ -132,6 +132,18 @@ export const COMPONENT_INTRINSIC_SIZES: Record<string, ComponentIntrinsicSize> =
     sizeMode: 'fill',
   },
   
+  // KPI metrics - compact but readable
+  'kpi': {
+    minCols: 2,
+    maxCols: 6,
+    defaultCols: 3,
+    minRows: 2,
+    maxRows: 4,
+    defaultRows: 3,
+    aspectRatio: null,  // Flexible - adjusts to content
+    sizeMode: 'intrinsic',
+  },
+  
   // Fallback for unknown components
   'default': {
     minCols: 3,

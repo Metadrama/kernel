@@ -9,3 +9,4 @@ Route::get('/', function () {
 })->name('home');
 
 Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+Route::post('/dashboard/save', [DashboardController::class, 'save'])->name('dashboard.save');

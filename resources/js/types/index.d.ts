@@ -19,3 +19,15 @@ export interface User {
     updated_at: string;
     [key: string]: unknown; // This allows for additional properties...
 }
+
+// Re-export artboard types for convenience
+export type {
+    ArtboardSchema,
+    ArtboardFormat,
+    ArtboardDimensions,
+    ArtboardPreset,
+    ArtboardCategory,
+    CanvasPosition,
+    CreateArtboardOptions,
+    UpdateArtboardOptions,
+} from './artboard';
