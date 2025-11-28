@@ -16,10 +16,20 @@ import { ComponentInspector } from '@/components/config-panel';
 import AddArtboardPanel from '@/components/AddArtboardPanel';
 import type { ArtboardSchema, CanvasPosition } from '@/types/artboard';
 import type { WidgetComponent } from '@/types/dashboard';
+import { createArtboard } from '@/lib/artboard-utils';
 
 export default function ArtboardCanvas() {
   const canvasRef = useRef<HTMLDivElement>(null);
-  const [artboards, setArtboards] = useState<ArtboardSchema[]>([]);
+  const [artboards, setArtboards] = useState<ArtboardSchema[]>(() => {
+    // Load from localStorage on initial render
+    try {
+      const saved = localStorage.getItem('artboards');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error('Failed to load artboards:', e);
+      return [];
+    }
+  });
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState<CanvasPosition>({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
@@ -131,6 +141,29 @@ export default function ArtboardCanvas() {
       setSelectedArtboardId(null);
     }
   }, [selectedArtboardId]);
+
+  // ============================================================================
+  // Persistence
+  // ============================================================================
+
+  // Auto-save to localStorage whenever artboards change
+  useEffect(() => {
+    try {
+      localStorage.setItem('artboards', JSON.stringify(artboards));
+    } catch (e) {
+      console.error('Failed to save artboards:', e);
+    }
+  }, [artboards]);
+
+  const handleSave = () => {
+    try {
+      localStorage.setItem('artboards', JSON.stringify(artboards));
+      // Could add a toast notification here
+      console.log('Artboards saved manually');
+    } catch (e) {
+      console.error('Failed to save artboards:', e);
+    }
+  };
 
   // ============================================================================
   // Component Selection & Configuration
@@ -252,7 +285,13 @@ export default function ArtboardCanvas() {
                 }
               }}
             />
-            <Button size="sm" className="bg-black text-white hover:bg-black/90">Save</Button>
+            <Button
+              size="sm"
+              className="bg-black text-white hover:bg-black/90"
+              onClick={handleSave}
+            >
+              Save
+            </Button>
           </div>
         </div>
 
@@ -352,8 +391,6 @@ export default function ArtboardCanvas() {
       {showAddArtboard && (
         <AddArtboardPanel
           onAddArtboard={(format) => {
-            // Lazy-load utilities to avoid circular deps during build
-            const { createArtboard } = require('@/lib/artboard-utils');
             const newArtboard: ArtboardSchema = createArtboard({ format });
             setArtboards((prev) => [...prev, newArtboard]);
           }}

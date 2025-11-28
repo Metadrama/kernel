@@ -113,7 +113,7 @@ export default function ArtboardContainer({
 
   const handleArtboardMouseDown = (e: React.MouseEvent) => {
     if (artboard.locked) return;
-    
+
     // Only drag from header/title area, not from widgets
     if (
       e.target instanceof HTMLElement &&
@@ -225,9 +225,9 @@ export default function ArtboardContainer({
     const updatedWidgets = artboard.widgets.map((widget) =>
       widget.id === widgetId
         ? {
-            ...widget,
-            components: [...widget.components, newComponent],
-          }
+          ...widget,
+          components: [...widget.components, newComponent],
+        }
         : widget
     );
 
@@ -238,9 +238,9 @@ export default function ArtboardContainer({
     const updatedWidgets = artboard.widgets.map((widget) =>
       widget.id === widgetId
         ? {
-            ...widget,
-            components: widget.components.filter((c) => c.instanceId !== instanceId),
-          }
+          ...widget,
+          components: widget.components.filter((c) => c.instanceId !== instanceId),
+        }
         : widget
     );
 
@@ -251,9 +251,9 @@ export default function ArtboardContainer({
     const updatedWidgets = artboard.widgets.map((widget) =>
       widget.id === widgetId
         ? {
-            ...widget,
-            components: newComponents,
-          }
+          ...widget,
+          components: newComponents,
+        }
         : widget
     );
 
@@ -268,11 +268,11 @@ export default function ArtboardContainer({
     const updatedWidgets = artboard.widgets.map((widget) =>
       widget.id === widgetId
         ? {
-            ...widget,
-            components: widget.components.map((c) =>
-              c.instanceId === instanceId ? { ...c, gridPosition } : c
-            ),
-          }
+          ...widget,
+          components: widget.components.map((c) =>
+            c.instanceId === instanceId ? { ...c, gridPosition } : c
+          ),
+        }
         : widget
     );
 
@@ -364,9 +364,8 @@ export default function ArtboardContainer({
   return (
     <div
       ref={containerRef}
-      className={`absolute bg-background shadow-2xl transition-all ${
-        isSelected ? 'ring-2 ring-primary ring-offset-2' : 'ring-1 ring-border'
-      } ${isDragging ? 'cursor-grabbing' : ''}`}
+      className={`absolute bg-background shadow-2xl transition-all ${isSelected ? 'ring-2 ring-primary ring-offset-2' : 'ring-1 ring-border'
+        } ${isDragging ? 'cursor-grabbing' : ''}`}
       style={{
         left: artboard.position.x,
         top: artboard.position.y,
@@ -446,7 +445,7 @@ export default function ArtboardContainer({
       {/* Artboard Content Area */}
       <div
         className="absolute inset-0 top-10 overflow-hidden"
-        style={{ pointerEvents: artboard.locked ? 'none' : 'auto' }}
+        style={{ pointerEvents: 'auto' }}
       >
         {/* Grid guides (if enabled) */}
         {artboard.showGrid && (
