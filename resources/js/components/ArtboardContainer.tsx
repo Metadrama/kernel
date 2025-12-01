@@ -440,47 +440,31 @@ export default function ArtboardContainer({
   const displayPosition = isDragging && localPosition ? localPosition : artboard.position;
 
   return (
-    <div
-      ref={containerRef}
-      className={`absolute bg-background shadow-2xl transition-all ${isSelected ? 'ring-2 ring-primary ring-offset-2' : 'ring-1 ring-border'
-        } ${isDragging ? 'cursor-grabbing' : ''}`}
-      style={{
-        left: displayPosition.x,
-        top: displayPosition.y,
-        width: artboard.dimensions.widthPx,
-        height: artboard.dimensions.heightPx,
-        backgroundColor: artboard.backgroundColor,
-        zIndex: zIndex, // Stack order from parent
-        // Disable transitions during dragging for instant response
-        transition: isDragging ? 'none' : undefined,
-      }}
-      onMouseDown={handleArtboardMouseDown}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect();
-      }}
-      onContextMenu={handleContextMenu}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      {/* Counter-Scaled Header - stays readable at any zoom */}
+    <>
+      {/* Counter-Scaled Header - transparent overlay above artboard */}
       <div
-        className="artboard-header group absolute top-0 left-0 flex h-10 items-center justify-between bg-muted/80 backdrop-blur-sm px-3 border-b cursor-move"
+        className="artboard-header group absolute flex h-13 items-center justify-between px-0.5 cursor-move"
         style={{
+          left: displayPosition.x,
+          top: displayPosition.y,
           // Counter-scale to maintain constant size
           transform: `scale(${1 / canvasScale})`,
           transformOrigin: 'top left',
           width: `${artboard.dimensions.widthPx * canvasScale}px`,
-          zIndex: 50,
+          zIndex: zIndex + 1000, // Above artboard content
+          pointerEvents: 'auto',
+          transition: isDragging ? 'none' : undefined,
+          background: 'transparent',
+          backgroundColor: 'transparent',
         }}
+        onMouseDown={handleArtboardMouseDown}
       >
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold">{artboard.name}</span>
-          <span className="text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <span className="text-sm font-semibold truncate">{artboard.name}</span>
+          <span className="text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">
             {artboard.dimensions.label}
           </span>
-          {artboard.locked && <Lock className="h-3 w-3 text-muted-foreground" />}
+          {artboard.locked && <Lock className="h-3 w-3 text-muted-foreground flex-shrink-0" />}
         </div>
 
         <div className="flex items-center gap-1">
@@ -543,82 +527,112 @@ export default function ArtboardContainer({
         </div>
       </div>
 
-      {/* Artboard Content Area - with offset for header */}
+      {/* Artboard Container with background */}
       <div
-        className="absolute inset-0 overflow-auto"
+        ref={containerRef}
+        className={`absolute transition-all ${isDragging ? 'cursor-grabbing' : ''}`}
         style={{
-          pointerEvents: 'auto',
-          // Offset for counter-scaled header (40px * scale to match header space)
-          top: `${40 / canvasScale}px`,
+          left: displayPosition.x,
+          top: displayPosition.y,
+          width: artboard.dimensions.widthPx,
+          height: artboard.dimensions.heightPx,
+          zIndex: zIndex, // Stack order from parent
+          // Disable transitions during dragging for instant response
+          transition: isDragging ? 'none' : undefined,
         }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect();
+        }}
+        onContextMenu={handleContextMenu}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
       >
-        {/* Grid guides (if enabled) */}
-        {artboard.showGrid && (
-          <div
-            className="absolute inset-0 pointer-events-none opacity-[0.03]"
-            style={{
-              backgroundImage: `
+        {/* Background layer - starts below header with shadow and ring */}
+        <div
+          className={`absolute inset-0 shadow-2xl ${isSelected ? 'ring-2 ring-primary ring-offset-2' : 'ring-1 ring-border'}`}
+          style={{
+            backgroundColor: artboard.backgroundColor,
+            top: `${40 / canvasScale}px`, // Start below header
+          }}
+        />
+
+        {/* Artboard Content Area */}
+        <div
+          className="absolute inset-0 overflow-auto"
+          style={{
+            pointerEvents: 'auto',
+          }}
+        >
+          {/* Grid guides (if enabled) */}
+          {artboard.showGrid && (
+            <div
+              className="absolute inset-0 pointer-events-none opacity-[0.03]"
+              style={{
+                backgroundImage: `
                 linear-gradient(to right, hsl(var(--foreground)) 1px, transparent 1px),
                 linear-gradient(to bottom, hsl(var(--foreground)) 1px, transparent 1px)
               `,
-              backgroundSize: '24px 24px',
-            }}
-          />
-        )}
+                backgroundSize: '24px 24px',
+              }}
+            />
+          )}
 
-        {/* Drop zone indicator */}
-        {isDragOver && (
-          <div className="absolute inset-0 z-40 flex items-center justify-center bg-primary/5 backdrop-blur-sm pointer-events-none">
-            <div className="rounded-lg border-2 border-dashed border-primary bg-background/90 px-6 py-4">
-              <p className="text-sm font-semibold text-primary">Drop to add component</p>
-            </div>
-          </div>
-        )}
-
-        {/* GridStack Container */}
-        <div className="relative h-full p-4 overflow-auto">
-          <div ref={gridRef} className="grid-stack">
-            {artboard.widgets.map((widget) => (
-              <div
-                key={widget.id}
-                id={widget.id}
-                className="grid-stack-item"
-                gs-id={widget.id}
-                gs-x={widget.x}
-                gs-y={widget.y}
-                gs-w={widget.w}
-                gs-h={widget.h}
-                gs-min-w={2}
-                gs-min-h={2}
-                gs-max-w={12}
-              >
-                <div className="grid-stack-item-content">
-                  <WidgetShell
-                    widget={widget}
-                    onDelete={() => deleteWidget(widget.id)}
-                    onAddComponent={(component) =>
-                      handleAddComponentToWidget(widget.id, component)
-                    }
-                    onRemoveComponent={(instanceId) =>
-                      handleRemoveComponentFromWidget(widget.id, instanceId)
-                    }
-                    onReorderComponents={(components) =>
-                      handleReorderComponents(widget.id, components)
-                    }
-                    onUpdateComponentLayout={(instanceId, gridPosition) =>
-                      handleUpdateComponentLayout(widget.id, instanceId, gridPosition)
-                    }
-                    onSelectComponent={(component) =>
-                      onSelectComponent(artboard.id, widget.id, component)
-                    }
-                    selectedComponentId={selectedComponentId}
-                  />
-                </div>
+          {/* Drop zone indicator */}
+          {isDragOver && (
+            <div className="absolute inset-0 z-40 flex items-center justify-center bg-primary/5 backdrop-blur-sm pointer-events-none">
+              <div className="rounded-lg border-2 border-dashed border-primary bg-background/90 px-6 py-4">
+                <p className="text-sm font-semibold text-primary">Drop to add component</p>
               </div>
-            ))}
+            </div>
+          )}
+
+          {/* GridStack Container */}
+          <div className="relative h-full p-4 overflow-auto">
+            <div ref={gridRef} className="grid-stack">
+              {artboard.widgets.map((widget) => (
+                <div
+                  key={widget.id}
+                  id={widget.id}
+                  className="grid-stack-item"
+                  gs-id={widget.id}
+                  gs-x={widget.x}
+                  gs-y={widget.y}
+                  gs-w={widget.w}
+                  gs-h={widget.h}
+                  gs-min-w={2}
+                  gs-min-h={2}
+                  gs-max-w={12}
+                >
+                  <div className="grid-stack-item-content">
+                    <WidgetShell
+                      widget={widget}
+                      onDelete={() => deleteWidget(widget.id)}
+                      onAddComponent={(component) =>
+                        handleAddComponentToWidget(widget.id, component)
+                      }
+                      onRemoveComponent={(instanceId) =>
+                        handleRemoveComponentFromWidget(widget.id, instanceId)
+                      }
+                      onReorderComponents={(components) =>
+                        handleReorderComponents(widget.id, components)
+                      }
+                      onUpdateComponentLayout={(instanceId, gridPosition) =>
+                        handleUpdateComponentLayout(widget.id, instanceId, gridPosition)
+                      }
+                      onSelectComponent={(component) =>
+                        onSelectComponent(artboard.id, widget.id, component)
+                      }
+                      selectedComponentId={selectedComponentId}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
