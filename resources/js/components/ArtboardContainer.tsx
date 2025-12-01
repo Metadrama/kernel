@@ -57,6 +57,10 @@ export default function ArtboardContainer({
   const dragStartRef = useRef<{ mouseX: number; mouseY: number; artboardX: number; artboardY: number } | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
+  // Context menu state
+  const [contextMenuOpen, setContextMenuOpen] = useState(false);
+  const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
   // ============================================================================
   // GridStack Initialization (per artboard)
   // ============================================================================
@@ -401,6 +405,25 @@ export default function ArtboardContainer({
   };
 
   // ============================================================================
+  // Context Menu (Right-Click)
+  // ============================================================================
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    // Only show artboard menu if not right-clicking on widgets/GridStack content
+    const target = e.target as HTMLElement;
+    const isWidgetContent = target.closest('.grid-stack-item') || target.closest('.grid-stack');
+
+    if (!isWidgetContent) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      setContextMenuPosition({ x: e.clientX, y: e.clientY });
+      setContextMenuOpen(true);
+      onSelect(); // Bring artboard to front
+    }
+  };
+
+  // ============================================================================
   // Render
   // ============================================================================
 
@@ -429,12 +452,13 @@ export default function ArtboardContainer({
         e.stopPropagation();
         onSelect();
       }}
+      onContextMenu={handleContextMenu}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
       {/* Artboard Header */}
-      <div className="artboard-header absolute top-0 left-0 right-0 z-50 flex h-10 items-center justify-between bg-muted/80 backdrop-blur-sm px-3 border-b cursor-move">
+      <div className="artboard-header group absolute top-0 left-0 right-0 z-50 flex h-10 items-center justify-between bg-muted/80 backdrop-blur-sm px-3 border-b cursor-move">
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold">{artboard.name}</span>
           <span className="text-xs text-muted-foreground">
@@ -444,9 +468,19 @@ export default function ArtboardContainer({
         </div>
 
         <div className="flex items-center gap-1">
-          <DropdownMenu>
+          {/* 3-dot menu - visible on hover (desktop) or always (mobile) */}
+          <DropdownMenu
+            open={contextMenuOpen}
+            onOpenChange={setContextMenuOpen}
+            cursorPosition={contextMenuOpen ? contextMenuPosition : null}
+          >
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => e.stopPropagation()}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="artboard-menu-button h-7 w-7 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <MoreVertical className="h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>

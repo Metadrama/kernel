@@ -4,9 +4,10 @@ interface DropdownMenuProps {
   children: React.ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  cursorPosition?: { x: number; y: number } | null;
 }
 
-export function DropdownMenu({ children, open, onOpenChange }: DropdownMenuProps) {
+export function DropdownMenu({ children, open, onOpenChange, cursorPosition }: DropdownMenuProps) {
   const [internalOpen, setInternalOpen] = React.useState(false);
   const triggerRef = React.useRef<HTMLElement | null>(null);
   const isControlled = typeof open === 'boolean';
@@ -20,8 +21,9 @@ export function DropdownMenu({ children, open, onOpenChange }: DropdownMenuProps
         else setInternalOpen(value);
       },
       triggerRef,
+      cursorPosition,
     }),
-    [actualOpen, isControlled, onOpenChange]
+    [actualOpen, isControlled, onOpenChange, cursorPosition]
   );
 
   return <DropdownMenuContext.Provider value={context}>{children}</DropdownMenuContext.Provider>;
@@ -31,6 +33,7 @@ const DropdownMenuContext = React.createContext<{
   open: boolean;
   setOpen: (o: boolean) => void;
   triggerRef: React.RefObject<HTMLElement | null>;
+  cursorPosition?: { x: number; y: number } | null;
 } | null>(null);
 
 interface TriggerProps {
@@ -72,29 +75,37 @@ import { createPortal } from 'react-dom';
 export function DropdownMenuContent({ align = 'start', className, children }: ContentProps) {
   const ctx = React.useContext(DropdownMenuContext);
   const [anchorRect, setAnchorRect] = React.useState<DOMRect | null>(null);
+  const [position, setPosition] = React.useState<{ left: number; top: number } | null>(null);
 
   React.useEffect(() => {
-    if (ctx?.open && ctx.triggerRef?.current) {
-      // Get fresh position every time dropdown opens
-      setAnchorRect(ctx.triggerRef.current.getBoundingClientRect());
+    if (ctx?.open) {
+      // Use cursor position if provided (context menu), otherwise use trigger button
+      if (ctx.cursorPosition) {
+        setPosition({ left: ctx.cursorPosition.x, top: ctx.cursorPosition.y });
+        setAnchorRect(null);
+      } else if (ctx.triggerRef?.current) {
+        const rect = ctx.triggerRef.current.getBoundingClientRect();
+        setAnchorRect(rect);
+
+        let left = rect.left;
+        if (align === 'center') left = rect.left + rect.width / 2;
+        if (align === 'end') left = rect.right;
+        const top = rect.bottom + 8;
+
+        setPosition({ left, top });
+      }
     }
-  }, [ctx?.open]);
+  }, [ctx?.open, ctx?.cursorPosition, align]);
 
-  if (!ctx || !ctx.open || !anchorRect) return null;
-
-  // Compute fixed position relative to viewport to avoid clipping by overflow:hidden parents
-  let left = anchorRect.left;
-  if (align === 'center') left = anchorRect.left + anchorRect.width / 2;
-  if (align === 'end') left = anchorRect.right;
-  const top = anchorRect.bottom + 8; // 8px offset
+  if (!ctx || !ctx.open || !position) return null;
 
   const content = (
     <div
       className={`fixed z-[1000] min-w-[16rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-md ${className || ''}`}
       style={{
-        left,
-        top,
-        transform: align === 'center' ? 'translateX(-50%)' : align === 'end' ? 'translateX(-100%)' : undefined,
+        left: position.left,
+        top: position.top,
+        transform: anchorRect && align === 'center' ? 'translateX(-50%)' : anchorRect && align === 'end' ? 'translateX(-100%)' : undefined,
       }}
       role="menu"
     >
