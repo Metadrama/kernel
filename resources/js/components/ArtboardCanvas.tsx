@@ -25,6 +25,7 @@ const PAN_LIMIT = 8000;
 const EDGE_ACTIVATION_EPSILON = 0.5;
 const MIN_SCROLLBAR_FILL = 22;
 const MAX_SCROLLBAR_FILL = 85;
+const KEY_PAN_STEP = 60;
 
 const clampScale = (value: number) => Math.min(Math.max(value, MIN_SCALE), MAX_SCALE);
 const clampPanValue = (value: number) => Math.max(-PAN_LIMIT, Math.min(PAN_LIMIT, value));
@@ -184,6 +185,59 @@ export default function ArtboardCanvas() {
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    const handleArrowScroll = (e: KeyboardEvent) => {
+      if (selectedComponent) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      const arrowKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+      if (!arrowKeys.includes(e.key)) return;
+
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tagName = target.tagName;
+        if (
+          target.isContentEditable ||
+          tagName === 'INPUT' ||
+          tagName === 'TEXTAREA' ||
+          tagName === 'SELECT'
+        ) {
+          return;
+        }
+      }
+
+      e.preventDefault();
+      const step = e.shiftKey ? KEY_PAN_STEP * 2 : KEY_PAN_STEP;
+      let deltaX = 0;
+      let deltaY = 0;
+
+      switch (e.key) {
+        case 'ArrowUp':
+          deltaY = -step;
+          break;
+        case 'ArrowDown':
+          deltaY = step;
+          break;
+        case 'ArrowLeft':
+          deltaX = -step;
+          break;
+        case 'ArrowRight':
+          deltaX = step;
+          break;
+      }
+
+      setPan((prev) =>
+        clampPan({
+          x: prev.x - deltaX,
+          y: prev.y - deltaY,
+        })
+      );
+    };
+
+    window.addEventListener('keydown', handleArrowScroll);
+    return () => window.removeEventListener('keydown', handleArrowScroll);
+  }, [selectedComponent]);
+
   // ============================================================================
   // Pan Controls
   // ============================================================================
@@ -229,10 +283,15 @@ export default function ArtboardCanvas() {
     const handleWheelPan = (e: WheelEvent) => {
       if (e.ctrlKey) return;
       e.preventDefault();
+
+      const dominantDelta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      const horizontalDelta = e.shiftKey ? dominantDelta : 0;
+      const verticalDelta = e.shiftKey ? 0 : e.deltaY;
+
       setPan((prev) =>
         clampPan({
-          x: prev.x - e.deltaX,
-          y: prev.y - e.deltaY,
+          x: prev.x - horizontalDelta,
+          y: prev.y - verticalDelta,
         })
       );
     };
