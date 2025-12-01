@@ -60,6 +60,14 @@ export default function ArtboardCanvas() {
   const [showInspector, setShowInspector] = useState(false);
   const [showAddArtboard, setShowAddArtboard] = useState(false);
 
+  // Header context menu state (for scale-independent headers)
+  const [headerContextMenuState, setHeaderContextMenuState] = useState<{
+    [artboardId: string]: {
+      open: boolean;
+      position: { x: number; y: number } | null;
+    };
+  }>({});
+
   // ============================================================================
   // Zoom Controls
   // ============================================================================

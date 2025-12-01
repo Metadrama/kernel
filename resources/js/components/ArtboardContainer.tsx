@@ -35,6 +35,13 @@ interface ArtboardContainerProps {
   onSelect: () => void;
   onSelectComponent: (artboardId: string, widgetId: string, component: WidgetComponent) => void;
   selectedComponentId?: string;
+  // Header state exposed for external rendering
+  onHeaderAction?: (action: {
+    type: 'menu' | 'addWidget';
+    artboardId: string;
+    menuOpen?: boolean;
+    menuPosition?: { x: number; y: number };
+  }) => void;
 }
 
 export default function ArtboardContainer({
@@ -457,8 +464,17 @@ export default function ArtboardContainer({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      {/* Artboard Header */}
-      <div className="artboard-header group absolute top-0 left-0 right-0 z-50 flex h-10 items-center justify-between bg-muted/80 backdrop-blur-sm px-3 border-b cursor-move">
+      {/* Counter-Scaled Header - stays readable at any zoom */}
+      <div
+        className="artboard-header group absolute top-0 left-0 flex h-10 items-center justify-between bg-muted/80 backdrop-blur-sm px-3 border-b cursor-move"
+        style={{
+          // Counter-scale to maintain constant size
+          transform: `scale(${1 / canvasScale})`,
+          transformOrigin: 'top left',
+          width: `${artboard.dimensions.widthPx * canvasScale}px`,
+          zIndex: 50,
+        }}
+      >
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold">{artboard.name}</span>
           <span className="text-xs text-muted-foreground">
@@ -527,10 +543,14 @@ export default function ArtboardContainer({
         </div>
       </div>
 
-      {/* Artboard Content Area */}
+      {/* Artboard Content Area - with offset for header */}
       <div
-        className="absolute inset-0 top-10 overflow-auto"
-        style={{ pointerEvents: 'auto' }}
+        className="absolute inset-0 overflow-auto"
+        style={{
+          pointerEvents: 'auto',
+          // Offset for counter-scaled header (40px * scale to match header space)
+          top: `${40 / canvasScale}px`,
+        }}
       >
         {/* Grid guides (if enabled) */}
         {artboard.showGrid && (
