@@ -39,6 +39,8 @@ export default function WidgetShell({
   const [resizingId, setResizingId] = useState<string | null>(null);
   const [resizeDirection, setResizeDirection] = useState<'e' | 's' | 'se' | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const gridContentRef = useRef<HTMLDivElement>(null);
+  const gridPaddingRef = useRef({ top: 0, bottom: 0 });
   const [containerWidth, setContainerWidth] = useState(0);
   const [layoutWidth, setLayoutWidth] = useState(0);
   const [hideScrollbars, setHideScrollbars] = useState(false);
@@ -94,6 +96,20 @@ export default function WidgetShell({
     observer.observe(containerRef.current);
     return () => observer.disconnect();
   }, [components.length, evaluateOverflow]);
+  useLayoutEffect(() => {
+    if (isEmpty) {
+      gridPaddingRef.current = { top: 0, bottom: 0 };
+      return;
+    }
+
+    if (!gridContentRef.current) return;
+    const style = window.getComputedStyle(gridContentRef.current);
+    gridPaddingRef.current = {
+      top: parseFloat(style.paddingTop || '0'),
+      bottom: parseFloat(style.paddingBottom || '0'),
+    };
+  }, [isEmpty]);
+
 
   useEffect(() => {
     if (components.length === 0) {
@@ -157,6 +173,25 @@ export default function WidgetShell({
       
       const cellWidth = gridCellWidth + gridConfig.gap;
       const cellHeight = gridConfig.rowHeight + gridConfig.gap;
+
+      const viewportHeight = containerRef.current?.clientHeight ?? 0;
+      const paddingY = gridPaddingRef.current.top + gridPaddingRef.current.bottom;
+      const availableHeight = Math.max(0, viewportHeight - paddingY);
+      const visibleRows = availableHeight > 0
+        ? Math.max(1, Math.floor((availableHeight + gridConfig.gap) / cellHeight))
+        : 0;
+
+      const clampRowToViewport = (row: number, rowSpan: number) => {
+        if (visibleRows === 0) return Math.max(0, row);
+        const maxRow = Math.max(0, visibleRows - rowSpan);
+        return Math.min(Math.max(0, row), maxRow);
+      };
+
+      const clampRowSpanToViewport = (rowSpan: number, startRow: number) => {
+        if (visibleRows === 0) return rowSpan;
+        const maxSpan = Math.max(1, visibleRows - startRow);
+        return Math.min(rowSpan, maxSpan);
+      };
       
       // Convert pixel delta to grid cell delta
       const deltaCols = Math.round(deltaX / cellWidth);
@@ -170,7 +205,8 @@ export default function WidgetShell({
             gridConfig.columns - dragStartRef.current.startColSpan,
             dragStartRef.current.startCol + deltaCols
           ));
-          const newRow = Math.max(0, dragStartRef.current.startRow + deltaRows);
+          const unclampedRow = Math.max(0, dragStartRef.current.startRow + deltaRows);
+          const newRow = clampRowToViewport(unclampedRow, dragStartRef.current.startRowSpan);
           
           const newPosition: GridPosition = {
             col: newCol,
@@ -229,6 +265,8 @@ export default function WidgetShell({
             }
           }
           
+          newRowSpan = clampRowSpanToViewport(newRowSpan, dragStartRef.current.startRow);
+
           const newPosition: GridPosition = {
             col: dragStartRef.current.startCol,
             row: dragStartRef.current.startRow,
@@ -447,6 +485,7 @@ export default function WidgetShell({
       {/* Grid-based components container */}
       <div 
         className="relative p-2"
+        ref={gridContentRef}
         style={{
           minHeight: contentHeight + gridConfig.gap * 2,
         }}
