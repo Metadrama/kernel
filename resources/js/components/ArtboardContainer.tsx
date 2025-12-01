@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { GridStack } from 'gridstack';
+import { GridStack, type GridStackNode } from 'gridstack';
 import { Trash2, Lock, Unlock, Eye, EyeOff, MoreVertical, Copy } from 'lucide-react';
 import 'gridstack/dist/gridstack.min.css';
 import WidgetShell from '@/components/WidgetShell';
@@ -61,6 +61,7 @@ export default function ArtboardContainer({
   const HEADER_OFFSET_PX = HEADER_HEIGHT_PX + HEADER_GAP_PX;
   const gridRef = useRef<HTMLDivElement>(null);
   const gridInstanceRef = useRef<GridStack | null>(null);
+  const artboardRef = useRef<ArtboardSchema>(artboard);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [localPosition, setLocalPosition] = useState<{ x: number; y: number } | null>(null);
@@ -74,6 +75,10 @@ export default function ArtboardContainer({
   // ============================================================================
   // GridStack Initialization (per artboard)
   // ============================================================================
+
+  useEffect(() => {
+    artboardRef.current = artboard;
+  }, [artboard]);
 
   useEffect(() => {
     if (!gridRef.current) return;
@@ -102,31 +107,31 @@ export default function ArtboardContainer({
     gridInstanceRef.current = grid;
 
     // Listen for widget changes
-    grid.on('change', (event, items) => {
-      if (items) {
-        const updatedWidgets = artboard.widgets.map((widget) => {
-          const updated = items.find((item) => item.id === widget.id);
-          if (updated) {
-            return {
-              ...widget,
-              x: updated.x ?? widget.x,
-              y: updated.y ?? widget.y,
-              w: updated.w ?? widget.w,
-              h: updated.h ?? widget.h,
-            };
-          }
-          return widget;
-        });
+    grid.on('change', (_event, items) => {
+      if (!items || items.length === 0) return;
 
-        onUpdate(artboard.id, { widgets: updatedWidgets });
-      }
+      const currentArtboard = artboardRef.current;
+      const updatedWidgets = currentArtboard.widgets.map((widget) => {
+        const updated = items.find((item) => (item.id ?? item.el?.id) === widget.id);
+        if (!updated) return widget;
+
+        return {
+          ...widget,
+          x: updated.x ?? widget.x,
+          y: updated.y ?? widget.y,
+          w: updated.w ?? widget.w,
+          h: updated.h ?? widget.h,
+        };
+      });
+
+      onUpdate(currentArtboard.id, { widgets: updatedWidgets });
     });
 
     return () => {
       grid.destroy(false);
       gridInstanceRef.current = null;
     };
-  }, [artboard.id, artboard.dimensions]);
+  }, [artboard.id, artboard.dimensions, onUpdate]);
 
   // ============================================================================
   // Artboard Positioning (Drag to Move) - Transform-Aware
