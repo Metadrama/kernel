@@ -8,6 +8,7 @@ interface DropdownMenuProps {
 
 export function DropdownMenu({ children, open, onOpenChange }: DropdownMenuProps) {
   const [internalOpen, setInternalOpen] = React.useState(false);
+  const triggerRef = React.useRef<HTMLElement | null>(null);
   const isControlled = typeof open === 'boolean';
   const actualOpen = isControlled ? open : internalOpen;
 
@@ -18,6 +19,7 @@ export function DropdownMenu({ children, open, onOpenChange }: DropdownMenuProps
         if (isControlled) onOpenChange?.(value);
         else setInternalOpen(value);
       },
+      triggerRef,
     }),
     [actualOpen, isControlled, onOpenChange]
   );
@@ -25,7 +27,11 @@ export function DropdownMenu({ children, open, onOpenChange }: DropdownMenuProps
   return <DropdownMenuContext.Provider value={context}>{children}</DropdownMenuContext.Provider>;
 }
 
-const DropdownMenuContext = React.createContext<{ open: boolean; setOpen: (o: boolean) => void } | null>(null);
+const DropdownMenuContext = React.createContext<{
+  open: boolean;
+  setOpen: (o: boolean) => void;
+  triggerRef: React.RefObject<HTMLElement | null>;
+} | null>(null);
 
 interface TriggerProps {
   asChild?: boolean;
@@ -37,11 +43,16 @@ export function DropdownMenuTrigger({ asChild = false, children }: TriggerProps)
   if (!ctx) return children;
 
   const props = {
+    ref: (el: HTMLElement | null) => {
+      if (ctx.triggerRef) {
+        (ctx.triggerRef as React.MutableRefObject<HTMLElement | null>).current = el;
+      }
+    },
     onClick: (e: React.MouseEvent) => {
       e.stopPropagation();
       ctx.setOpen(!ctx.open);
     },
-  } as const;
+  };
 
   return asChild ? React.cloneElement(children, props) : (
     <button {...props} className="inline-flex h-8 items-center justify-center rounded-md border bg-background px-2 text-sm">
@@ -61,15 +72,11 @@ import { createPortal } from 'react-dom';
 export function DropdownMenuContent({ align = 'start', className, children }: ContentProps) {
   const ctx = React.useContext(DropdownMenuContext);
   const [anchorRect, setAnchorRect] = React.useState<DOMRect | null>(null);
-  const triggerRef = React.useRef<HTMLElement | null>(null);
 
   React.useEffect(() => {
-    // Find the last clicked trigger button to anchor the menu
-    // We assume DropdownMenuTrigger renders a button (asChild can override)
-    const active = document.activeElement as HTMLElement | null;
-    if (active) {
-      triggerRef.current = active;
-      setAnchorRect(active.getBoundingClientRect());
+    if (ctx?.open && ctx.triggerRef?.current) {
+      // Get fresh position every time dropdown opens
+      setAnchorRect(ctx.triggerRef.current.getBoundingClientRect());
     }
   }, [ctx?.open]);
 

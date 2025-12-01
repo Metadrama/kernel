@@ -446,7 +446,7 @@ export default function ArtboardContainer({
         <div className="flex items-center gap-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7">
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => e.stopPropagation()}>
                 <MoreVertical className="h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
@@ -495,7 +495,7 @@ export default function ArtboardContainer({
 
       {/* Artboard Content Area */}
       <div
-        className="absolute inset-0 top-10 overflow-hidden"
+        className="absolute inset-0 top-10 overflow-auto"
         style={{ pointerEvents: 'auto' }}
       >
         {/* Grid guides (if enabled) */}
