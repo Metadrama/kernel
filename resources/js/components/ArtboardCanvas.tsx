@@ -17,6 +17,7 @@ import AddArtboardPanel from '@/components/AddArtboardPanel';
 import type { ArtboardSchema, CanvasPosition } from '@/types/artboard';
 import type { WidgetComponent } from '@/types/dashboard';
 import { createArtboard } from '@/lib/artboard-utils';
+import { useArtboardContext } from '@/context/ArtboardContext';
 
 const MIN_SCALE = 0.1;
 const MAX_SCALE = 5;
@@ -25,36 +26,19 @@ const clampScale = (value: number) => Math.min(Math.max(value, MIN_SCALE), MAX_S
 
 export default function ArtboardCanvas() {
   const canvasRef = useRef<HTMLDivElement>(null);
-  const [artboards, setArtboards] = useState<ArtboardSchema[]>(() => {
-    // Load from localStorage on initial render
-    try {
-      const saved = localStorage.getItem('artboards');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      console.error('Failed to load artboards:', e);
-      return [];
-    }
-  });
+  const {
+    artboards,
+    setArtboards,
+    selectedArtboardId,
+    setSelectedArtboardId,
+    artboardStackOrder,
+    bringArtboardToFront,
+  } = useArtboardContext();
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState<CanvasPosition>({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState<CanvasPosition>({ x: 0, y: 0 });
-  const [selectedArtboardId, setSelectedArtboardId] = useState<string | null>(null);
   const selectedArtboard = artboards.find(a => a.id === selectedArtboardId) || null;
-
-  // Z-index stack order - artboards at end of array are on top
-  const [artboardStackOrder, setArtboardStackOrder] = useState<string[]>([]);
-
-  // Initialize stack order when artboards change
-  useEffect(() => {
-    const currentIds = new Set(artboards.map(a => a.id));
-    const validOrder = artboardStackOrder.filter(id => currentIds.has(id));
-    const newIds = artboards.filter(a => !artboardStackOrder.includes(a.id)).map(a => a.id);
-
-    if (validOrder.length !== artboards.length || newIds.length > 0) {
-      setArtboardStackOrder([...validOrder, ...newIds]);
-    }
-  }, [artboards]);
 
   // Component selection state for inspector
   const [selectedComponent, setSelectedComponent] = useState<{
@@ -195,14 +179,6 @@ export default function ArtboardCanvas() {
   // Artboard Management
   // ============================================================================
 
-  // Bring artboard to front of stack
-  const bringArtboardToFront = useCallback((artboardId: string) => {
-    setArtboardStackOrder(prev => {
-      const filtered = prev.filter(id => id !== artboardId);
-      return [...filtered, artboardId]; // Add to end (top of stack)
-    });
-  }, []);
-
   const handleUpdateArtboard = useCallback((artboardId: string, updates: Partial<ArtboardSchema>) => {
     setArtboards((prev) =>
       prev.map((artboard) =>
@@ -224,18 +200,13 @@ export default function ArtboardCanvas() {
   // Persistence
   // ============================================================================
 
-  // Auto-save to localStorage whenever artboards change
-  useEffect(() => {
-    try {
-      localStorage.setItem('artboards', JSON.stringify(artboards));
-    } catch (e) {
-      console.error('Failed to save artboards:', e);
-    }
-  }, [artboards]);
-
   const handleSave = () => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
     try {
-      localStorage.setItem('artboards', JSON.stringify(artboards));
+      window.localStorage.setItem('artboards', JSON.stringify(artboards));
       // Could add a toast notification here
       console.log('Artboards saved manually');
     } catch (e) {

@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react';
 import ComponentSidebar from '@/components/ComponentSidebar';
 import ArtboardCanvas from '@/components/ArtboardCanvas';
+import { ArtboardProvider } from '@/context/ArtboardContext';
 import type { DashboardLayout } from '@/types/dashboard';
 import { useEffect } from 'react';
 import { router } from '@inertiajs/react';
@@ -22,10 +23,12 @@ export default function Dashboard(props: DashboardProps) {
   return (
     <>
       <Head title="Dashboard Builder" />
-      <div className="flex h-screen overflow-hidden bg-background">
-        <ComponentSidebar />
-        <ArtboardCanvas />
-      </div>
+      <ArtboardProvider>
+        <div className="flex h-screen overflow-hidden bg-background">
+          <ComponentSidebar />
+          <ArtboardCanvas />
+        </div>
+      </ArtboardProvider>
     </>
   );
 }
