@@ -29,6 +29,7 @@ interface ArtboardContainerProps {
   isSelected: boolean;
   canvasScale: number;
   canvasPan: { x: number; y: number };
+  zIndex: number;
   onUpdate: (artboardId: string, updates: Partial<ArtboardSchema>) => void;
   onDelete: (artboardId: string) => void;
   onSelect: () => void;
@@ -41,6 +42,7 @@ export default function ArtboardContainer({
   isSelected,
   canvasScale,
   canvasPan,
+  zIndex,
   onUpdate,
   onDelete,
   onSelect,
@@ -418,6 +420,7 @@ export default function ArtboardContainer({
         width: artboard.dimensions.widthPx,
         height: artboard.dimensions.heightPx,
         backgroundColor: artboard.backgroundColor,
+        zIndex: zIndex, // Stack order from parent
         // Disable transitions during dragging for instant response
         transition: isDragging ? 'none' : undefined,
       }}

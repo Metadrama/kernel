@@ -37,6 +37,20 @@ export default function ArtboardCanvas() {
   const [selectedArtboardId, setSelectedArtboardId] = useState<string | null>(null);
   const selectedArtboard = artboards.find(a => a.id === selectedArtboardId) || null;
 
+  // Z-index stack order - artboards at end of array are on top
+  const [artboardStackOrder, setArtboardStackOrder] = useState<string[]>([]);
+
+  // Initialize stack order when artboards change
+  useEffect(() => {
+    const currentIds = new Set(artboards.map(a => a.id));
+    const validOrder = artboardStackOrder.filter(id => currentIds.has(id));
+    const newIds = artboards.filter(a => !artboardStackOrder.includes(a.id)).map(a => a.id);
+
+    if (validOrder.length !== artboards.length || newIds.length > 0) {
+      setArtboardStackOrder([...validOrder, ...newIds]);
+    }
+  }, [artboards]);
+
   // Component selection state for inspector
   const [selectedComponent, setSelectedComponent] = useState<{
     artboardId: string;
@@ -124,6 +138,14 @@ export default function ArtboardCanvas() {
   // ============================================================================
   // Artboard Management
   // ============================================================================
+
+  // Bring artboard to front of stack
+  const bringArtboardToFront = useCallback((artboardId: string) => {
+    setArtboardStackOrder(prev => {
+      const filtered = prev.filter(id => id !== artboardId);
+      return [...filtered, artboardId]; // Add to end (top of stack)
+    });
+  }, []);
 
   const handleUpdateArtboard = useCallback((artboardId: string, updates: Partial<ArtboardSchema>) => {
     setArtboards((prev) =>
@@ -346,24 +368,32 @@ export default function ArtboardCanvas() {
             />
 
             {/* Artboards */}
-            {artboards.map((artboard) => (
-              <ArtboardContainer
-                key={artboard.id}
-                artboard={artboard}
-                isSelected={selectedArtboardId === artboard.id}
-                canvasScale={scale}
-                canvasPan={pan}
-                onUpdate={handleUpdateArtboard}
-                onDelete={handleDeleteArtboard}
-                onSelect={() => setSelectedArtboardId(artboard.id)}
-                onSelectComponent={handleSelectComponent}
-                selectedComponentId={
-                  selectedComponent?.artboardId === artboard.id
-                    ? selectedComponent.component.instanceId
-                    : undefined
-                }
-              />
-            ))}
+            {/* Artboards - sorted by stack order (bottom to top) */}
+            {artboardStackOrder
+              .map(id => artboards.find(a => a.id === id))
+              .filter((artboard): artboard is ArtboardSchema => artboard !== undefined)
+              .map((artboard, index) => (
+                <ArtboardContainer
+                  key={artboard.id}
+                  artboard={artboard}
+                  isSelected={selectedArtboardId === artboard.id}
+                  canvasScale={scale}
+                  canvasPan={pan}
+                  zIndex={index} // Stack position determines z-index
+                  onUpdate={handleUpdateArtboard}
+                  onDelete={handleDeleteArtboard}
+                  onSelect={() => {
+                    setSelectedArtboardId(artboard.id);
+                    bringArtboardToFront(artboard.id);
+                  }}
+                  onSelectComponent={handleSelectComponent}
+                  selectedComponentId={
+                    selectedComponent?.artboardId === artboard.id
+                      ? selectedComponent.component.instanceId
+                      : undefined
+                  }
+                />
+              ))}
           </div>
         </div>
       </div>
