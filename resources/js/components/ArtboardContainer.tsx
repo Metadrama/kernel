@@ -27,6 +27,8 @@ import { calculateArtboardGridConfig } from '@/lib/artboard-utils';
 interface ArtboardContainerProps {
   artboard: ArtboardSchema;
   isSelected: boolean;
+  canvasScale: number;
+  canvasPan: { x: number; y: number };
   onUpdate: (artboardId: string, updates: Partial<ArtboardSchema>) => void;
   onDelete: (artboardId: string) => void;
   onSelect: () => void;
@@ -37,6 +39,8 @@ interface ArtboardContainerProps {
 export default function ArtboardContainer({
   artboard,
   isSelected,
+  canvasScale,
+  canvasPan,
   onUpdate,
   onDelete,
   onSelect,
@@ -47,7 +51,8 @@ export default function ArtboardContainer({
   const gridInstanceRef = useRef<GridStack | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [localPosition, setLocalPosition] = useState<{ x: number; y: number } | null>(null);
+  const dragStartRef = useRef<{ mouseX: number; mouseY: number; artboardX: number; artboardY: number } | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
   // ============================================================================
@@ -108,8 +113,22 @@ export default function ArtboardContainer({
   }, [artboard.id, artboard.dimensions]);
 
   // ============================================================================
-  // Artboard Positioning (Drag to Move)
+  // Artboard Positioning (Drag to Move) - Transform-Aware
   // ============================================================================
+
+  /**
+   * Convert screen coordinates to canvas space
+   * Accounts for canvas pan and zoom transforms
+   */
+  const screenToCanvasCoords = useCallback(
+    (screenX: number, screenY: number): { x: number; y: number } => {
+      return {
+        x: (screenX - canvasPan.x) / canvasScale,
+        y: (screenY - canvasPan.y) / canvasScale,
+      };
+    },
+    [canvasScale, canvasPan]
+  );
 
   const handleArtboardMouseDown = (e: React.MouseEvent) => {
     if (artboard.locked) return;
@@ -121,32 +140,56 @@ export default function ArtboardContainer({
         e.target.closest('.artboard-header'))
     ) {
       e.stopPropagation();
+      e.preventDefault();
+
+      // Store drag start positions
+      dragStartRef.current = {
+        mouseX: e.clientX,
+        mouseY: e.clientY,
+        artboardX: artboard.position.x,
+        artboardY: artboard.position.y,
+      };
+
       setIsDragging(true);
-      setDragOffset({
-        x: e.clientX - artboard.position.x,
-        y: e.clientY - artboard.position.y,
-      });
+      setLocalPosition(artboard.position);
       onSelect();
     }
   };
 
   const handleArtboardMouseMove = useCallback(
     (e: MouseEvent) => {
-      if (isDragging && !artboard.locked) {
-        onUpdate(artboard.id, {
-          position: {
-            x: e.clientX - dragOffset.x,
-            y: e.clientY - dragOffset.y,
-          },
-        });
-      }
+      if (!isDragging || !dragStartRef.current || artboard.locked) return;
+
+      // Calculate movement in screen space
+      const deltaX = e.clientX - dragStartRef.current.mouseX;
+      const deltaY = e.clientY - dragStartRef.current.mouseY;
+
+      // Convert delta to canvas space (account for zoom)
+      const canvasDeltaX = deltaX / canvasScale;
+      const canvasDeltaY = deltaY / canvasScale;
+
+      // Calculate new position in canvas space
+      const newPosition = {
+        x: dragStartRef.current.artboardX + canvasDeltaX,
+        y: dragStartRef.current.artboardY + canvasDeltaY,
+      };
+
+      // Update local state for immediate visual feedback (no parent re-render)
+      setLocalPosition(newPosition);
     },
-    [isDragging, artboard.locked, artboard.id, dragOffset, onUpdate]
+    [isDragging, artboard.locked, canvasScale]
   );
 
   const handleArtboardMouseUp = useCallback(() => {
+    if (isDragging && localPosition) {
+      // Commit the final position to parent state
+      onUpdate(artboard.id, { position: localPosition });
+    }
+
     setIsDragging(false);
-  }, []);
+    setLocalPosition(null);
+    dragStartRef.current = null;
+  }, [isDragging, localPosition, artboard.id, onUpdate]);
 
   useEffect(() => {
     if (isDragging) {
@@ -361,17 +404,22 @@ export default function ArtboardContainer({
 
   if (!artboard.visible) return null;
 
+  // Use local position during drag for immediate feedback, otherwise use prop
+  const displayPosition = isDragging && localPosition ? localPosition : artboard.position;
+
   return (
     <div
       ref={containerRef}
       className={`absolute bg-background shadow-2xl transition-all ${isSelected ? 'ring-2 ring-primary ring-offset-2' : 'ring-1 ring-border'
         } ${isDragging ? 'cursor-grabbing' : ''}`}
       style={{
-        left: artboard.position.x,
-        top: artboard.position.y,
+        left: displayPosition.x,
+        top: displayPosition.y,
         width: artboard.dimensions.widthPx,
         height: artboard.dimensions.heightPx,
         backgroundColor: artboard.backgroundColor,
+        // Disable transitions during dragging for instant response
+        transition: isDragging ? 'none' : undefined,
       }}
       onMouseDown={handleArtboardMouseDown}
       onClick={(e) => {

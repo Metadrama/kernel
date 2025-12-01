@@ -8,9 +8,9 @@
  * - Validation
  */
 
-import type { 
-  ArtboardSchema, 
-  ArtboardFormat, 
+import type {
+  ArtboardSchema,
+  ArtboardFormat,
   CreateArtboardOptions,
   CanvasPosition,
   ArtboardDimensions,
@@ -30,7 +30,7 @@ export function generateArtboardId(): string {
 export function getDefaultArtboardName(format: ArtboardFormat): string {
   const preset = getArtboardPreset(format);
   if (!preset) return 'Untitled Artboard';
-  
+
   const categoryLabels: Record<string, string> = {
     print: 'Print',
     presentation: 'Slide',
@@ -38,30 +38,30 @@ export function getDefaultArtboardName(format: ArtboardFormat): string {
     display: 'Display',
     mobile: 'Mobile',
   };
-  
+
   return `${categoryLabels[preset.category] || 'Artboard'}`;
 }
 
 /**
  * Calculate default position for new artboard
- * Places artboards in a cascading layout with offset
+ * Places artboards in a horizontal flow layout (like Figma)
  */
 export function calculateDefaultPosition(
   existingArtboards: ArtboardSchema[],
   dimensions: ArtboardDimensions
 ): CanvasPosition {
   if (existingArtboards.length === 0) {
-    // First artboard: center it
+    // First artboard: start at top-left with padding
     return { x: 100, y: 100 };
   }
-  
-  // Cascade subsequent artboards
-  const offset = 50;
+
+  // Horizontal flow: place to the right of the last artboard
+  const spacing = 100; // Gap between artboards
   const lastArtboard = existingArtboards[existingArtboards.length - 1];
-  
+
   return {
-    x: lastArtboard.position.x + offset,
-    y: lastArtboard.position.y + offset,
+    x: lastArtboard.position.x + lastArtboard.dimensions.widthPx + spacing,
+    y: lastArtboard.position.y, // Same vertical position
   };
 }
 
@@ -73,17 +73,17 @@ export function createArtboard(
   existingArtboards: ArtboardSchema[] = []
 ): ArtboardSchema {
   const preset = getArtboardPreset(options.format);
-  
+
   if (!preset) {
     throw new Error(`Invalid artboard format: ${options.format}`);
   }
-  
+
   const dimensions = preset.dimensions;
   const position = options.position || calculateDefaultPosition(existingArtboards, dimensions);
   const name = options.name || getDefaultArtboardName(options.format);
-  
+
   const now = new Date().toISOString();
-  
+
   return {
     id: generateArtboardId(),
     name,
@@ -116,7 +116,7 @@ export interface ArtboardBounds {
 
 export function getArtboardBounds(artboard: ArtboardSchema): ArtboardBounds {
   const { position, dimensions } = artboard;
-  
+
   return {
     left: position.x,
     top: position.y,
@@ -135,7 +135,7 @@ export function isPointInArtboard(
   artboard: ArtboardSchema
 ): boolean {
   const bounds = getArtboardBounds(artboard);
-  
+
   return (
     point.x >= bounds.left &&
     point.x <= bounds.right &&
@@ -153,7 +153,7 @@ export function doArtboardsOverlap(
 ): boolean {
   const bounds1 = getArtboardBounds(artboard1);
   const bounds2 = getArtboardBounds(artboard2);
-  
+
   return !(
     bounds1.right < bounds2.left ||
     bounds1.left > bounds2.right ||
@@ -177,7 +177,7 @@ export function findArtboardAtPosition(
       return artboard;
     }
   }
-  
+
   return null;
 }
 
@@ -189,7 +189,7 @@ export function validateArtboardPosition(
   canvasSize: { width: number; height: number }
 ): CanvasPosition {
   const maxOffset = 10000; // Maximum pixels off-canvas
-  
+
   return {
     x: Math.max(-maxOffset, Math.min(position.x, canvasSize.width + maxOffset)),
     y: Math.max(-maxOffset, Math.min(position.y, canvasSize.height + maxOffset)),
@@ -203,11 +203,11 @@ export function validateArtboardPosition(
 export function calculateArtboardGridConfig(dimensions: ArtboardDimensions) {
   const columns = 12; // Standard 12-column grid
   const columnWidth = dimensions.widthPx / columns;
-  
+
   // Calculate row height to maintain reasonable aspect ratio
   // Aim for roughly square cells
   const rowHeight = Math.floor(columnWidth * 0.75);
-  
+
   return {
     columns,
     cellHeight: rowHeight,

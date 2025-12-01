@@ -351,6 +351,8 @@ export default function ArtboardCanvas() {
                 key={artboard.id}
                 artboard={artboard}
                 isSelected={selectedArtboardId === artboard.id}
+                canvasScale={scale}
+                canvasPan={pan}
                 onUpdate={handleUpdateArtboard}
                 onDelete={handleDeleteArtboard}
                 onSelect={() => setSelectedArtboardId(artboard.id)}
@@ -391,7 +393,7 @@ export default function ArtboardCanvas() {
       {showAddArtboard && (
         <AddArtboardPanel
           onAddArtboard={(format) => {
-            const newArtboard: ArtboardSchema = createArtboard({ format });
+            const newArtboard: ArtboardSchema = createArtboard({ format }, artboards);
             setArtboards((prev) => [...prev, newArtboard]);
           }}
           onClose={() => setShowAddArtboard(false)}
