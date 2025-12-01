@@ -456,15 +456,24 @@ export default function ArtboardCanvas() {
       };
     }
 
-    const leftEdge = pan.x + artboardBounds.minX * scale;
-    const rightEdge = pan.x + artboardBounds.maxX * scale;
-    const topEdge = pan.y + artboardBounds.minY * scale;
-    const bottomEdge = pan.y + artboardBounds.maxY * scale;
+    const safeScale = Math.max(scale, 0.0001);
+    const viewMinX = (-pan.x) / safeScale;
+    const viewMaxX = (viewportSize.width - pan.x) / safeScale;
+    const viewMinY = (-pan.y) / safeScale;
+    const viewMaxY = (viewportSize.height - pan.y) / safeScale;
+    const worldEpsilon = EDGE_ACTIVATION_EPSILON / safeScale;
 
-    const touchesLeft = leftEdge <= EDGE_ACTIVATION_EPSILON;
-    const touchesRight = rightEdge >= viewportSize.width - EDGE_ACTIVATION_EPSILON;
-    const touchesTop = topEdge <= EDGE_ACTIVATION_EPSILON;
-    const touchesBottom = bottomEdge >= viewportSize.height - EDGE_ACTIVATION_EPSILON;
+    const touchesLeft = Math.abs(viewMinX - artboardBounds.minX) <= worldEpsilon;
+    const touchesRight = Math.abs(viewMaxX - artboardBounds.maxX) <= worldEpsilon;
+    const touchesTop = Math.abs(viewMinY - artboardBounds.minY) <= worldEpsilon;
+    const touchesBottom = Math.abs(viewMaxY - artboardBounds.maxY) <= worldEpsilon;
+
+    const leftOverflowPx = Math.max(0, (viewMinX - artboardBounds.minX) * safeScale);
+    const rightOverflowPx = Math.max(0, (artboardBounds.maxX - viewMaxX) * safeScale);
+    const topOverflowPx = Math.max(0, (viewMinY - artboardBounds.minY) * safeScale);
+    const bottomOverflowPx = Math.max(0, (artboardBounds.maxY - viewMaxY) * safeScale);
+    const horizontalOverflow = leftOverflowPx > 0 || rightOverflowPx > 0;
+    const verticalOverflow = topOverflowPx > 0 || bottomOverflowPx > 0;
 
     const contentWidth = Math.max(1, (artboardBounds.maxX - artboardBounds.minX) * scale);
     const contentHeight = Math.max(1, (artboardBounds.maxY - artboardBounds.minY) * scale);
@@ -480,12 +489,10 @@ export default function ArtboardCanvas() {
       Math.min(MAX_SCROLLBAR_FILL, visibleVerticalFraction * 100)
     );
 
-    const leftOverflow = Math.max(0, -leftEdge);
-    const rightOverflow = Math.max(0, rightEdge - viewportSize.width);
-    const horizontalScrollableSpan = leftOverflow + rightOverflow;
+    const horizontalScrollableSpan = leftOverflowPx + rightOverflowPx;
     const horizontalTrackSpace = Math.max(0, 100 - horizontalFillWidth);
     const horizontalProgress = horizontalScrollableSpan > 0
-      ? leftOverflow / horizontalScrollableSpan
+      ? leftOverflowPx / horizontalScrollableSpan
       : touchesLeft
         ? 0
         : touchesRight
@@ -493,12 +500,10 @@ export default function ArtboardCanvas() {
           : 0.5;
     const horizontalMarginLeft = horizontalTrackSpace * horizontalProgress;
 
-    const topOverflow = Math.max(0, -topEdge);
-    const bottomOverflow = Math.max(0, bottomEdge - viewportSize.height);
-    const verticalScrollableSpan = topOverflow + bottomOverflow;
+    const verticalScrollableSpan = topOverflowPx + bottomOverflowPx;
     const verticalTrackSpace = Math.max(0, 100 - verticalFillHeight);
     const verticalProgress = verticalScrollableSpan > 0
-      ? topOverflow / verticalScrollableSpan
+      ? topOverflowPx / verticalScrollableSpan
       : touchesTop
         ? 0
         : touchesBottom
@@ -507,8 +512,8 @@ export default function ArtboardCanvas() {
     const verticalMarginTop = verticalTrackSpace * verticalProgress;
 
     return {
-      showHorizontalScrollbar: touchesLeft || touchesRight,
-      showVerticalScrollbar: touchesTop || touchesBottom,
+      showHorizontalScrollbar: horizontalOverflow || touchesLeft || touchesRight,
+      showVerticalScrollbar: verticalOverflow || touchesTop || touchesBottom,
       horizontalFillWidth,
       horizontalMarginLeft,
       verticalFillHeight,
