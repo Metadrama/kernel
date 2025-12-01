@@ -38,7 +38,7 @@ export default function WidgetShell({
   const [resizeDirection, setResizeDirection] = useState<'e' | 's' | 'se' | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
-  const [lockedContentWidth, setLockedContentWidth] = useState<number | null>(null);
+  const [layoutWidth, setLayoutWidth] = useState(0);
   
   // Drag state for grid-based movement
   const dragStartRef = useRef<{
@@ -53,7 +53,6 @@ export default function WidgetShell({
   const gridConfig: WidgetGridConfig = DEFAULT_WIDGET_GRID;
   const components = widget.components || [];
   const isEmpty = components.length === 0;
-  const contentWidth = lockedContentWidth ?? containerWidth;
 
   // Measure container width for layout calculations
   useEffect(() => {
@@ -64,9 +63,15 @@ export default function WidgetShell({
         const width = entry.contentRect.width;
         setContainerWidth(width);
 
-        setLockedContentWidth((prev) => {
-          if (components.length === 0) return null;
-          if (prev === null) return width;
+        setLayoutWidth((prev) => {
+          if (components.length === 0) {
+            return width;
+          }
+
+          if (prev === 0) {
+            return width;
+          }
+
           return Math.max(prev, width);
         });
       }
@@ -78,12 +83,12 @@ export default function WidgetShell({
 
   useEffect(() => {
     if (components.length === 0) {
-      setLockedContentWidth(null);
+      setLayoutWidth(containerWidth);
     }
-  }, [components.length]);
+  }, [components.length, containerWidth]);
 
   // Calculate layout for all components
-  const effectiveLayoutWidth = lockedContentWidth ?? containerWidth;
+  const effectiveLayoutWidth = layoutWidth || containerWidth;
 
   const layouts = useMemo(() => {
     if (effectiveLayoutWidth === 0 || components.length === 0) return [];
@@ -422,7 +427,6 @@ export default function WidgetShell({
         className="relative p-2"
         style={{
           minHeight: contentHeight + gridConfig.gap * 2,
-          width: contentWidth || undefined,
         }}
       >
         {components.map((component) => {
