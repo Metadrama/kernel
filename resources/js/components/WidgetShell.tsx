@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
 import { Trash2, Plus, X, GripVertical, Move } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { isComponentRegistered, getComponent } from '@/components/widget-components';
@@ -11,6 +11,8 @@ import {
   type GridPosition,
   type WidgetGridConfig,
 } from '@/lib/component-layout';
+
+const SCROLLBAR_HIDE_THRESHOLD = 24;
 
 interface WidgetShellProps {
   widget: WidgetSchema;
@@ -39,6 +41,7 @@ export default function WidgetShell({
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const [layoutWidth, setLayoutWidth] = useState(0);
+  const [hideScrollbars, setHideScrollbars] = useState(false);
   
   // Drag state for grid-based movement
   const dragStartRef = useRef<{
@@ -55,6 +58,16 @@ export default function WidgetShell({
   const isEmpty = components.length === 0;
 
   // Measure container width for layout calculations
+  const evaluateOverflow = useCallback(() => {
+    if (!containerRef.current) return;
+    const el = containerRef.current;
+    const verticalOverflow = Math.max(0, el.scrollHeight - el.clientHeight);
+    const horizontalOverflow = Math.max(0, el.scrollWidth - el.clientWidth);
+    const maxOverflow = Math.max(verticalOverflow, horizontalOverflow);
+    const shouldHide = maxOverflow > 0 && maxOverflow <= SCROLLBAR_HIDE_THRESHOLD;
+    setHideScrollbars(shouldHide);
+  }, []);
+
   useEffect(() => {
     if (!containerRef.current) return;
     
@@ -75,11 +88,12 @@ export default function WidgetShell({
           return Math.max(prev, width);
         });
       }
+      evaluateOverflow();
     });
     
     observer.observe(containerRef.current);
     return () => observer.disconnect();
-  }, [components.length]);
+  }, [components.length, evaluateOverflow]);
 
   useEffect(() => {
     if (components.length === 0) {
@@ -325,6 +339,10 @@ export default function WidgetShell({
     return maxBottom + gridConfig.gap;
   }, [layouts, gridConfig.gap]);
 
+  useLayoutEffect(() => {
+    evaluateOverflow();
+  }, [contentHeight, layoutWidth, components.length, evaluateOverflow]);
+
   // Empty widget state
   if (isEmpty) {
     return (
@@ -382,7 +400,7 @@ export default function WidgetShell({
       ref={containerRef}
       className={`group relative h-full w-full rounded-lg border bg-card text-card-foreground shadow-sm transition-all duration-200 ease-out hover:shadow-md overflow-auto ${
         isDragOver ? 'border-primary ring-2 ring-primary/20' : 'border-border'
-      } ${draggingId || resizingId ? 'select-none' : ''}`}
+      } ${draggingId || resizingId ? 'select-none' : ''} ${hideScrollbars ? 'widget-shell--hide-scrollbars' : ''}`}
       onDragOver={handleExternalDragOver}
       onDragLeave={handleExternalDragLeave}
       onDrop={handleExternalDrop}

@@ -8,6 +8,12 @@ import { ComponentInspector } from '@/components/config-panel';
 import type { WidgetSchema, WidgetComponent } from '@/types/dashboard';
 import type { ComponentCard } from '@/types/dashboard';
 import type { GridPosition } from '@/lib/component-layout';
+import {
+  GRID_FINE_GRAIN,
+  GRID_MAX_COLUMNS,
+  downscaleGridUnits,
+  upscaleGridUnits,
+} from '@/lib/grid-resolution';
 
 export default function DashboardCanvas() {
   const gridRef = useRef<HTMLDivElement>(null);
@@ -58,14 +64,16 @@ export default function DashboardCanvas() {
     };
   }, []);
 
+  const fineCellHeight = 60 / GRID_FINE_GRAIN;
+
   useEffect(() => {
     if (!gridRef.current) return;
 
     // Initialize Gridstack
     const grid = GridStack.init(
       {
-        column: 12,
-        cellHeight: 60,
+        column: GRID_MAX_COLUMNS,
+        cellHeight: fineCellHeight,
         margin: 8,
         float: false,
         animate: true,
@@ -90,12 +98,16 @@ export default function DashboardCanvas() {
           prev.map((widget) => {
             const updated = items.find((item) => item.id === widget.id);
             if (updated) {
+              const scaledX = downscaleGridUnits(updated.x ?? widget.x * GRID_FINE_GRAIN);
+              const scaledY = downscaleGridUnits(updated.y ?? widget.y * GRID_FINE_GRAIN);
+              const scaledW = Math.max(1, downscaleGridUnits(updated.w ?? widget.w * GRID_FINE_GRAIN));
+              const scaledH = Math.max(1, downscaleGridUnits(updated.h ?? widget.h * GRID_FINE_GRAIN));
               return {
                 ...widget,
-                x: updated.x ?? widget.x,
-                y: updated.y ?? widget.y,
-                w: updated.w ?? widget.w,
-                h: updated.h ?? widget.h,
+                x: scaledX,
+                y: scaledY,
+                w: scaledW,
+                h: scaledH,
               };
             }
             return widget;
@@ -129,9 +141,9 @@ export default function DashboardCanvas() {
           gridInstanceRef.current.makeWidget(element);
           // Ensure resize constraints are properly set
           gridInstanceRef.current.update(element, {
-            minW: 2,
-            minH: 2,
-            maxW: 12,
+            minW: upscaleGridUnits(2),
+            minH: upscaleGridUnits(2),
+            maxW: GRID_MAX_COLUMNS,
           });
         }
       }
@@ -482,13 +494,13 @@ export default function DashboardCanvas() {
                     id={widget.id}
                     className="grid-stack-item"
                     gs-id={widget.id}
-                    gs-x={widget.x}
-                    gs-y={widget.y}
-                    gs-w={widget.w}
-                    gs-h={widget.h}
-                    gs-min-w={2}
-                    gs-min-h={2}
-                    gs-max-w={12}
+                    gs-x={upscaleGridUnits(widget.x)}
+                    gs-y={upscaleGridUnits(widget.y)}
+                    gs-w={upscaleGridUnits(widget.w)}
+                    gs-h={upscaleGridUnits(widget.h)}
+                    gs-min-w={upscaleGridUnits(2)}
+                    gs-min-h={upscaleGridUnits(2)}
+                    gs-max-w={GRID_MAX_COLUMNS}
                   >
                     <div className="grid-stack-item-content">
                       <WidgetShell

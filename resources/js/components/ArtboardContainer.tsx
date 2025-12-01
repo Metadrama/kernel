@@ -6,8 +6,8 @@
  * Artboards can be positioned but NOT resized (dimensions are immutable).
  */
 
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { GridStack, type GridStackNode } from 'gridstack';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { GridStack } from 'gridstack';
 import { Trash2, Lock, Unlock, Eye, EyeOff, MoreVertical, Copy } from 'lucide-react';
 import 'gridstack/dist/gridstack.min.css';
 import WidgetShell from '@/components/WidgetShell';
@@ -23,6 +23,11 @@ import type { ArtboardSchema } from '@/types/artboard';
 import type { WidgetSchema, WidgetComponent, ComponentCard } from '@/types/dashboard';
 import type { GridPosition } from '@/lib/component-layout';
 import { calculateArtboardGridConfig } from '@/lib/artboard-utils';
+import {
+  GRID_FINE_GRAIN,
+  downscaleGridUnits,
+  upscaleGridUnits,
+} from '@/lib/grid-resolution';
 
 interface ArtboardContainerProps {
   artboard: ArtboardSchema;
@@ -67,6 +72,7 @@ export default function ArtboardContainer({
   const [localPosition, setLocalPosition] = useState<{ x: number; y: number } | null>(null);
   const dragStartRef = useRef<{ mouseX: number; mouseY: number; artboardX: number; artboardY: number } | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const gridSettings = useMemo(() => calculateArtboardGridConfig(artboard.dimensions), [artboard.dimensions]);
 
   // Context menu state
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
@@ -83,13 +89,14 @@ export default function ArtboardContainer({
   useEffect(() => {
     if (!gridRef.current) return;
 
-    const gridConfig = calculateArtboardGridConfig(artboard.dimensions);
+    const fineColumns = gridSettings.columns * GRID_FINE_GRAIN;
+    const fineCellHeight = Math.max(16, Math.round(gridSettings.cellHeight / GRID_FINE_GRAIN));
 
     const grid = GridStack.init(
       {
-        column: gridConfig.columns,
-        cellHeight: gridConfig.cellHeight,
-        margin: gridConfig.margin,
+        column: fineColumns,
+        cellHeight: fineCellHeight,
+        margin: gridSettings.margin,
         float: false,
         animate: true,
         minRow: 1,
@@ -115,12 +122,17 @@ export default function ArtboardContainer({
         const updated = items.find((item) => (item.id ?? item.el?.id) === widget.id);
         if (!updated) return widget;
 
+        const scaledX = downscaleGridUnits(updated.x ?? widget.x * GRID_FINE_GRAIN);
+        const scaledY = downscaleGridUnits(updated.y ?? widget.y * GRID_FINE_GRAIN);
+        const scaledW = Math.max(1, downscaleGridUnits(updated.w ?? widget.w * GRID_FINE_GRAIN));
+        const scaledH = Math.max(1, downscaleGridUnits(updated.h ?? widget.h * GRID_FINE_GRAIN));
+
         return {
           ...widget,
-          x: updated.x ?? widget.x,
-          y: updated.y ?? widget.y,
-          w: updated.w ?? widget.w,
-          h: updated.h ?? widget.h,
+          x: scaledX,
+          y: scaledY,
+          w: scaledW,
+          h: scaledH,
         };
       });
 
@@ -131,7 +143,7 @@ export default function ArtboardContainer({
       grid.destroy(false);
       gridInstanceRef.current = null;
     };
-  }, [artboard.id, artboard.dimensions, onUpdate]);
+  }, [artboard.id, gridSettings, onUpdate]);
 
   // ============================================================================
   // Artboard Positioning (Drag to Move) - Transform-Aware
@@ -247,9 +259,9 @@ export default function ArtboardContainer({
         if (element) {
           gridInstanceRef.current.makeWidget(element);
           gridInstanceRef.current.update(element, {
-            minW: 2,
-            minH: 2,
-            maxW: 12,
+            minW: upscaleGridUnits(2),
+            minH: upscaleGridUnits(2),
+            maxW: gridSettings.columns * GRID_FINE_GRAIN,
           });
         }
       }
@@ -604,13 +616,13 @@ export default function ArtboardContainer({
                   id={widget.id}
                   className="grid-stack-item"
                   gs-id={widget.id}
-                  gs-x={widget.x}
-                  gs-y={widget.y}
-                  gs-w={widget.w}
-                  gs-h={widget.h}
-                  gs-min-w={2}
-                  gs-min-h={2}
-                  gs-max-w={12}
+                  gs-x={upscaleGridUnits(widget.x)}
+                  gs-y={upscaleGridUnits(widget.y)}
+                  gs-w={upscaleGridUnits(widget.w)}
+                  gs-h={upscaleGridUnits(widget.h)}
+                  gs-min-w={upscaleGridUnits(2)}
+                  gs-min-h={upscaleGridUnits(2)}
+                  gs-max-w={gridSettings.columns * GRID_FINE_GRAIN}
                 >
                   <div className="grid-stack-item-content">
                     <WidgetShell

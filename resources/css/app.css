@@ -128,3 +128,14 @@
     @apply bg-background text-foreground;
     }
 }
+
+@layer utilities {
+    .widget-shell--hide-scrollbars {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .widget-shell--hide-scrollbars::-webkit-scrollbar {
+        display: none;
+    }
+}
