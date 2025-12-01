@@ -38,6 +38,7 @@ export default function WidgetShell({
   const [resizeDirection, setResizeDirection] = useState<'e' | 's' | 'se' | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
+  const [lockedContentWidth, setLockedContentWidth] = useState<number | null>(null);
   
   // Drag state for grid-based movement
   const dragStartRef = useRef<{
@@ -52,6 +53,7 @@ export default function WidgetShell({
   const gridConfig: WidgetGridConfig = DEFAULT_WIDGET_GRID;
   const components = widget.components || [];
   const isEmpty = components.length === 0;
+  const contentWidth = lockedContentWidth ?? containerWidth;
 
   // Measure container width for layout calculations
   useEffect(() => {
@@ -59,26 +61,43 @@ export default function WidgetShell({
     
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        setContainerWidth(entry.contentRect.width);
+        const width = entry.contentRect.width;
+        setContainerWidth(width);
+
+        setLockedContentWidth((prev) => {
+          if (components.length === 0) return null;
+          if (prev === null) return width;
+          return Math.max(prev, width);
+        });
       }
     });
     
     observer.observe(containerRef.current);
     return () => observer.disconnect();
-  }, []);
+  }, [components.length]);
+
+  useEffect(() => {
+    if (components.length === 0) {
+      setLockedContentWidth(null);
+    }
+  }, [components.length]);
 
   // Calculate layout for all components
+  const effectiveLayoutWidth = lockedContentWidth ?? containerWidth;
+
   const layouts = useMemo(() => {
-    if (containerWidth === 0 || components.length === 0) return [];
+    if (effectiveLayoutWidth === 0 || components.length === 0) return [];
     
     const componentInputs = components.map(comp => ({
       instanceId: comp.instanceId,
       componentType: comp.componentType,
-      config: comp.gridPosition ? { layout: { gridPosition: comp.gridPosition } } : undefined,
+      config: comp.gridPosition
+        ? { layout: { gridPosition: comp.gridPosition, locked: true } }
+        : undefined,
     }));
     
-    return calculateWidgetLayout(componentInputs, containerWidth, gridConfig);
-  }, [components, containerWidth, gridConfig]);
+    return calculateWidgetLayout(componentInputs, effectiveLayoutWidth, gridConfig);
+  }, [components, effectiveLayoutWidth, gridConfig]);
 
   // Create a map for quick lookup
   const layoutMap = useMemo(() => {
@@ -89,11 +108,23 @@ export default function WidgetShell({
     return map;
   }, [layouts]);
 
+  // Persist auto-generated layouts so subsequent renders treat them as locked positions
+  useEffect(() => {
+    if (!onUpdateComponentLayout || layouts.length === 0) return;
+
+    components.forEach((component) => {
+      if (component.gridPosition) return;
+      const layout = layoutMap.get(component.instanceId);
+      if (!layout) return;
+      onUpdateComponentLayout(component.instanceId, layout.gridPosition);
+    });
+  }, [components, layouts, layoutMap, onUpdateComponentLayout]);
+
   // Calculate grid cell dimensions
   const gridCellWidth = useMemo(() => {
-    if (containerWidth === 0) return 0;
-    return (containerWidth - (gridConfig.gap * (gridConfig.columns - 1))) / gridConfig.columns;
-  }, [containerWidth, gridConfig]);
+    if (effectiveLayoutWidth === 0) return 0;
+    return (effectiveLayoutWidth - (gridConfig.gap * (gridConfig.columns - 1))) / gridConfig.columns;
+  }, [effectiveLayoutWidth, gridConfig]);
 
   // Handle mouse move for dragging/resizing
   useEffect(() => {
@@ -389,7 +420,10 @@ export default function WidgetShell({
       {/* Grid-based components container */}
       <div 
         className="relative p-2"
-        style={{ minHeight: contentHeight + gridConfig.gap * 2 }}
+        style={{
+          minHeight: contentHeight + gridConfig.gap * 2,
+          width: contentWidth || undefined,
+        }}
       >
         {components.map((component) => {
           const layout = layoutMap.get(component.instanceId);
