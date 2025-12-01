@@ -389,7 +389,7 @@ export default function WidgetShell({
     >
       {/* Widget toolbar - bottom-right corner */}
       {!draggingId && !resizingId && (
-        <div className="absolute bottom-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-30">
+        <div className="absolute bottom-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity z-30">
           <div className="widget-drag-handle cursor-move px-2 py-1 rounded bg-muted/90 backdrop-blur-sm border shadow-sm hover:bg-muted">
             <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
           </div>
@@ -502,19 +502,19 @@ export default function WidgetShell({
                 {/* Resize handles - simplified for grid-based layout */}
                 {/* East (right) resize */}
                 <div 
-                  className="absolute -right-1 top-1/2 -translate-y-1/2 w-2 h-8 bg-primary/60 rounded-full opacity-0 group-hover/component:opacity-100 cursor-e-resize z-10 hover:bg-primary"
+                  className="absolute -right-1 top-1/2 -translate-y-1/2 w-2 h-8 bg-primary/60 rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-e-resize z-20 hover:bg-primary"
                   onMouseDown={(e) => startResize(e, component, 'e')}
                 />
                 
                 {/* South (bottom) resize */}
                 <div 
-                  className="absolute left-1/2 -translate-x-1/2 -bottom-1 h-2 w-8 bg-primary/60 rounded-full opacity-0 group-hover/component:opacity-100 cursor-s-resize z-10 hover:bg-primary"
+                  className="absolute left-1/2 -translate-x-1/2 -bottom-1 h-2 w-8 bg-primary/60 rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-s-resize z-20 hover:bg-primary"
                   onMouseDown={(e) => startResize(e, component, 's')}
                 />
                 
                 {/* Southeast corner resize */}
                 <div 
-                  className="absolute -right-1 -bottom-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/component:opacity-100 cursor-se-resize z-10 shadow-sm"
+                  className="absolute -right-1 -bottom-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-se-resize z-20 shadow-sm"
                   onMouseDown={(e) => startResize(e, component, 'se')}
                 />
               </div>
