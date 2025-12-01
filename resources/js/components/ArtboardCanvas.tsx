@@ -66,6 +66,8 @@ export default function ArtboardCanvas() {
   } | null>(null);
   const [showInspector, setShowInspector] = useState(false);
   const [showAddArtboard, setShowAddArtboard] = useState(false);
+  const [horizontalScrollActive, setHorizontalScrollActive] = useState(false);
+  const [verticalScrollActive, setVerticalScrollActive] = useState(false);
 
   // Header context menu state (for scale-independent headers)
   const [headerContextMenuState, setHeaderContextMenuState] = useState<{
@@ -445,11 +447,14 @@ export default function ArtboardCanvas() {
 
     const safeScale = Math.max(scale, 0.0001);
     const viewWidthWorld = viewportSize.width / safeScale;
-    const maxScrollWorld = Math.max(0, (artboardBounds.maxX - artboardBounds.minX) - viewWidthWorld);
-    if (maxScrollWorld <= 0) return;
+    const rangeStart = Math.min(artboardBounds.minX, artboardBounds.maxX - viewWidthWorld);
+    const rangeEnd = Math.max(artboardBounds.minX, artboardBounds.maxX - viewWidthWorld);
+    if (!Number.isFinite(rangeStart) || !Number.isFinite(rangeEnd) || Math.abs(rangeEnd - rangeStart) < 0.0001) {
+      return;
+    }
 
     const clampedProgress = Math.min(Math.max(progress, 0), 1);
-    const targetViewMinX = artboardBounds.minX + maxScrollWorld * clampedProgress;
+    const targetViewMinX = rangeStart + (rangeEnd - rangeStart) * clampedProgress;
     const targetPanX = -targetViewMinX * safeScale;
 
     setPan((prev) =>
@@ -465,11 +470,14 @@ export default function ArtboardCanvas() {
 
     const safeScale = Math.max(scale, 0.0001);
     const viewHeightWorld = viewportSize.height / safeScale;
-    const maxScrollWorld = Math.max(0, (artboardBounds.maxY - artboardBounds.minY) - viewHeightWorld);
-    if (maxScrollWorld <= 0) return;
+    const rangeStart = Math.min(artboardBounds.minY, artboardBounds.maxY - viewHeightWorld);
+    const rangeEnd = Math.max(artboardBounds.minY, artboardBounds.maxY - viewHeightWorld);
+    if (!Number.isFinite(rangeStart) || !Number.isFinite(rangeEnd) || Math.abs(rangeEnd - rangeStart) < 0.0001) {
+      return;
+    }
 
     const clampedProgress = Math.min(Math.max(progress, 0), 1);
-    const targetViewMinY = artboardBounds.minY + maxScrollWorld * clampedProgress;
+    const targetViewMinY = rangeStart + (rangeEnd - rangeStart) * clampedProgress;
     const targetPanY = -targetViewMinY * safeScale;
 
     setPan((prev) =>
@@ -500,7 +508,11 @@ export default function ArtboardCanvas() {
     scrollToVerticalProgress(normalized);
   }, [scrollToVerticalProgress]);
 
-  const attachDragListeners = useCallback((pointerId: number, axis: 'horizontal' | 'vertical') => {
+  const attachDragListeners = useCallback((
+    pointerId: number,
+    axis: 'horizontal' | 'vertical',
+    onRelease?: () => void,
+  ) => {
     if (activeDragCleanupRef.current) {
       activeDragCleanupRef.current();
     }
@@ -519,6 +531,7 @@ export default function ArtboardCanvas() {
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('pointercancel', handlePointerUp);
       activeDragCleanupRef.current = null;
+      onRelease?.();
     };
 
     const handlePointerUp = (event: PointerEvent) => {
@@ -537,14 +550,16 @@ export default function ArtboardCanvas() {
     if (event.button !== 0 && event.pointerType !== 'touch') return;
     event.preventDefault();
     handleHorizontalTrackInteraction(event.clientX);
-    attachDragListeners(event.pointerId, 'horizontal');
+    setHorizontalScrollActive(true);
+    attachDragListeners(event.pointerId, 'horizontal', () => setHorizontalScrollActive(false));
   }, [attachDragListeners, handleHorizontalTrackInteraction]);
 
   const handleVerticalPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0 && event.pointerType !== 'touch') return;
     event.preventDefault();
     handleVerticalTrackInteraction(event.clientY);
-    attachDragListeners(event.pointerId, 'vertical');
+    setVerticalScrollActive(true);
+    attachDragListeners(event.pointerId, 'vertical', () => setVerticalScrollActive(false));
   }, [attachDragListeners, handleVerticalTrackInteraction]);
 
   useEffect(() => {
@@ -793,14 +808,15 @@ export default function ArtboardCanvas() {
 
           {/* Scrollbar Indicators */}
           {showHorizontalScrollbar && (
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30">
+            <div className="absolute inset-x-0 bottom-0 z-30 px-3 pb-2">
               <div
                 ref={horizontalTrackRef}
-                className="pointer-events-auto h-4 w-full bg-background/95 shadow-inner"
+                className="pointer-events-auto group flex h-5 w-full items-center rounded-full border border-border/40 bg-background/95 shadow-inner"
+                style={{ touchAction: 'none', cursor: 'pointer' }}
                 onPointerDown={handleHorizontalPointerDown}
               >
                 <div
-                  className="h-full rounded-full bg-primary/70 transition-all"
+                  className={`h-1.5 rounded-full transition-all duration-150 ${horizontalScrollActive ? 'bg-primary' : 'bg-primary/70'} group-hover:bg-primary`}
                   style={{
                     width: `${horizontalFillWidth}%`,
                     marginLeft: `${horizontalMarginLeft}%`,
@@ -810,14 +826,15 @@ export default function ArtboardCanvas() {
             </div>
           )}
           {showVerticalScrollbar && (
-            <div className="pointer-events-none absolute inset-y-0 right-0 z-30">
+            <div className="absolute inset-y-0 right-0 z-30 pr-2 py-3">
               <div
                 ref={verticalTrackRef}
-                className="pointer-events-auto h-full w-4 bg-background/95 shadow-inner"
+                className="pointer-events-auto group flex h-full w-5 flex-col items-center rounded-full border border-border/40 bg-background/95 shadow-inner"
+                style={{ touchAction: 'none', cursor: 'pointer' }}
                 onPointerDown={handleVerticalPointerDown}
               >
                 <div
-                  className="w-full rounded-full bg-primary/70 transition-all"
+                  className={`w-1.5 rounded-full transition-all duration-150 ${verticalScrollActive ? 'bg-primary' : 'bg-primary/70'} group-hover:bg-primary`}
                   style={{
                     height: `${verticalFillHeight}%`,
                     marginTop: `${verticalMarginTop}%`,
