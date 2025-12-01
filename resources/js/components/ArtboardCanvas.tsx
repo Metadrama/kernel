@@ -292,6 +292,14 @@ export default function ArtboardCanvas() {
   const horizontalTrackRef = useRef<HTMLDivElement>(null);
   const verticalTrackRef = useRef<HTMLDivElement>(null);
   const activeDragCleanupRef = useRef<(() => void) | null>(null);
+  const horizontalPointerOffsetRef = useRef(0);
+  const verticalPointerOffsetRef = useRef(0);
+  const scrollbarMetricsRef = useRef({
+    horizontalFillWidth: MIN_SCROLLBAR_FILL,
+    horizontalMarginLeft: 0,
+    verticalFillHeight: MIN_SCROLLBAR_FILL,
+    verticalMarginTop: 0,
+  });
 
   useEffect(() => {
     const element = canvasRef.current;
@@ -488,29 +496,108 @@ export default function ArtboardCanvas() {
     );
   }, [artboardBounds, scale, viewportSize.height]);
 
-  const handleHorizontalTrackInteraction = useCallback((clientX: number) => {
+  const handleHorizontalTrackInteraction = useCallback((clientX: number, overrideOffset?: number) => {
     const track = horizontalTrackRef.current;
     if (!track) return;
     const rect = track.getBoundingClientRect();
     if (rect.width === 0) return;
 
-    const normalized = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
+    const { horizontalFillWidth } = scrollbarMetricsRef.current;
+    const handleWidthPx = Math.max(0, (horizontalFillWidth / 100) * rect.width);
+    const travelPx = Math.max(0, rect.width - handleWidthPx);
+    if (travelPx === 0) {
+      scrollToHorizontalProgress(0);
+      return;
+    }
+
+    const rawOffset = overrideOffset ?? horizontalPointerOffsetRef.current ?? handleWidthPx / 2;
+    const pointerOffset = Math.max(0, Math.min(rawOffset, handleWidthPx));
+    const desiredStart = (clientX - rect.left) - pointerOffset;
+    const normalized = Math.min(Math.max(desiredStart / travelPx, 0), 1);
+
     scrollToHorizontalProgress(normalized);
   }, [scrollToHorizontalProgress]);
 
-  const handleVerticalTrackInteraction = useCallback((clientY: number) => {
+  const handleVerticalTrackInteraction = useCallback((clientY: number, overrideOffset?: number) => {
     const track = verticalTrackRef.current;
     if (!track) return;
     const rect = track.getBoundingClientRect();
     if (rect.height === 0) return;
 
-    const normalized = Math.min(Math.max((clientY - rect.top) / rect.height, 0), 1);
+    const { verticalFillHeight } = scrollbarMetricsRef.current;
+    const handleHeightPx = Math.max(0, (verticalFillHeight / 100) * rect.height);
+    const travelPx = Math.max(0, rect.height - handleHeightPx);
+    if (travelPx === 0) {
+      scrollToVerticalProgress(0);
+      return;
+    }
+
+    const rawOffset = overrideOffset ?? verticalPointerOffsetRef.current ?? handleHeightPx / 2;
+    const pointerOffset = Math.max(0, Math.min(rawOffset, handleHeightPx));
+    const desiredStart = (clientY - rect.top) - pointerOffset;
+    const normalized = Math.min(Math.max(desiredStart / travelPx, 0), 1);
+
     scrollToVerticalProgress(normalized);
   }, [scrollToVerticalProgress]);
+
+  const primeHorizontalPointerOffset = useCallback((clientX: number) => {
+    const track = horizontalTrackRef.current;
+    if (!track) {
+      horizontalPointerOffsetRef.current = 0;
+      return;
+    }
+
+    const rect = track.getBoundingClientRect();
+    if (rect.width === 0) {
+      horizontalPointerOffsetRef.current = 0;
+      return;
+    }
+
+    const { horizontalFillWidth, horizontalMarginLeft } = scrollbarMetricsRef.current;
+    const handleWidthPx = Math.max(0, (horizontalFillWidth / 100) * rect.width);
+    if (handleWidthPx === 0) {
+      horizontalPointerOffsetRef.current = 0;
+      return;
+    }
+
+    const handleStartPx = (horizontalMarginLeft / 100) * rect.width;
+    const pointerPosPx = clientX - rect.left;
+    const insideHandle = pointerPosPx >= handleStartPx && pointerPosPx <= handleStartPx + handleWidthPx;
+    const offset = insideHandle ? pointerPosPx - handleStartPx : handleWidthPx / 2;
+    horizontalPointerOffsetRef.current = Math.max(0, Math.min(offset, handleWidthPx));
+  }, []);
+
+  const primeVerticalPointerOffset = useCallback((clientY: number) => {
+    const track = verticalTrackRef.current;
+    if (!track) {
+      verticalPointerOffsetRef.current = 0;
+      return;
+    }
+
+    const rect = track.getBoundingClientRect();
+    if (rect.height === 0) {
+      verticalPointerOffsetRef.current = 0;
+      return;
+    }
+
+    const { verticalFillHeight, verticalMarginTop } = scrollbarMetricsRef.current;
+    const handleHeightPx = Math.max(0, (verticalFillHeight / 100) * rect.height);
+    if (handleHeightPx === 0) {
+      verticalPointerOffsetRef.current = 0;
+      return;
+    }
+
+    const handleStartPx = (verticalMarginTop / 100) * rect.height;
+    const pointerPosPx = clientY - rect.top;
+    const insideHandle = pointerPosPx >= handleStartPx && pointerPosPx <= handleStartPx + handleHeightPx;
+    const offset = insideHandle ? pointerPosPx - handleStartPx : handleHeightPx / 2;
+    verticalPointerOffsetRef.current = Math.max(0, Math.min(offset, handleHeightPx));
+  }, []);
 
   const attachDragListeners = useCallback((
     pointerId: number,
     axis: 'horizontal' | 'vertical',
+    target: HTMLElement | null,
     onRelease?: () => void,
   ) => {
     if (activeDragCleanupRef.current) {
@@ -530,6 +617,7 @@ export default function ArtboardCanvas() {
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('pointercancel', handlePointerUp);
+      target?.releasePointerCapture?.(pointerId);
       activeDragCleanupRef.current = null;
       onRelease?.();
     };
@@ -539,6 +627,7 @@ export default function ArtboardCanvas() {
       cleanup();
     };
 
+    target?.setPointerCapture?.(pointerId);
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
     window.addEventListener('pointercancel', handlePointerUp);
@@ -549,18 +638,20 @@ export default function ArtboardCanvas() {
   const handleHorizontalPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0 && event.pointerType !== 'touch') return;
     event.preventDefault();
-    handleHorizontalTrackInteraction(event.clientX);
+    primeHorizontalPointerOffset(event.clientX);
+    handleHorizontalTrackInteraction(event.clientX, horizontalPointerOffsetRef.current);
     setHorizontalScrollActive(true);
-    attachDragListeners(event.pointerId, 'horizontal', () => setHorizontalScrollActive(false));
-  }, [attachDragListeners, handleHorizontalTrackInteraction]);
+    attachDragListeners(event.pointerId, 'horizontal', event.currentTarget, () => setHorizontalScrollActive(false));
+  }, [attachDragListeners, handleHorizontalTrackInteraction, primeHorizontalPointerOffset]);
 
   const handleVerticalPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0 && event.pointerType !== 'touch') return;
     event.preventDefault();
-    handleVerticalTrackInteraction(event.clientY);
+    primeVerticalPointerOffset(event.clientY);
+    handleVerticalTrackInteraction(event.clientY, verticalPointerOffsetRef.current);
     setVerticalScrollActive(true);
-    attachDragListeners(event.pointerId, 'vertical', () => setVerticalScrollActive(false));
-  }, [attachDragListeners, handleVerticalTrackInteraction]);
+    attachDragListeners(event.pointerId, 'vertical', event.currentTarget, () => setVerticalScrollActive(false));
+  }, [attachDragListeners, handleVerticalTrackInteraction, primeVerticalPointerOffset]);
 
   useEffect(() => {
     return () => {
@@ -608,8 +699,13 @@ export default function ArtboardCanvas() {
     const horizontalOverflow = leftOverflowPx > 0 || rightOverflowPx > 0;
     const verticalOverflow = topOverflowPx > 0 || bottomOverflowPx > 0;
 
-    const contentWidth = Math.max(1, (artboardBounds.maxX - artboardBounds.minX) * scale);
-    const contentHeight = Math.max(1, (artboardBounds.maxY - artboardBounds.minY) * scale);
+    const unionMinX = Math.min(artboardBounds.minX, viewMinX);
+    const unionMaxX = Math.max(artboardBounds.maxX, viewMaxX);
+    const unionMinY = Math.min(artboardBounds.minY, viewMinY);
+    const unionMaxY = Math.max(artboardBounds.maxY, viewMaxY);
+
+    const contentWidth = Math.max(1, (unionMaxX - unionMinX) * scale);
+    const contentHeight = Math.max(1, (unionMaxY - unionMinY) * scale);
     const visibleHorizontalFraction = Math.min(1, viewportSize.width / contentWidth);
     const visibleVerticalFraction = Math.min(1, viewportSize.height / contentHeight);
 
@@ -653,6 +749,15 @@ export default function ArtboardCanvas() {
       verticalMarginTop,
     };
   }, [artboardBounds, viewportSize.width, viewportSize.height, pan.x, pan.y, scale]);
+
+  useEffect(() => {
+    scrollbarMetricsRef.current = {
+      horizontalFillWidth,
+      horizontalMarginLeft,
+      verticalFillHeight,
+      verticalMarginTop,
+    };
+  }, [horizontalFillWidth, horizontalMarginLeft, verticalFillHeight, verticalMarginTop]);
 
   // ============================================================================
   // Render
