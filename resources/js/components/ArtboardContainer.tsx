@@ -56,7 +56,9 @@ export default function ArtboardContainer({
   onSelectComponent,
   selectedComponentId,
 }: ArtboardContainerProps) {
-  const HEADER_OFFSET_PX = 40; // visual gap between header and artboard surface
+  const HEADER_HEIGHT_PX = 52; // matches tailwind h-13 (3.25rem @ 16px)
+  const HEADER_GAP_PX = 8;
+  const HEADER_OFFSET_PX = HEADER_HEIGHT_PX + HEADER_GAP_PX;
   const gridRef = useRef<HTMLDivElement>(null);
   const gridInstanceRef = useRef<GridStack | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
