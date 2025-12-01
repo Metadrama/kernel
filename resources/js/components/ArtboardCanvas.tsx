@@ -26,6 +26,13 @@ const EDGE_ACTIVATION_EPSILON = 0.5;
 const MIN_SCROLLBAR_FILL = 22;
 const MAX_SCROLLBAR_FILL = 85;
 const KEY_PAN_STEP = 60;
+const SCROLL_MERGE_WINDOW_MS = 150;
+const SCROLL_MAX_DELTA = 320;
+const SCROLL_BASE_UNIT = 120; // typical wheel delta per "notch"
+const MIN_SCROLL_STEP = 2;
+const MICRO_SCROLL_EXPONENT = 0.85;
+const FAST_SCROLL_THRESHOLD = 80;
+const FAST_SCROLL_MULTIPLIER = 6;
 
 const clampScale = (value: number) => Math.min(Math.max(value, MIN_SCALE), MAX_SCALE);
 const clampPanValue = (value: number) => Math.max(-PAN_LIMIT, Math.min(PAN_LIMIT, value));
@@ -276,6 +283,11 @@ export default function ArtboardCanvas() {
     }
   }, [isPanning, handleMouseMove, handleMouseUp]);
 
+  const velocityRef = useRef({
+    horizontal: { delta: 0, timestamp: 0 },
+    vertical: { delta: 0, timestamp: 0 },
+  });
+
   useEffect(() => {
     const element = canvasRef.current;
     if (!element) return;
@@ -283,15 +295,42 @@ export default function ArtboardCanvas() {
     const handleWheelPan = (e: WheelEvent) => {
       if (e.ctrlKey) return;
       e.preventDefault();
+      const axis: 'horizontal' | 'vertical' = e.shiftKey ? 'horizontal' : 'vertical';
 
-      const dominantDelta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
-      const horizontalDelta = e.shiftKey ? dominantDelta : 0;
-      const verticalDelta = e.shiftKey ? 0 : e.deltaY;
+      const primaryShiftDelta = Math.abs(e.deltaX) >= Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      const rawDelta = axis === 'horizontal'
+        ? primaryShiftDelta || e.deltaX || e.deltaY
+        : e.deltaY;
+
+      if (!rawDelta) {
+        return;
+      }
+
+      const now = performance.now();
+      const record = velocityRef.current[axis];
+      const elapsed = now - record.timestamp;
+      const sameDirection = rawDelta * record.delta >= 0 && elapsed < SCROLL_MERGE_WINDOW_MS;
+      const blendedDelta = sameDirection
+        ? rawDelta + record.delta * 0.5
+        : rawDelta;
+
+      const magnitude = Math.min(SCROLL_MAX_DELTA, Math.abs(blendedDelta));
+      const normalized = Math.max(0.01, magnitude / SCROLL_BASE_UNIT);
+      const microStep = Math.max(
+        MIN_SCROLL_STEP,
+        MIN_SCROLL_STEP * Math.pow(normalized, MICRO_SCROLL_EXPONENT)
+      );
+      const fastComponent = magnitude > FAST_SCROLL_THRESHOLD
+        ? Math.pow((magnitude - FAST_SCROLL_THRESHOLD) / FAST_SCROLL_THRESHOLD, 1.15) * FAST_SCROLL_MULTIPLIER
+        : 0;
+      const finalDelta = Math.sign(blendedDelta || 1) * (microStep + fastComponent);
+
+      velocityRef.current[axis] = { delta: blendedDelta, timestamp: now };
 
       setPan((prev) =>
         clampPan({
-          x: prev.x - horizontalDelta,
-          y: prev.y - verticalDelta,
+          x: axis === 'horizontal' ? prev.x - finalDelta : prev.x,
+          y: axis === 'vertical' ? prev.y - finalDelta : prev.y,
         })
       );
     };
