@@ -430,23 +430,15 @@ export default function ComponentSidebar() {
                           <div className="space-y-3">
                             {Object.entries(groupedComponents[level.category] || {}).map(([subcategory, components], subIndex) => {
                               const subConfig = SUBCATEGORY_CONFIG[subcategory] || { label: subcategory, icon: 'Layers' };
-                              const SubIcon = ICON_MAP[subConfig.icon];
 
                               return (
                                 <div
                                   key={subcategory}
                                   className={`space-y-2 ${subIndex === 0 ? '' : 'border-t border-border/60 pt-3'}`}
                                 >
-                                  <div className="flex items-center gap-3 px-1 text-muted-foreground">
-                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-background/80">
-                                      {SubIcon && <SubIcon className="h-4 w-4" />}
-                                    </div>
-                                    <div className="flex flex-1 items-center justify-between gap-2">
-                                      <div>
-                                        <p className="text-sm font-medium text-foreground">{subConfig.label}</p>
-                                        <p className="text-xs text-muted-foreground">{components.length} components</p>
-                                      </div>
-                                    </div>
+                                  <div className="flex items-center justify-between px-1">
+                                    <p className="text-sm font-semibold text-foreground">{subConfig.label}</p>
+                                    <span className="text-xs text-muted-foreground">{components.length}</span>
                                   </div>
                                   <div className="space-y-1">
                                     {components.map(renderComponentCard)}
