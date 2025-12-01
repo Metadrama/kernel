@@ -18,6 +18,11 @@ import type { ArtboardSchema, CanvasPosition } from '@/types/artboard';
 import type { WidgetComponent } from '@/types/dashboard';
 import { createArtboard } from '@/lib/artboard-utils';
 
+const MIN_SCALE = 0.1;
+const MAX_SCALE = 5;
+
+const clampScale = (value: number) => Math.min(Math.max(value, MIN_SCALE), MAX_SCALE);
+
 export default function ArtboardCanvas() {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [artboards, setArtboards] = useState<ArtboardSchema[]>(() => {
@@ -72,27 +77,70 @@ export default function ArtboardCanvas() {
   // Zoom Controls
   // ============================================================================
 
+  const adjustScale = useCallback(
+    (scaleUpdater: (prev: number) => number, focusPoint?: CanvasPosition) => {
+      setScale((prevScale) => {
+        const nextScale = clampScale(scaleUpdater(prevScale));
+        const canvasElement = canvasRef.current;
+
+        if (!canvasElement || prevScale === nextScale) {
+          return nextScale;
+        }
+
+        const rect = canvasElement.getBoundingClientRect();
+        const fallbackFocus = { x: rect.width / 2, y: rect.height / 2 };
+        const targetFocus = focusPoint ?? fallbackFocus;
+
+        setPan((prevPan) => {
+          const canvasPoint = {
+            x: (targetFocus.x - prevPan.x) / prevScale,
+            y: (targetFocus.y - prevPan.y) / prevScale,
+          };
+
+          return {
+            x: targetFocus.x - canvasPoint.x * nextScale,
+            y: targetFocus.y - canvasPoint.y * nextScale,
+          };
+        });
+
+        return nextScale;
+      });
+    },
+    []
+  );
+
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
-      if (e.ctrlKey) {
-        e.preventDefault();
-        const delta = e.deltaY > 0 ? 0.9 : 1.1;
-        setScale((prev) => Math.min(Math.max(prev * delta, 0.1), 5));
+      if (!e.ctrlKey) return;
+
+      e.preventDefault();
+      const canvasElement = canvasRef.current;
+      let focusPoint: CanvasPosition | undefined;
+
+      if (canvasElement) {
+        const rect = canvasElement.getBoundingClientRect();
+        focusPoint = {
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top,
+        };
       }
+
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      adjustScale((prev) => prev * delta, focusPoint);
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey) {
-        if (e.key === '=' || e.key === '+') {
-          e.preventDefault();
-          setScale((prev) => Math.min(prev * 1.1, 5));
-        } else if (e.key === '-') {
-          e.preventDefault();
-          setScale((prev) => Math.max(prev * 0.9, 0.1));
-        } else if (e.key === '0') {
-          e.preventDefault();
-          setScale(1);
-        }
+      if (!e.ctrlKey) return;
+
+      if (e.key === '=' || e.key === '+') {
+        e.preventDefault();
+        adjustScale((prev) => prev * 1.1);
+      } else if (e.key === '-') {
+        e.preventDefault();
+        adjustScale((prev) => prev * 0.9);
+      } else if (e.key === '0') {
+        e.preventDefault();
+        adjustScale(() => 1);
       }
     };
 
@@ -103,7 +151,7 @@ export default function ArtboardCanvas() {
       window.removeEventListener('wheel', handleWheel);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
+  }, [adjustScale]);
 
   // ============================================================================
   // Pan Controls
@@ -276,7 +324,7 @@ export default function ArtboardCanvas() {
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 rounded-none rounded-l-md border-r"
-                onClick={() => setScale((prev) => Math.max(prev * 0.9, 0.1))}
+                onClick={() => adjustScale((prev) => prev * 0.9)}
                 title="Zoom Out (Ctrl+-)"
               >
                 <span className="text-xs">-</span>
@@ -288,7 +336,7 @@ export default function ArtboardCanvas() {
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 rounded-none border-r"
-                onClick={() => setScale((prev) => Math.min(prev * 1.1, 5))}
+                onClick={() => adjustScale((prev) => prev * 1.1)}
                 title="Zoom In (Ctrl++)"
               >
                 <Plus className="h-3 w-3" />
@@ -297,7 +345,7 @@ export default function ArtboardCanvas() {
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 rounded-none rounded-r-md"
-                onClick={() => setScale(1)}
+                onClick={() => adjustScale(() => 1)}
                 title="Reset Zoom (Ctrl+0)"
               >
                 <span className="text-xs">1:1</span>

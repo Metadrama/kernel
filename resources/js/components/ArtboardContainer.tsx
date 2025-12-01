@@ -56,6 +56,7 @@ export default function ArtboardContainer({
   onSelectComponent,
   selectedComponentId,
 }: ArtboardContainerProps) {
+  const HEADER_OFFSET_PX = 40; // visual gap between header and artboard surface
   const gridRef = useRef<HTMLDivElement>(null);
   const gridInstanceRef = useRef<GridStack | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -446,7 +447,7 @@ export default function ArtboardContainer({
         className="artboard-header group absolute flex h-13 items-center justify-between px-0.5 cursor-move"
         style={{
           left: displayPosition.x,
-          top: displayPosition.y,
+          top: displayPosition.y - HEADER_OFFSET_PX / canvasScale,
           // Counter-scale to maintain constant size
           transform: `scale(${1 / canvasScale})`,
           transformOrigin: 'top left',
@@ -554,7 +555,6 @@ export default function ArtboardContainer({
           className={`absolute inset-0 shadow-2xl ${isSelected ? 'ring-2 ring-primary ring-offset-2' : 'ring-1 ring-border'}`}
           style={{
             backgroundColor: artboard.backgroundColor,
-            top: `${40 / canvasScale}px`, // Start below header
           }}
         />
 
