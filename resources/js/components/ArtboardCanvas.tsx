@@ -6,7 +6,7 @@
  * GridStack instance for widget management.
  */
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo, useLayoutEffect } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ArtboardToolbar from '@/components/ArtboardToolbar';
@@ -21,8 +21,17 @@ import { useArtboardContext } from '@/context/ArtboardContext';
 
 const MIN_SCALE = 0.1;
 const MAX_SCALE = 5;
+const PAN_LIMIT = 8000;
+const EDGE_ACTIVATION_EPSILON = 0.5;
+const MIN_SCROLLBAR_FILL = 22;
+const MAX_SCROLLBAR_FILL = 85;
 
 const clampScale = (value: number) => Math.min(Math.max(value, MIN_SCALE), MAX_SCALE);
+const clampPanValue = (value: number) => Math.max(-PAN_LIMIT, Math.min(PAN_LIMIT, value));
+const clampPan = (pan: CanvasPosition) => ({
+  x: clampPanValue(pan.x),
+  y: clampPanValue(pan.y),
+});
 
 export default function ArtboardCanvas() {
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -38,6 +47,7 @@ export default function ArtboardCanvas() {
   const [pan, setPan] = useState<CanvasPosition>({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState<CanvasPosition>({ x: 0, y: 0 });
+  const [viewportSize, setViewportSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const selectedArtboard = artboards.find(a => a.id === selectedArtboardId) || null;
 
   // Component selection state for inspector
@@ -56,6 +66,30 @@ export default function ArtboardCanvas() {
       position: { x: number; y: number } | null;
     };
   }>({});
+
+  const artboardBounds = useMemo(() => {
+    if (artboards.length === 0) return null;
+
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+
+    artboards.forEach((artboard) => {
+      if (!artboard.visible) return;
+      const { position, dimensions } = artboard;
+      minX = Math.min(minX, position.x);
+      minY = Math.min(minY, position.y);
+      maxX = Math.max(maxX, position.x + dimensions.widthPx);
+      maxY = Math.max(maxY, position.y + dimensions.heightPx);
+    });
+
+    if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+      return null;
+    }
+
+    return { minX, minY, maxX, maxY };
+  }, [artboards]);
 
   // ============================================================================
   // Zoom Controls
@@ -137,6 +171,19 @@ export default function ArtboardCanvas() {
     };
   }, [adjustScale]);
 
+  useLayoutEffect(() => {
+    if (!canvasRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        const { width, height } = entry.contentRect;
+        setViewportSize({ width, height });
+      }
+    });
+    observer.observe(canvasRef.current);
+    return () => observer.disconnect();
+  }, []);
+
   // ============================================================================
   // Pan Controls
   // ============================================================================
@@ -153,10 +200,10 @@ export default function ArtboardCanvas() {
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (isPanning) {
-      setPan({
+      setPan(clampPan({
         x: e.clientX - panStart.x,
         y: e.clientY - panStart.y,
-      });
+      }));
     }
   }, [isPanning, panStart]);
 
@@ -174,6 +221,27 @@ export default function ArtboardCanvas() {
       };
     }
   }, [isPanning, handleMouseMove, handleMouseUp]);
+
+  useEffect(() => {
+    const element = canvasRef.current;
+    if (!element) return;
+
+    const handleWheelPan = (e: WheelEvent) => {
+      if (e.ctrlKey) return;
+      e.preventDefault();
+      setPan((prev) =>
+        clampPan({
+          x: prev.x - e.deltaX,
+          y: prev.y - e.deltaY,
+        })
+      );
+    };
+
+    element.addEventListener('wheel', handleWheelPan, { passive: false });
+    return () => {
+      element.removeEventListener('wheel', handleWheelPan);
+    };
+  }, []);
 
   // ============================================================================
   // Artboard Management
@@ -270,6 +338,85 @@ export default function ArtboardCanvas() {
     setShowInspector(false);
     setSelectedComponent(null);
   }, []);
+
+  const {
+    showHorizontalScrollbar,
+    showVerticalScrollbar,
+    horizontalFillWidth,
+    horizontalMarginLeft,
+    verticalFillHeight,
+    verticalMarginTop,
+  } = useMemo(() => {
+    if (!artboardBounds || viewportSize.width === 0 || viewportSize.height === 0) {
+      return {
+        showHorizontalScrollbar: false,
+        showVerticalScrollbar: false,
+        horizontalFillWidth: MIN_SCROLLBAR_FILL,
+        horizontalMarginLeft: 0,
+        verticalFillHeight: MIN_SCROLLBAR_FILL,
+        verticalMarginTop: 0,
+      };
+    }
+
+    const leftEdge = pan.x + artboardBounds.minX * scale;
+    const rightEdge = pan.x + artboardBounds.maxX * scale;
+    const topEdge = pan.y + artboardBounds.minY * scale;
+    const bottomEdge = pan.y + artboardBounds.maxY * scale;
+
+    const touchesLeft = leftEdge <= EDGE_ACTIVATION_EPSILON;
+    const touchesRight = rightEdge >= viewportSize.width - EDGE_ACTIVATION_EPSILON;
+    const touchesTop = topEdge <= EDGE_ACTIVATION_EPSILON;
+    const touchesBottom = bottomEdge >= viewportSize.height - EDGE_ACTIVATION_EPSILON;
+
+    const contentWidth = Math.max(1, (artboardBounds.maxX - artboardBounds.minX) * scale);
+    const contentHeight = Math.max(1, (artboardBounds.maxY - artboardBounds.minY) * scale);
+    const visibleHorizontalFraction = Math.min(1, viewportSize.width / contentWidth);
+    const visibleVerticalFraction = Math.min(1, viewportSize.height / contentHeight);
+
+    const horizontalFillWidth = Math.max(
+      MIN_SCROLLBAR_FILL,
+      Math.min(MAX_SCROLLBAR_FILL, visibleHorizontalFraction * 100)
+    );
+    const verticalFillHeight = Math.max(
+      MIN_SCROLLBAR_FILL,
+      Math.min(MAX_SCROLLBAR_FILL, visibleVerticalFraction * 100)
+    );
+
+    const leftOverflow = Math.max(0, -leftEdge);
+    const rightOverflow = Math.max(0, rightEdge - viewportSize.width);
+    const horizontalScrollableSpan = leftOverflow + rightOverflow;
+    const horizontalTrackSpace = Math.max(0, 100 - horizontalFillWidth);
+    const horizontalProgress = horizontalScrollableSpan > 0
+      ? leftOverflow / horizontalScrollableSpan
+      : touchesLeft
+        ? 0
+        : touchesRight
+          ? 1
+          : 0.5;
+    const horizontalMarginLeft = horizontalTrackSpace * horizontalProgress;
+
+    const topOverflow = Math.max(0, -topEdge);
+    const bottomOverflow = Math.max(0, bottomEdge - viewportSize.height);
+    const verticalScrollableSpan = topOverflow + bottomOverflow;
+    const verticalTrackSpace = Math.max(0, 100 - verticalFillHeight);
+    const verticalProgress = verticalScrollableSpan > 0
+      ? topOverflow / verticalScrollableSpan
+      : touchesTop
+        ? 0
+        : touchesBottom
+          ? 1
+          : 0.5;
+    const verticalMarginTop = verticalTrackSpace * verticalProgress;
+
+    return {
+      showHorizontalScrollbar: touchesLeft || touchesRight,
+      showVerticalScrollbar: touchesTop || touchesBottom,
+      horizontalFillWidth,
+      horizontalMarginLeft,
+      verticalFillHeight,
+      verticalMarginTop,
+    };
+  }, [artboardBounds, viewportSize.width, viewportSize.height, pan.x, pan.y, scale]);
 
   // ============================================================================
   // Render
@@ -422,6 +569,30 @@ export default function ArtboardCanvas() {
                 />
               ))}
           </div>
+
+          {/* Scrollbar Indicators */}
+          {showHorizontalScrollbar && (
+            <div className="pointer-events-none absolute bottom-6 left-1/2 z-30 flex w-72 -translate-x-1/2 rounded-full border border-border/60 bg-background/90 shadow-inner">
+              <div
+                className="h-2 rounded-full bg-primary/70 transition-all"
+                style={{
+                  width: `${horizontalFillWidth}%`,
+                  marginLeft: `${horizontalMarginLeft}%`,
+                }}
+              />
+            </div>
+          )}
+          {showVerticalScrollbar && (
+            <div className="pointer-events-none absolute right-6 top-1/2 z-30 flex h-72 -translate-y-1/2 flex-col rounded-full border border-border/60 bg-background/90 shadow-inner">
+              <div
+                className="w-2 rounded-full bg-primary/70 transition-all"
+                style={{
+                  height: `${verticalFillHeight}%`,
+                  marginTop: `${verticalMarginTop}%`,
+                }}
+              />
+            </div>
+          )}
         </div>
       </div>
 
