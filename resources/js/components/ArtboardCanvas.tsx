@@ -287,6 +287,9 @@ export default function ArtboardCanvas() {
     horizontal: { delta: 0, timestamp: 0 },
     vertical: { delta: 0, timestamp: 0 },
   });
+  const horizontalTrackRef = useRef<HTMLDivElement>(null);
+  const verticalTrackRef = useRef<HTMLDivElement>(null);
+  const activeDragCleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const element = canvasRef.current;
@@ -435,6 +438,121 @@ export default function ArtboardCanvas() {
   const handleCloseInspector = useCallback(() => {
     setShowInspector(false);
     setSelectedComponent(null);
+  }, []);
+
+  const scrollToHorizontalProgress = useCallback((progress: number) => {
+    if (!artboardBounds || viewportSize.width === 0) return;
+
+    const safeScale = Math.max(scale, 0.0001);
+    const viewWidthWorld = viewportSize.width / safeScale;
+    const maxScrollWorld = Math.max(0, (artboardBounds.maxX - artboardBounds.minX) - viewWidthWorld);
+    if (maxScrollWorld <= 0) return;
+
+    const clampedProgress = Math.min(Math.max(progress, 0), 1);
+    const targetViewMinX = artboardBounds.minX + maxScrollWorld * clampedProgress;
+    const targetPanX = -targetViewMinX * safeScale;
+
+    setPan((prev) =>
+      clampPan({
+        x: targetPanX,
+        y: prev.y,
+      })
+    );
+  }, [artboardBounds, scale, viewportSize.width]);
+
+  const scrollToVerticalProgress = useCallback((progress: number) => {
+    if (!artboardBounds || viewportSize.height === 0) return;
+
+    const safeScale = Math.max(scale, 0.0001);
+    const viewHeightWorld = viewportSize.height / safeScale;
+    const maxScrollWorld = Math.max(0, (artboardBounds.maxY - artboardBounds.minY) - viewHeightWorld);
+    if (maxScrollWorld <= 0) return;
+
+    const clampedProgress = Math.min(Math.max(progress, 0), 1);
+    const targetViewMinY = artboardBounds.minY + maxScrollWorld * clampedProgress;
+    const targetPanY = -targetViewMinY * safeScale;
+
+    setPan((prev) =>
+      clampPan({
+        x: prev.x,
+        y: targetPanY,
+      })
+    );
+  }, [artboardBounds, scale, viewportSize.height]);
+
+  const handleHorizontalTrackInteraction = useCallback((clientX: number) => {
+    const track = horizontalTrackRef.current;
+    if (!track) return;
+    const rect = track.getBoundingClientRect();
+    if (rect.width === 0) return;
+
+    const normalized = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
+    scrollToHorizontalProgress(normalized);
+  }, [scrollToHorizontalProgress]);
+
+  const handleVerticalTrackInteraction = useCallback((clientY: number) => {
+    const track = verticalTrackRef.current;
+    if (!track) return;
+    const rect = track.getBoundingClientRect();
+    if (rect.height === 0) return;
+
+    const normalized = Math.min(Math.max((clientY - rect.top) / rect.height, 0), 1);
+    scrollToVerticalProgress(normalized);
+  }, [scrollToVerticalProgress]);
+
+  const attachDragListeners = useCallback((pointerId: number, axis: 'horizontal' | 'vertical') => {
+    if (activeDragCleanupRef.current) {
+      activeDragCleanupRef.current();
+    }
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (event.pointerId !== pointerId) return;
+      if (axis === 'horizontal') {
+        handleHorizontalTrackInteraction(event.clientX);
+      } else {
+        handleVerticalTrackInteraction(event.clientY);
+      }
+    };
+
+    const cleanup = () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+      activeDragCleanupRef.current = null;
+    };
+
+    const handlePointerUp = (event: PointerEvent) => {
+      if (event.pointerId !== pointerId) return;
+      cleanup();
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+
+    activeDragCleanupRef.current = cleanup;
+  }, [handleHorizontalTrackInteraction, handleVerticalTrackInteraction]);
+
+  const handleHorizontalPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0 && event.pointerType !== 'touch') return;
+    event.preventDefault();
+    handleHorizontalTrackInteraction(event.clientX);
+    attachDragListeners(event.pointerId, 'horizontal');
+  }, [attachDragListeners, handleHorizontalTrackInteraction]);
+
+  const handleVerticalPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0 && event.pointerType !== 'touch') return;
+    event.preventDefault();
+    handleVerticalTrackInteraction(event.clientY);
+    attachDragListeners(event.pointerId, 'vertical');
+  }, [attachDragListeners, handleVerticalTrackInteraction]);
+
+  useEffect(() => {
+    return () => {
+      if (activeDragCleanupRef.current) {
+        activeDragCleanupRef.current();
+      }
+    };
   }, []);
 
   const {
@@ -675,25 +793,37 @@ export default function ArtboardCanvas() {
 
           {/* Scrollbar Indicators */}
           {showHorizontalScrollbar && (
-            <div className="pointer-events-none absolute bottom-6 left-1/2 z-30 flex w-72 -translate-x-1/2 rounded-full border border-border/60 bg-background/90 shadow-inner">
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30">
               <div
-                className="h-2 rounded-full bg-primary/70 transition-all"
-                style={{
-                  width: `${horizontalFillWidth}%`,
-                  marginLeft: `${horizontalMarginLeft}%`,
-                }}
-              />
+                ref={horizontalTrackRef}
+                className="pointer-events-auto h-4 w-full bg-background/95 shadow-inner"
+                onPointerDown={handleHorizontalPointerDown}
+              >
+                <div
+                  className="h-full rounded-full bg-primary/70 transition-all"
+                  style={{
+                    width: `${horizontalFillWidth}%`,
+                    marginLeft: `${horizontalMarginLeft}%`,
+                  }}
+                />
+              </div>
             </div>
           )}
           {showVerticalScrollbar && (
-            <div className="pointer-events-none absolute right-6 top-1/2 z-30 flex h-72 -translate-y-1/2 flex-col rounded-full border border-border/60 bg-background/90 shadow-inner">
+            <div className="pointer-events-none absolute inset-y-0 right-0 z-30">
               <div
-                className="w-2 rounded-full bg-primary/70 transition-all"
-                style={{
-                  height: `${verticalFillHeight}%`,
-                  marginTop: `${verticalMarginTop}%`,
-                }}
-              />
+                ref={verticalTrackRef}
+                className="pointer-events-auto h-full w-4 bg-background/95 shadow-inner"
+                onPointerDown={handleVerticalPointerDown}
+              >
+                <div
+                  className="w-full rounded-full bg-primary/70 transition-all"
+                  style={{
+                    height: `${verticalFillHeight}%`,
+                    marginTop: `${verticalMarginTop}%`,
+                  }}
+                />
+              </div>
             </div>
           )}
         </div>
