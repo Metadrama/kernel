@@ -323,6 +323,10 @@ export default function WidgetShell({
       
       const parsed = JSON.parse(data);
       
+      if (parsed.id === 'empty-widget') {
+        return; // Empty widget template only applies when creating new widgets
+      }
+
       if (parsed.id && parsed.category) {
         // Component will be auto-positioned by the layout system
         onAddComponent?.(parsed as ComponentCard);

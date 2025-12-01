@@ -34,6 +34,7 @@ const CATEGORY_CONFIG: Record<string, { label: string; icon: string }> = {
 const SUBCATEGORY_CONFIG: Record<string, { label: string; icon: string }> = {
   'chart': { label: 'Chart', icon: 'BarChart3' },
   'text': { label: 'Text', icon: 'Type' },
+  'layout': { label: 'Layout', icon: 'LayoutTemplate' },
 };
 
 export default function ComponentSidebar() {

@@ -30,6 +30,16 @@ export const AVAILABLE_COMPONENTS: ComponentCard[] = [
     subcategory: 'chart',
     isFavorite: false,
   },
+  // Layout
+  {
+    id: 'empty-widget',
+    name: 'Empty Widget',
+    description: 'Blank widget container to drop components into later',
+    icon: 'LayoutTemplate',
+    category: 'test-components',
+    subcategory: 'layout',
+    isFavorite: false,
+  },
   // Text
   {
     id: 'heading',

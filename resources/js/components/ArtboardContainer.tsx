@@ -379,16 +379,22 @@ export default function ArtboardContainer({
 
     try {
       const componentData = JSON.parse(e.dataTransfer.getData('application/json')) as ComponentCard;
+      if (!componentData?.id) return;
 
-      const newComponent: WidgetComponent = {
-        instanceId: `comp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        componentType: componentData.id,
-        config: {
-          name: componentData.name,
-          description: componentData.description,
-          icon: componentData.icon,
-        },
-      };
+      const isEmptyWidgetTemplate = componentData.id === 'empty-widget';
+
+      const newComponents: WidgetComponent[] = [];
+      if (!isEmptyWidgetTemplate) {
+        newComponents.push({
+          instanceId: `comp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          componentType: componentData.id,
+          config: {
+            name: componentData.name,
+            description: componentData.description,
+            icon: componentData.icon,
+          },
+        });
+      }
 
       // Calculate widget size based on component intrinsics
       const intrinsicSize = (() => {
@@ -406,7 +412,7 @@ export default function ArtboardContainer({
         y: 0,
         w: Math.max(3, Math.min(12, intrinsicSize.defaultCols)),
         h: Math.max(2, Math.min(8, intrinsicSize.defaultRows + 1)),
-        components: [newComponent],
+        components: newComponents,
       };
 
       const updatedWidgets = [...artboard.widgets, newWidget];
