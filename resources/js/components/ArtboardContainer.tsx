@@ -6,7 +6,7 @@
  * Artboards can be positioned but NOT resized (dimensions are immutable).
  */
 
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
 import { GridStack } from 'gridstack';
 import { Trash2, Lock, Unlock, Eye, EyeOff, MoreVertical, Copy } from 'lucide-react';
 import 'gridstack/dist/gridstack.min.css';
@@ -33,7 +33,7 @@ interface ArtboardContainerProps {
   artboard: ArtboardSchema;
   isSelected: boolean;
   canvasScale: number;
-  canvasPan: { x: number; y: number };
+  canvasPanRef: React.MutableRefObject<{ x: number; y: number }>;
   zIndex: number;
   onUpdate: (artboardId: string, updates: Partial<ArtboardSchema>) => void;
   onDelete: (artboardId: string) => void;
@@ -49,11 +49,11 @@ interface ArtboardContainerProps {
   }) => void;
 }
 
-export default function ArtboardContainer({
+function ArtboardContainer({
   artboard,
   isSelected,
   canvasScale,
-  canvasPan,
+  canvasPanRef,
   zIndex,
   onUpdate,
   onDelete,
@@ -155,12 +155,13 @@ export default function ArtboardContainer({
    */
   const screenToCanvasCoords = useCallback(
     (screenX: number, screenY: number): { x: number; y: number } => {
+      const pan = canvasPanRef.current;
       return {
-        x: (screenX - canvasPan.x) / canvasScale,
-        y: (screenY - canvasPan.y) / canvasScale,
+        x: (screenX - pan.x) / canvasScale,
+        y: (screenY - pan.y) / canvasScale,
       };
     },
-    [canvasScale, canvasPan]
+    [canvasScale, canvasPanRef]
   );
 
   const handleArtboardMouseDown = (e: React.MouseEvent) => {
@@ -661,3 +662,5 @@ export default function ArtboardContainer({
     </>
   );
 }
+
+export default memo(ArtboardContainer);
