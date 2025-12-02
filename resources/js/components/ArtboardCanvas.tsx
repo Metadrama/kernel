@@ -237,12 +237,10 @@ export default function ArtboardCanvas() {
           break;
       }
 
-      setPan((prev) =>
-        clampPan({
-          x: prev.x - deltaX,
-          y: prev.y - deltaY,
-        })
-      );
+      setPan((prev) => ({
+        x: prev.x - deltaX,
+        y: prev.y - deltaY,
+      }));
     };
 
     window.addEventListener('keydown', handleArrowScroll);
@@ -265,10 +263,10 @@ export default function ArtboardCanvas() {
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (isPanning) {
-      setPan(clampPan({
+      setPan({
         x: e.clientX - panStart.x,
         y: e.clientY - panStart.y,
-      }));
+      });
     }
   }, [isPanning, panStart]);
 
@@ -342,12 +340,10 @@ export default function ArtboardCanvas() {
 
       velocityRef.current[axis] = { delta: blendedDelta, timestamp: now };
 
-      setPan((prev) =>
-        clampPan({
-          x: axis === 'horizontal' ? prev.x - finalDelta : prev.x,
-          y: axis === 'vertical' ? prev.y - finalDelta : prev.y,
-        })
-      );
+      setPan((prev) => ({
+        x: axis === 'horizontal' ? prev.x - finalDelta : prev.x,
+        y: axis === 'vertical' ? prev.y - finalDelta : prev.y,
+      }));
     };
 
     element.addEventListener('wheel', handleWheelPan, { passive: false });
@@ -728,13 +724,13 @@ export default function ArtboardCanvas() {
     const horizontalOverflow = (boundsMaxX - boundsMinX) > viewWidthWorld;
     const verticalOverflow = (boundsMaxY - boundsMinY) > viewHeightWorld;
 
-    // Hide scrollbar if content (including margin) fits entirely within viewport
-    const contentFitsHorizontally = (boundsMaxX - boundsMinX) <= viewWidthWorld;
-    const contentFitsVertically = (boundsMaxY - boundsMinY) <= viewHeightWorld;
-
+    // Show scrollbar when:
+    // 1. Universe is larger than viewport (user can scroll), OR
+    // 2. Visible fraction < 98% (panning into void), OR
+    // 3. During drag operations (locked domain)
     return {
-      showHorizontalScrollbar: (!contentFitsHorizontally || visibleHorizontalFraction < 0.95 || !!lockedHorizontalDomain) && (horizontalOverflow || touchesLeft || touchesRight || !!lockedHorizontalDomain),
-      showVerticalScrollbar: (!contentFitsVertically || visibleVerticalFraction < 0.95 || !!lockedVerticalDomain) && (verticalOverflow || touchesTop || touchesBottom || !!lockedVerticalDomain),
+      showHorizontalScrollbar: visibleHorizontalFraction < 0.98 || !!lockedHorizontalDomain,
+      showVerticalScrollbar: visibleVerticalFraction < 0.98 || !!lockedVerticalDomain,
       horizontalFillWidth,
       horizontalMarginLeft,
       verticalFillHeight,
