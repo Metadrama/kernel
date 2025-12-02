@@ -473,12 +473,10 @@ export default function ArtboardCanvas() {
     const targetViewMinX = rangeStart + (rangeEnd - rangeStart) * clampedProgress;
     const targetPanX = -targetViewMinX * safeScale;
 
-    setPan((prev) =>
-      clampPan({
-        x: targetPanX,
-        y: prev.y,
-      })
-    );
+    setPan((prev) => ({
+      x: targetPanX,
+      y: prev.y,
+    }));
   }, [artboardBounds, scale, viewportSize.width]);
 
   const scrollToVerticalProgress = useCallback((progress: number, domain?: { min: number, max: number, viewSize: number }) => {
@@ -498,16 +496,19 @@ export default function ArtboardCanvas() {
 
     if (!Number.isFinite(rangeStart) || !Number.isFinite(rangeEnd)) return;
 
+    // Coordinate system:
+    // - progress: 0 = viewing top content (small Y), 1 = viewing bottom content (large Y)
+    // - viewMinY = (-pan.y) / scale: the Y coordinate of the viewport's top edge in world space
+    // - When progress = 0, we want viewMinY = rangeStart (top of scrollable area)
+    // - When progress = 1, we want viewMinY = rangeEnd (bottom of scrollable area - viewport height)
     const clampedProgress = Math.min(Math.max(progress, 0), 1);
     const targetViewMinY = rangeStart + (rangeEnd - rangeStart) * clampedProgress;
     const targetPanY = -targetViewMinY * safeScale;
 
-    setPan((prev) =>
-      clampPan({
-        x: prev.x,
-        y: targetPanY,
-      })
-    );
+    setPan((prev) => ({
+      x: prev.x,
+      y: targetPanY,
+    }));
   }, [artboardBounds, scale, viewportSize.height]);
 
 
@@ -599,6 +600,8 @@ export default function ArtboardCanvas() {
   const [lockedHorizontalDomain, setLockedHorizontalDomain] = useState<ScrollDomain | null>(null);
   const [lockedVerticalDomain, setLockedVerticalDomain] = useState<ScrollDomain | null>(null);
 
+  const SCROLL_MARGIN = 500; // px of breathing room around artboards
+
   const {
     showHorizontalScrollbar,
     showVerticalScrollbar,
@@ -627,11 +630,17 @@ export default function ArtboardCanvas() {
     const viewHeightWorld = viewportSize.height / safeScale;
 
     // --- Horizontal Calculation ---
+    // Add margin to the base artboard bounds
+    const boundsMinX = artboardBounds.minX - SCROLL_MARGIN;
+    const boundsMaxX = artboardBounds.maxX + SCROLL_MARGIN;
+    const boundsMinY = artboardBounds.minY - SCROLL_MARGIN;
+    const boundsMaxY = artboardBounds.maxY + SCROLL_MARGIN;
+
     const hDomain = lockedHorizontalDomain || {
-      minX: artboardBounds.minX,
-      maxX: artboardBounds.maxX,
-      minY: artboardBounds.minY,
-      maxY: artboardBounds.maxY,
+      minX: boundsMinX,
+      maxX: boundsMaxX,
+      minY: boundsMinY,
+      maxY: boundsMaxY,
       viewWidthWorld,
       viewHeightWorld,
     };
@@ -645,8 +654,8 @@ export default function ArtboardCanvas() {
       universeMinX = lockedHorizontalDomain.minX;
       universeMaxX = lockedHorizontalDomain.maxX;
     } else {
-      universeMinX = Math.min(artboardBounds.minX, viewMinX);
-      universeMaxX = Math.max(artboardBounds.maxX, viewMaxX);
+      universeMinX = Math.min(boundsMinX, viewMinX);
+      universeMaxX = Math.max(boundsMaxX, viewMaxX);
     }
 
     const universeWidth = Math.max(1, universeMaxX - universeMinX);
@@ -671,10 +680,10 @@ export default function ArtboardCanvas() {
 
     // --- Vertical Calculation ---
     const vDomain = lockedVerticalDomain || {
-      minX: artboardBounds.minX,
-      maxX: artboardBounds.maxX,
-      minY: artboardBounds.minY,
-      maxY: artboardBounds.maxY,
+      minX: boundsMinX,
+      maxX: boundsMaxX,
+      minY: boundsMinY,
+      maxY: boundsMaxY,
       viewWidthWorld,
       viewHeightWorld,
     };
@@ -687,8 +696,8 @@ export default function ArtboardCanvas() {
       universeMinY = lockedVerticalDomain.minY;
       universeMaxY = lockedVerticalDomain.maxY;
     } else {
-      universeMinY = Math.min(artboardBounds.minY, viewMinY);
-      universeMaxY = Math.max(artboardBounds.maxY, viewMaxY);
+      universeMinY = Math.min(boundsMinY, viewMinY);
+      universeMaxY = Math.max(boundsMaxY, viewMaxY);
     }
 
     const universeHeight = Math.max(1, universeMaxY - universeMinY);
@@ -711,17 +720,21 @@ export default function ArtboardCanvas() {
     const verticalMarginTop = verticalTrackSpace * vScrollProgress;
 
     const worldEpsilon = EDGE_ACTIVATION_EPSILON / safeScale;
-    const touchesLeft = Math.abs(viewMinX - artboardBounds.minX) <= worldEpsilon;
-    const touchesRight = Math.abs(viewMaxX - artboardBounds.maxX) <= worldEpsilon;
-    const touchesTop = Math.abs(viewMinY - artboardBounds.minY) <= worldEpsilon;
-    const touchesBottom = Math.abs(viewMaxY - artboardBounds.maxY) <= worldEpsilon;
+    const touchesLeft = Math.abs(viewMinX - boundsMinX) <= worldEpsilon;
+    const touchesRight = Math.abs(viewMaxX - boundsMaxX) <= worldEpsilon;
+    const touchesTop = Math.abs(viewMinY - boundsMinY) <= worldEpsilon;
+    const touchesBottom = Math.abs(viewMaxY - boundsMaxY) <= worldEpsilon;
 
-    const horizontalOverflow = (artboardBounds.maxX - artboardBounds.minX) > viewWidthWorld;
-    const verticalOverflow = (artboardBounds.maxY - artboardBounds.minY) > viewHeightWorld;
+    const horizontalOverflow = (boundsMaxX - boundsMinX) > viewWidthWorld;
+    const verticalOverflow = (boundsMaxY - boundsMinY) > viewHeightWorld;
+
+    // Hide scrollbar if content (including margin) fits entirely within viewport
+    const contentFitsHorizontally = (boundsMaxX - boundsMinX) <= viewWidthWorld;
+    const contentFitsVertically = (boundsMaxY - boundsMinY) <= viewHeightWorld;
 
     return {
-      showHorizontalScrollbar: visibleHorizontalFraction < 0.999 || horizontalOverflow || touchesLeft || touchesRight || !!lockedHorizontalDomain,
-      showVerticalScrollbar: visibleVerticalFraction < 0.999 || verticalOverflow || touchesTop || touchesBottom || !!lockedVerticalDomain,
+      showHorizontalScrollbar: (!contentFitsHorizontally || visibleHorizontalFraction < 0.95 || !!lockedHorizontalDomain) && (horizontalOverflow || touchesLeft || touchesRight || !!lockedHorizontalDomain),
+      showVerticalScrollbar: (!contentFitsVertically || visibleVerticalFraction < 0.95 || !!lockedVerticalDomain) && (verticalOverflow || touchesTop || touchesBottom || !!lockedVerticalDomain),
       horizontalFillWidth,
       horizontalMarginLeft,
       verticalFillHeight,
@@ -1068,48 +1081,49 @@ export default function ArtboardCanvas() {
           </div>
 
           {/* Scrollbar Indicators */}
-          {showHorizontalScrollbar && (
-            <div className="absolute inset-x-0 bottom-0 z-30 px-3 pb-2">
+          <div
+            className={`absolute inset-x-0 bottom-0 z-30 px-3 pb-2 transition-opacity duration-300 ease-in-out ${showHorizontalScrollbar ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          >
+            <div
+              ref={horizontalTrackRef}
+              className="pointer-events-auto group flex h-5 w-full items-center rounded-full border border-border/40 bg-background/95 shadow-inner"
+              style={{ touchAction: 'none', cursor: 'pointer' }}
+              onPointerDown={handleHorizontalTrackPointerDown}
+            >
               <div
-                ref={horizontalTrackRef}
-                className="pointer-events-auto group flex h-5 w-full items-center rounded-full border border-border/40 bg-background/95 shadow-inner"
-                style={{ touchAction: 'none', cursor: 'pointer' }}
-                onPointerDown={handleHorizontalTrackPointerDown}
+                className="h-full flex items-center justify-center cursor-grab active:cursor-grabbing"
+                style={{
+                  width: `${horizontalFillWidth}%`,
+                  marginLeft: `${horizontalMarginLeft}%`,
+                }}
+                onPointerDown={handleHorizontalHandlePointerDown}
               >
-                <div
-                  className="h-full flex items-center justify-center cursor-grab active:cursor-grabbing"
-                  style={{
-                    width: `${horizontalFillWidth}%`,
-                    marginLeft: `${horizontalMarginLeft}%`,
-                  }}
-                  onPointerDown={handleHorizontalHandlePointerDown}
-                >
-                  <div className={`h-1.5 w-full rounded-full transition-all duration-150 ${horizontalScrollActive ? 'bg-primary' : 'bg-primary/70'} group-hover:bg-primary`} />
-                </div>
+                <div className={`h-1.5 w-full rounded-full transition-all duration-150 ${horizontalScrollActive ? 'bg-primary' : 'bg-primary/70'} group-hover:bg-primary`} />
               </div>
             </div>
-          )}
-          {showVerticalScrollbar && (
-            <div className="absolute inset-y-0 right-0 z-30 pr-2 py-3">
+          </div>
+
+          <div
+            className={`absolute inset-y-0 right-0 z-30 pr-2 py-3 transition-opacity duration-300 ease-in-out ${showVerticalScrollbar ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          >
+            <div
+              ref={verticalTrackRef}
+              className="pointer-events-auto group flex h-full w-5 flex-col items-center rounded-full border border-border/40 bg-background/95 shadow-inner"
+              style={{ touchAction: 'none', cursor: 'pointer' }}
+              onPointerDown={handleVerticalTrackPointerDown}
+            >
               <div
-                ref={verticalTrackRef}
-                className="pointer-events-auto group flex h-full w-5 flex-col items-center rounded-full border border-border/40 bg-background/95 shadow-inner"
-                style={{ touchAction: 'none', cursor: 'pointer' }}
-                onPointerDown={handleVerticalTrackPointerDown}
+                className="w-full flex flex-col items-center justify-center cursor-grab active:cursor-grabbing"
+                style={{
+                  height: `${verticalFillHeight}%`,
+                  marginTop: `${verticalMarginTop}%`,
+                }}
+                onPointerDown={handleVerticalHandlePointerDown}
               >
-                <div
-                  className="w-full flex flex-col items-center justify-center cursor-grab active:cursor-grabbing"
-                  style={{
-                    height: `${verticalFillHeight}%`,
-                    marginTop: `${verticalMarginTop}%`,
-                  }}
-                  onPointerDown={handleVerticalHandlePointerDown}
-                >
-                  <div className={`w-1.5 h-full rounded-full transition-all duration-150 ${verticalScrollActive ? 'bg-primary' : 'bg-primary/70'} group-hover:bg-primary`} />
-                </div>
+                <div className={`w-1.5 h-full rounded-full transition-all duration-150 ${verticalScrollActive ? 'bg-primary' : 'bg-primary/70'} group-hover:bg-primary`} />
               </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
 
