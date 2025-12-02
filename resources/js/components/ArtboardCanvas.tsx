@@ -1075,51 +1075,6 @@ export default function ArtboardCanvas() {
                 />
               ))}
           </div>
-
-          {/* Scrollbar Indicators */}
-          <div
-            className={`absolute inset-x-0 bottom-0 z-30 px-3 pb-2 transition-opacity duration-300 ease-in-out ${showHorizontalScrollbar ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-          >
-            <div
-              ref={horizontalTrackRef}
-              className="pointer-events-auto group flex h-5 w-full items-center rounded-full border border-border/40 bg-background/95 shadow-inner"
-              style={{ touchAction: 'none', cursor: 'pointer' }}
-              onPointerDown={handleHorizontalTrackPointerDown}
-            >
-              <div
-                className="h-full flex items-center justify-center cursor-grab active:cursor-grabbing"
-                style={{
-                  width: `${horizontalFillWidth}%`,
-                  marginLeft: `${horizontalMarginLeft}%`,
-                }}
-                onPointerDown={handleHorizontalHandlePointerDown}
-              >
-                <div className={`h-1.5 w-full rounded-full transition-all duration-150 ${horizontalScrollActive ? 'bg-primary' : 'bg-primary/70'} group-hover:bg-primary`} />
-              </div>
-            </div>
-          </div>
-
-          <div
-            className={`absolute inset-y-0 right-0 z-30 pr-2 py-3 transition-opacity duration-300 ease-in-out ${showVerticalScrollbar ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-          >
-            <div
-              ref={verticalTrackRef}
-              className="pointer-events-auto group flex h-full w-5 flex-col items-center rounded-full border border-border/40 bg-background/95 shadow-inner"
-              style={{ touchAction: 'none', cursor: 'pointer' }}
-              onPointerDown={handleVerticalTrackPointerDown}
-            >
-              <div
-                className="w-full flex flex-col items-center justify-center cursor-grab active:cursor-grabbing"
-                style={{
-                  height: `${verticalFillHeight}%`,
-                  marginTop: `${verticalMarginTop}%`,
-                }}
-                onPointerDown={handleVerticalHandlePointerDown}
-              >
-                <div className={`w-1.5 h-full rounded-full transition-all duration-150 ${verticalScrollActive ? 'bg-primary' : 'bg-primary/70'} group-hover:bg-primary`} />
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
