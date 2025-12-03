@@ -103,7 +103,8 @@ export default function ArtboardCanvas() {
     const maxY = artboards.length > 0 ? Math.max(contentMaxY, viewMaxY) : viewMaxY;
 
     // Add a little padding to the universe so you can scroll past the edge slightly
-    const PADDING = 200;
+    // const PADDING = 200;
+    const PADDING = 0;
 
     return {
       minX: minX - PADDING,
@@ -554,44 +555,48 @@ export default function ArtboardCanvas() {
 
           {/* Scrollbars */}
           {/* Horizontal */}
-          <div
-            className="absolute bottom-0 left-0 right-0 z-50 flex items-center px-1"
-            style={{ height: SCROLLBAR_THICKNESS + SCROLLBAR_MARGIN * 2 }}
-          >
+          {(universe.width > universe.viewWidth + 1 || isDraggingScrollbar === 'horizontal') && (
             <div
-              className="relative h-full w-full rounded-full bg-black/5 hover:bg-black/10 transition-colors"
-              style={{ height: SCROLLBAR_THICKNESS }}
+              className="absolute bottom-0 left-0 right-0 z-50 flex items-center px-1"
+              style={{ height: SCROLLBAR_THICKNESS + SCROLLBAR_MARGIN * 2 }}
             >
               <div
-                className="absolute top-0 bottom-0 rounded-full bg-black/20 hover:bg-black/40 active:bg-black/60 transition-colors cursor-default"
-                style={{
-                  left: ((universe.viewMinX - universe.minX) / universe.width) * viewportSize.width,
-                  width: Math.max(MIN_THUMB_SIZE, (universe.viewWidth / universe.width) * viewportSize.width),
-                }}
-                onMouseDown={(e) => handleScrollbarMouseDown('horizontal', e)}
-              />
+                className="relative h-full w-full rounded-full bg-black/5 hover:bg-black/10 transition-colors"
+                style={{ height: SCROLLBAR_THICKNESS }}
+              >
+                <div
+                  className="absolute top-0 bottom-0 rounded-full bg-black/20 hover:bg-black/40 active:bg-black/60 transition-colors cursor-default"
+                  style={{
+                    left: ((universe.viewMinX - universe.minX) / universe.width) * viewportSize.width,
+                    width: Math.max(MIN_THUMB_SIZE, (universe.viewWidth / universe.width) * viewportSize.width),
+                  }}
+                  onMouseDown={(e) => handleScrollbarMouseDown('horizontal', e)}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Vertical */}
-          <div
-            className="absolute top-0 bottom-0 right-0 z-50 flex flex-col justify-center py-1"
-            style={{ width: SCROLLBAR_THICKNESS + SCROLLBAR_MARGIN * 2 }}
-          >
+          {(universe.height > universe.viewHeight + 1 || isDraggingScrollbar === 'vertical') && (
             <div
-              className="relative h-full w-full rounded-full bg-black/5 hover:bg-black/10 transition-colors"
-              style={{ width: SCROLLBAR_THICKNESS }}
+              className="absolute top-0 bottom-0 right-0 z-50 flex flex-col justify-center py-1"
+              style={{ width: SCROLLBAR_THICKNESS + SCROLLBAR_MARGIN * 2 }}
             >
               <div
-                className="absolute left-0 right-0 rounded-full bg-black/20 hover:bg-black/40 active:bg-black/60 transition-colors cursor-default"
-                style={{
-                  top: ((universe.viewMinY - universe.minY) / universe.height) * viewportSize.height,
-                  height: Math.max(MIN_THUMB_SIZE, (universe.viewHeight / universe.height) * viewportSize.height),
-                }}
-                onMouseDown={(e) => handleScrollbarMouseDown('vertical', e)}
-              />
+                className="relative h-full w-full rounded-full bg-black/5 hover:bg-black/10 transition-colors"
+                style={{ width: SCROLLBAR_THICKNESS }}
+              >
+                <div
+                  className="absolute left-0 right-0 rounded-full bg-black/20 hover:bg-black/40 active:bg-black/60 transition-colors cursor-default"
+                  style={{
+                    top: ((universe.viewMinY - universe.minY) / universe.height) * viewportSize.height,
+                    height: Math.max(MIN_THUMB_SIZE, (universe.viewHeight / universe.height) * viewportSize.height),
+                  }}
+                  onMouseDown={(e) => handleScrollbarMouseDown('vertical', e)}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
         </div>
       </div>
