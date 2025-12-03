@@ -21,25 +21,12 @@ import { useArtboardContext } from '@/context/ArtboardContext';
 
 const MIN_SCALE = 0.1;
 const MAX_SCALE = 5;
-const PAN_LIMIT = 8000;
-const EDGE_ACTIVATION_EPSILON = 0.5;
-const MIN_SCROLLBAR_FILL = 22;
-const MAX_SCROLLBAR_FILL = 85;
-const KEY_PAN_STEP = 60;
-const SCROLL_MERGE_WINDOW_MS = 150;
-const SCROLL_MAX_DELTA = 320;
-const SCROLL_BASE_UNIT = 120; // typical wheel delta per "notch"
-const MIN_SCROLL_STEP = 2;
-const MICRO_SCROLL_EXPONENT = 0.85;
-const FAST_SCROLL_THRESHOLD = 80;
-const FAST_SCROLL_MULTIPLIER = 6;
+const SCROLLBAR_THICKNESS = 10;
+const SCROLLBAR_MARGIN = 4;
+const MIN_THUMB_SIZE = 24;
 
 const clampScale = (value: number) => Math.min(Math.max(value, MIN_SCALE), MAX_SCALE);
-const clampPanValue = (value: number) => Math.max(-PAN_LIMIT, Math.min(PAN_LIMIT, value));
-const clampPan = (pan: CanvasPosition) => ({
-  x: clampPanValue(pan.x),
-  y: clampPanValue(pan.y),
-});
+
 
 export default function ArtboardCanvas() {
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -53,10 +40,6 @@ export default function ArtboardCanvas() {
   } = useArtboardContext();
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState<CanvasPosition>({ x: 0, y: 0 });
-  const panRef = useRef(pan);
-  panRef.current = pan;
-  const [isPanning, setIsPanning] = useState(false);
-  const [panStart, setPanStart] = useState<CanvasPosition>({ x: 0, y: 0 });
   const [viewportSize, setViewportSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const selectedArtboard = artboards.find(a => a.id === selectedArtboardId) || null;
 
@@ -68,8 +51,7 @@ export default function ArtboardCanvas() {
   } | null>(null);
   const [showInspector, setShowInspector] = useState(false);
   const [showAddArtboard, setShowAddArtboard] = useState(false);
-  const [horizontalScrollActive, setHorizontalScrollActive] = useState(false);
-  const [verticalScrollActive, setVerticalScrollActive] = useState(false);
+
 
   // Header context menu state (for scale-independent headers)
   const [headerContextMenuState, setHeaderContextMenuState] = useState<{
@@ -79,29 +61,63 @@ export default function ArtboardCanvas() {
     };
   }>({});
 
-  const artboardBounds = useMemo(() => {
-    if (artboards.length === 0) return null;
+  // ============================================================================
+  // Universe Calculation (The "Scrollable World")
+  // ============================================================================
 
-    let minX = Number.POSITIVE_INFINITY;
-    let minY = Number.POSITIVE_INFINITY;
-    let maxX = Number.NEGATIVE_INFINITY;
-    let maxY = Number.NEGATIVE_INFINITY;
+  const universe = useMemo(() => {
+    // 1. Content Bounds
+    let contentMinX = 0;
+    let contentMinY = 0;
+    let contentMaxX = 0;
+    let contentMaxY = 0;
 
-    artboards.forEach((artboard) => {
-      if (!artboard.visible) return;
-      const { position, dimensions } = artboard;
-      minX = Math.min(minX, position.x);
-      minY = Math.min(minY, position.y);
-      maxX = Math.max(maxX, position.x + dimensions.widthPx);
-      maxY = Math.max(maxY, position.y + dimensions.heightPx);
-    });
+    if (artboards.length > 0) {
+      contentMinX = Number.POSITIVE_INFINITY;
+      contentMinY = Number.POSITIVE_INFINITY;
+      contentMaxX = Number.NEGATIVE_INFINITY;
+      contentMaxY = Number.NEGATIVE_INFINITY;
 
-    if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
-      return null;
+      artboards.forEach((a) => {
+        if (!a.visible) return;
+        contentMinX = Math.min(contentMinX, a.position.x);
+        contentMinY = Math.min(contentMinY, a.position.y);
+        contentMaxX = Math.max(contentMaxX, a.position.x + a.dimensions.widthPx);
+        contentMaxY = Math.max(contentMaxY, a.position.y + a.dimensions.heightPx);
+      });
     }
 
-    return { minX, minY, maxX, maxY };
-  }, [artboards]);
+    // 2. Viewport Bounds (in World Coordinates)
+    // pan.x is the offset of the world origin relative to the viewport top-left
+    // So viewport top-left in world coords is: -pan.x / scale
+    const viewMinX = -pan.x / scale;
+    const viewMinY = -pan.y / scale;
+    const viewMaxX = (viewportSize.width - pan.x) / scale;
+    const viewMaxY = (viewportSize.height - pan.y) / scale;
+
+    // 3. Union (The Universe)
+    // If no artboards, universe is just the viewport (plus a bit of buffer maybe?)
+    const minX = artboards.length > 0 ? Math.min(contentMinX, viewMinX) : viewMinX;
+    const minY = artboards.length > 0 ? Math.min(contentMinY, viewMinY) : viewMinY;
+    const maxX = artboards.length > 0 ? Math.max(contentMaxX, viewMaxX) : viewMaxX;
+    const maxY = artboards.length > 0 ? Math.max(contentMaxY, viewMaxY) : viewMaxY;
+
+    // Add a little padding to the universe so you can scroll past the edge slightly
+    const PADDING = 200;
+
+    return {
+      minX: minX - PADDING,
+      minY: minY - PADDING,
+      maxX: maxX + PADDING,
+      maxY: maxY + PADDING,
+      width: (maxX - minX) + (PADDING * 2),
+      height: (maxY - minY) + (PADDING * 2),
+      viewMinX,
+      viewMinY,
+      viewWidth: viewportSize.width / scale,
+      viewHeight: viewportSize.height / scale,
+    };
+  }, [artboards, pan, scale, viewportSize]);
 
   // ============================================================================
   // Zoom Controls
@@ -122,14 +138,16 @@ export default function ArtboardCanvas() {
         const targetFocus = focusPoint ?? fallbackFocus;
 
         setPan((prevPan) => {
-          const canvasPoint = {
+          // Calculate the point in world space that is currently under the focus point
+          const worldPoint = {
             x: (targetFocus.x - prevPan.x) / prevScale,
             y: (targetFocus.y - prevPan.y) / prevScale,
           };
 
+          // Calculate new pan such that worldPoint remains under targetFocus
           return {
-            x: targetFocus.x - canvasPoint.x * nextScale,
-            y: targetFocus.y - canvasPoint.y * nextScale,
+            x: targetFocus.x - worldPoint.x * nextScale,
+            y: targetFocus.y - worldPoint.y * nextScale,
           };
         });
 
@@ -141,44 +159,57 @@ export default function ArtboardCanvas() {
 
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
-      if (!e.ctrlKey) return;
+      if (e.ctrlKey) {
+        // Zoom
+        e.preventDefault();
+        const canvasElement = canvasRef.current;
+        let focusPoint: CanvasPosition | undefined;
 
-      e.preventDefault();
-      const canvasElement = canvasRef.current;
-      let focusPoint: CanvasPosition | undefined;
+        if (canvasElement) {
+          const rect = canvasElement.getBoundingClientRect();
+          focusPoint = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+          };
+        }
 
-      if (canvasElement) {
-        const rect = canvasElement.getBoundingClientRect();
-        focusPoint = {
-          x: e.clientX - rect.left,
-          y: e.clientY - rect.top,
-        };
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        adjustScale((prev) => prev * delta, focusPoint);
+      } else {
+        // Pan
+        e.preventDefault();
+        setPan((prev) => ({
+          x: prev.x - e.deltaX,
+          y: prev.y - e.deltaY,
+        }));
       }
-
-      const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      adjustScale((prev) => prev * delta, focusPoint);
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!e.ctrlKey) return;
-
-      if (e.key === '=' || e.key === '+') {
-        e.preventDefault();
-        adjustScale((prev) => prev * 1.1);
-      } else if (e.key === '-') {
-        e.preventDefault();
-        adjustScale((prev) => prev * 0.9);
-      } else if (e.key === '0') {
-        e.preventDefault();
-        adjustScale(() => 1);
+      if (e.ctrlKey) {
+        if (e.key === '=' || e.key === '+') {
+          e.preventDefault();
+          adjustScale((prev) => prev * 1.1);
+        } else if (e.key === '-') {
+          e.preventDefault();
+          adjustScale((prev) => prev * 0.9);
+        } else if (e.key === '0') {
+          e.preventDefault();
+          adjustScale(() => 1);
+        }
       }
     };
 
-    window.addEventListener('wheel', handleWheel, { passive: false });
+    const element = canvasRef.current;
+    if (element) {
+      element.addEventListener('wheel', handleWheel, { passive: false });
+    }
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      window.removeEventListener('wheel', handleWheel);
+      if (element) {
+        element.removeEventListener('wheel', handleWheel);
+      }
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [adjustScale]);
@@ -196,161 +227,82 @@ export default function ArtboardCanvas() {
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => {
-    const handleArrowScroll = (e: KeyboardEvent) => {
-      if (selectedComponent) return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-
-      const arrowKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
-      if (!arrowKeys.includes(e.key)) return;
-
-      const target = e.target as HTMLElement | null;
-      if (target) {
-        const tagName = target.tagName;
-        if (
-          target.isContentEditable ||
-          tagName === 'INPUT' ||
-          tagName === 'TEXTAREA' ||
-          tagName === 'SELECT'
-        ) {
-          return;
-        }
-      }
-
-      e.preventDefault();
-      const step = e.shiftKey ? KEY_PAN_STEP * 2 : KEY_PAN_STEP;
-      let deltaX = 0;
-      let deltaY = 0;
-
-      switch (e.key) {
-        case 'ArrowUp':
-          deltaY = -step;
-          break;
-        case 'ArrowDown':
-          deltaY = step;
-          break;
-        case 'ArrowLeft':
-          deltaX = -step;
-          break;
-        case 'ArrowRight':
-          deltaX = step;
-          break;
-      }
-
-      setPan((prev) => ({
-        x: prev.x - deltaX,
-        y: prev.y - deltaY,
-      }));
-    };
-
-    window.addEventListener('keydown', handleArrowScroll);
-    return () => window.removeEventListener('keydown', handleArrowScroll);
-  }, [selectedComponent]);
-
   // ============================================================================
-  // Pan Controls
+  // Scrollbar Interaction
   // ============================================================================
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    // Only pan with middle mouse button
-    // (Space+drag requires tracking spacebar state separately)
-    if (e.button === 1) {
-      e.preventDefault();
-      setIsPanning(true);
-      setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-    }
-  };
-
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (isPanning) {
-      setPan({
-        x: e.clientX - panStart.x,
-        y: e.clientY - panStart.y,
-      });
-    }
-  }, [isPanning, panStart]);
-
-  const handleMouseUp = useCallback(() => {
-    setIsPanning(false);
-  }, []);
-
-  useEffect(() => {
-    if (isPanning) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
-      return () => {
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
-      };
-    }
-  }, [isPanning, handleMouseMove, handleMouseUp]);
-
-  const velocityRef = useRef({
-    horizontal: { delta: 0, timestamp: 0 },
-    vertical: { delta: 0, timestamp: 0 },
-  });
-  const horizontalTrackRef = useRef<HTMLDivElement>(null);
-  const verticalTrackRef = useRef<HTMLDivElement>(null);
-  const activeDragCleanupRef = useRef<(() => void) | null>(null);
-  const dragStateRef = useRef<{
-    axis: 'horizontal' | 'vertical';
-    pointerId: number;
-    pointerStart: number;
-    progressStart: number;
-    travelPx: number;
-    onRelease?: () => void;
+  const [isDraggingScrollbar, setIsDraggingScrollbar] = useState<'horizontal' | 'vertical' | null>(null);
+  const dragStartRef = useRef<{
+    mouseStart: number;
+    panStart: number;
+    universeSize: number;
+    trackSize: number;
   } | null>(null);
 
+  const handleScrollbarMouseDown = (axis: 'horizontal' | 'vertical', e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingScrollbar(axis);
+
+    const trackSize = axis === 'horizontal' ? viewportSize.width : viewportSize.height;
+    const universeSize = axis === 'horizontal' ? universe.width : universe.height;
+
+    dragStartRef.current = {
+      mouseStart: axis === 'horizontal' ? e.clientX : e.clientY,
+      panStart: axis === 'horizontal' ? pan.x : pan.y,
+      universeSize,
+      trackSize,
+    };
+  };
+
   useEffect(() => {
-    const element = canvasRef.current;
-    if (!element) return;
+    if (!isDraggingScrollbar) return;
 
-    const handleWheelPan = (e: WheelEvent) => {
-      if (e.ctrlKey) return;
-      e.preventDefault();
-      const axis: 'horizontal' | 'vertical' = e.shiftKey ? 'horizontal' : 'vertical';
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!dragStartRef.current) return;
+      const { mouseStart, panStart, universeSize, trackSize } = dragStartRef.current;
 
-      const primaryShiftDelta = Math.abs(e.deltaX) >= Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-      const rawDelta = axis === 'horizontal'
-        ? primaryShiftDelta || e.deltaX || e.deltaY
-        : e.deltaY;
+      const currentMouse = isDraggingScrollbar === 'horizontal' ? e.clientX : e.clientY;
+      const deltaPx = currentMouse - mouseStart;
 
-      if (!rawDelta) {
-        return;
-      }
+      // Convert pixel delta to world delta
+      // Ratio: Universe / Track
+      // But wait, the scrollbar moves *opposite* to pan.
+      // If I drag scrollbar RIGHT, I want to view content to the RIGHT.
+      // Viewing content to the RIGHT means pan.x becomes MORE NEGATIVE.
+      // So deltaPan = -deltaPx * (Universe / Track)
 
-      const now = performance.now();
-      const record = velocityRef.current[axis];
-      const elapsed = now - record.timestamp;
-      const sameDirection = rawDelta * record.delta >= 0 && elapsed < SCROLL_MERGE_WINDOW_MS;
-      const blendedDelta = sameDirection
-        ? rawDelta + record.delta * 0.5
-        : rawDelta;
-
-      const magnitude = Math.min(SCROLL_MAX_DELTA, Math.abs(blendedDelta));
-      const normalized = Math.max(0.01, magnitude / SCROLL_BASE_UNIT);
-      const microStep = Math.max(
-        MIN_SCROLL_STEP,
-        MIN_SCROLL_STEP * Math.pow(normalized, MICRO_SCROLL_EXPONENT)
-      );
-      const fastComponent = magnitude > FAST_SCROLL_THRESHOLD
-        ? Math.pow((magnitude - FAST_SCROLL_THRESHOLD) / FAST_SCROLL_THRESHOLD, 1.15) * FAST_SCROLL_MULTIPLIER
-        : 0;
-      const finalDelta = Math.sign(blendedDelta || 1) * (microStep + fastComponent);
-
-      velocityRef.current[axis] = { delta: blendedDelta, timestamp: now };
+      const worldDelta = deltaPx * (universeSize / trackSize);
+      const newPan = panStart - (worldDelta * scale); // Scale factor needed?
+      // Let's re-verify the math.
+      // Scrollbar Position = (ViewMin - UniverseMin) / UniverseWidth * TrackWidth
+      // We are changing Scrollbar Position by deltaPx.
+      // So ChangeInViewMin = deltaPx * (UniverseWidth / TrackWidth)
+      // ViewMin = -Pan / Scale
+      // So ChangeIn(-Pan/Scale) = deltaPx * Ratio
+      // -ChangeInPan / Scale = deltaPx * Ratio
+      // ChangeInPan = -deltaPx * Ratio * Scale
 
       setPan((prev) => ({
-        x: axis === 'horizontal' ? prev.x - finalDelta : prev.x,
-        y: axis === 'vertical' ? prev.y - finalDelta : prev.y,
+        ...prev,
+        [isDraggingScrollbar === 'horizontal' ? 'x' : 'y']: newPan,
       }));
     };
 
-    element.addEventListener('wheel', handleWheelPan, { passive: false });
-    return () => {
-      element.removeEventListener('wheel', handleWheelPan);
+    const handleMouseUp = () => {
+      setIsDraggingScrollbar(null);
+      dragStartRef.current = null;
     };
-  }, []);
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDraggingScrollbar, scale, universe, viewportSize]);
+
+
 
   // ============================================================================
   // Artboard Management
@@ -448,481 +400,7 @@ export default function ArtboardCanvas() {
     setSelectedComponent(null);
   }, []);
 
-  const scrollToHorizontalProgress = useCallback((progress: number, domain?: { min: number, max: number, viewSize: number }) => {
-    if (!artboardBounds || viewportSize.width === 0) return;
-    const safeScale = Math.max(scale, 0.0001);
 
-    let rangeStart: number, rangeEnd: number;
-
-    if (domain) {
-      rangeStart = domain.min;
-      rangeEnd = domain.max - domain.viewSize;
-    } else {
-      const viewWidthWorld = viewportSize.width / safeScale;
-      rangeStart = Math.min(artboardBounds.minX, artboardBounds.maxX - viewWidthWorld);
-      rangeEnd = Math.max(artboardBounds.minX, artboardBounds.maxX - viewWidthWorld);
-    }
-
-    if (!Number.isFinite(rangeStart) || !Number.isFinite(rangeEnd)) return;
-
-    const clampedProgress = Math.min(Math.max(progress, 0), 1);
-    const targetViewMinX = rangeStart + (rangeEnd - rangeStart) * clampedProgress;
-    const targetPanX = -targetViewMinX * safeScale;
-
-    setPan((prev) => ({
-      x: targetPanX,
-      y: prev.y,
-    }));
-  }, [artboardBounds, scale, viewportSize.width]);
-
-  const scrollToVerticalProgress = useCallback((progress: number, domain?: { min: number, max: number, viewSize: number }) => {
-    if (!artboardBounds || viewportSize.height === 0) return;
-    const safeScale = Math.max(scale, 0.0001);
-
-    let rangeStart: number, rangeEnd: number;
-
-    if (domain) {
-      rangeStart = domain.min;
-      rangeEnd = domain.max - domain.viewSize;
-    } else {
-      const viewHeightWorld = viewportSize.height / safeScale;
-      rangeStart = Math.min(artboardBounds.minY, artboardBounds.maxY - viewHeightWorld);
-      rangeEnd = Math.max(artboardBounds.minY, artboardBounds.maxY - viewHeightWorld);
-    }
-
-    if (!Number.isFinite(rangeStart) || !Number.isFinite(rangeEnd)) return;
-
-    // Coordinate system:
-    // - progress: 0 = viewing top content (small Y), 1 = viewing bottom content (large Y)
-    // - viewMinY = (-pan.y) / scale: the Y coordinate of the viewport's top edge in world space
-    // - When progress = 0, we want viewMinY = rangeStart (top of scrollable area)
-    // - When progress = 1, we want viewMinY = rangeEnd (bottom of scrollable area - viewport height)
-    const clampedProgress = Math.min(Math.max(progress, 0), 1);
-    const targetViewMinY = rangeStart + (rangeEnd - rangeStart) * clampedProgress;
-    const targetPanY = -targetViewMinY * safeScale;
-
-    setPan((prev) => ({
-      x: prev.x,
-      y: targetPanY,
-    }));
-  }, [artboardBounds, scale, viewportSize.height]);
-
-
-  const attachDragListeners = useCallback((params: {
-    pointerId: number;
-    axis: 'horizontal' | 'vertical';
-    pointerStart: number;
-    progressStart: number;
-    travelPx: number;
-    target: HTMLElement | null;
-    domain: { min: number, max: number, viewSize: number };
-    onRelease?: () => void;
-  }) => {
-    if (activeDragCleanupRef.current) {
-      activeDragCleanupRef.current();
-    }
-
-    dragStateRef.current = {
-      axis: params.axis,
-      pointerId: params.pointerId,
-      pointerStart: params.pointerStart,
-      progressStart: params.progressStart,
-      travelPx: Math.max(params.travelPx, 0.0001),
-      onRelease: params.onRelease,
-    };
-
-    const dragDomain = params.domain;
-
-    const handlePointerMove = (event: PointerEvent) => {
-      const state = dragStateRef.current;
-      if (!state || event.pointerId !== state.pointerId) return;
-
-      const pointerPos = state.axis === 'horizontal' ? event.clientX : event.clientY;
-      const delta = pointerPos - state.pointerStart;
-      const newStartPx = state.progressStart * state.travelPx + delta;
-      const normalized = Math.min(Math.max(newStartPx / state.travelPx, 0), 1);
-
-      if (state.axis === 'horizontal') {
-        scrollToHorizontalProgress(normalized, dragDomain);
-      } else {
-        scrollToVerticalProgress(normalized, dragDomain);
-      }
-    };
-
-    const cleanup = () => {
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
-      window.removeEventListener('pointercancel', handlePointerUp);
-      params.target?.releasePointerCapture?.(params.pointerId);
-      dragStateRef.current = null;
-      activeDragCleanupRef.current = null;
-      params.onRelease?.();
-    };
-
-    const handlePointerUp = (event: PointerEvent) => {
-      if (event.pointerId !== params.pointerId) return;
-      cleanup();
-    };
-
-    params.target?.setPointerCapture?.(params.pointerId);
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerUp);
-    window.addEventListener('pointercancel', handlePointerUp);
-
-    activeDragCleanupRef.current = cleanup;
-  }, [scrollToHorizontalProgress, scrollToVerticalProgress]);
-
-  useEffect(() => {
-    return () => {
-      if (activeDragCleanupRef.current) {
-        activeDragCleanupRef.current();
-      }
-    };
-  }, []);
-
-  // ============================================================================
-  // Scrollbar Logic (Lock-on-Drag)
-  // ============================================================================
-
-  type ScrollDomain = {
-    minX: number;
-    maxX: number;
-    minY: number;
-    maxY: number;
-    viewWidthWorld: number;
-    viewHeightWorld: number;
-  };
-
-  const [lockedHorizontalDomain, setLockedHorizontalDomain] = useState<ScrollDomain | null>(null);
-  const [lockedVerticalDomain, setLockedVerticalDomain] = useState<ScrollDomain | null>(null);
-
-  const SCROLL_MARGIN = 500; // px of breathing room around artboards
-
-  const {
-    showHorizontalScrollbar,
-    showVerticalScrollbar,
-    horizontalFillWidth,
-    horizontalMarginLeft,
-    verticalFillHeight,
-    verticalMarginTop,
-    currentHorizontalDomain,
-    currentVerticalDomain,
-  } = useMemo(() => {
-    if (!artboardBounds || viewportSize.width === 0 || viewportSize.height === 0) {
-      return {
-        showHorizontalScrollbar: false,
-        showVerticalScrollbar: false,
-        horizontalFillWidth: MIN_SCROLLBAR_FILL,
-        horizontalMarginLeft: 0,
-        verticalFillHeight: MIN_SCROLLBAR_FILL,
-        verticalMarginTop: 0,
-        currentHorizontalDomain: null,
-        currentVerticalDomain: null,
-      };
-    }
-
-    const safeScale = Math.max(scale, 0.0001);
-    const viewWidthWorld = viewportSize.width / safeScale;
-    const viewHeightWorld = viewportSize.height / safeScale;
-
-    // --- Horizontal Calculation ---
-    // Add margin to the base artboard bounds
-    const boundsMinX = artboardBounds.minX - SCROLL_MARGIN;
-    const boundsMaxX = artboardBounds.maxX + SCROLL_MARGIN;
-    const boundsMinY = artboardBounds.minY - SCROLL_MARGIN;
-    const boundsMaxY = artboardBounds.maxY + SCROLL_MARGIN;
-
-    const hDomain = lockedHorizontalDomain || {
-      minX: boundsMinX,
-      maxX: boundsMaxX,
-      minY: boundsMinY,
-      maxY: boundsMaxY,
-      viewWidthWorld,
-      viewHeightWorld,
-    };
-
-    const viewMinX = (-pan.x) / safeScale;
-    const viewMaxX = (viewportSize.width - pan.x) / safeScale;
-
-    let universeMinX: number, universeMaxX: number;
-
-    if (lockedHorizontalDomain) {
-      universeMinX = lockedHorizontalDomain.minX;
-      universeMaxX = lockedHorizontalDomain.maxX;
-    } else {
-      universeMinX = Math.min(boundsMinX, viewMinX);
-      universeMaxX = Math.max(boundsMaxX, viewMaxX);
-    }
-
-    const universeWidth = Math.max(1, universeMaxX - universeMinX);
-    const activeViewWidth = lockedHorizontalDomain ? hDomain.viewWidthWorld : viewWidthWorld;
-
-    const visibleHorizontalFraction = Math.min(1, activeViewWidth / universeWidth);
-    const horizontalFillWidth = Math.max(
-      MIN_SCROLLBAR_FILL,
-      Math.min(MAX_SCROLLBAR_FILL, visibleHorizontalFraction * 100)
-    );
-
-    const currentViewLeft = (-pan.x) / safeScale;
-    const relativeLeft = currentViewLeft - universeMinX;
-
-    const scrollableWidth = universeWidth - activeViewWidth;
-    const scrollProgress = scrollableWidth > 0
-      ? Math.max(0, Math.min(1, relativeLeft / scrollableWidth))
-      : 0.5;
-
-    const horizontalTrackSpace = Math.max(0, 100 - horizontalFillWidth);
-    const horizontalMarginLeft = horizontalTrackSpace * scrollProgress;
-
-    // --- Vertical Calculation ---
-    const vDomain = lockedVerticalDomain || {
-      minX: boundsMinX,
-      maxX: boundsMaxX,
-      minY: boundsMinY,
-      maxY: boundsMaxY,
-      viewWidthWorld,
-      viewHeightWorld,
-    };
-
-    let universeMinY: number, universeMaxY: number;
-    const viewMinY = (-pan.y) / safeScale;
-    const viewMaxY = (viewportSize.height - pan.y) / safeScale;
-
-    if (lockedVerticalDomain) {
-      universeMinY = lockedVerticalDomain.minY;
-      universeMaxY = lockedVerticalDomain.maxY;
-    } else {
-      universeMinY = Math.min(boundsMinY, viewMinY);
-      universeMaxY = Math.max(boundsMaxY, viewMaxY);
-    }
-
-    const universeHeight = Math.max(1, universeMaxY - universeMinY);
-    const activeViewHeight = lockedVerticalDomain ? vDomain.viewHeightWorld : viewHeightWorld;
-
-    const visibleVerticalFraction = Math.min(1, activeViewHeight / universeHeight);
-    const verticalFillHeight = Math.max(
-      MIN_SCROLLBAR_FILL,
-      Math.min(MAX_SCROLLBAR_FILL, visibleVerticalFraction * 100)
-    );
-
-    const currentViewTop = (-pan.y) / safeScale;
-    const relativeTop = currentViewTop - universeMinY;
-    const scrollableHeight = universeHeight - activeViewHeight;
-    const vScrollProgress = scrollableHeight > 0
-      ? Math.max(0, Math.min(1, relativeTop / scrollableHeight))
-      : 0.5;
-
-    const verticalTrackSpace = Math.max(0, 100 - verticalFillHeight);
-    const verticalMarginTop = verticalTrackSpace * vScrollProgress;
-
-    const worldEpsilon = EDGE_ACTIVATION_EPSILON / safeScale;
-    const touchesLeft = Math.abs(viewMinX - boundsMinX) <= worldEpsilon;
-    const touchesRight = Math.abs(viewMaxX - boundsMaxX) <= worldEpsilon;
-    const touchesTop = Math.abs(viewMinY - boundsMinY) <= worldEpsilon;
-    const touchesBottom = Math.abs(viewMaxY - boundsMaxY) <= worldEpsilon;
-
-    const horizontalOverflow = (boundsMaxX - boundsMinX) > viewWidthWorld;
-    const verticalOverflow = (boundsMaxY - boundsMinY) > viewHeightWorld;
-
-    // Show scrollbar when:
-    // 1. Universe is larger than viewport (user can scroll), OR
-    // 2. Visible fraction < 98% (panning into void), OR
-    // 3. During drag operations (locked domain)
-    return {
-      showHorizontalScrollbar: visibleHorizontalFraction < 0.98 || !!lockedHorizontalDomain,
-      showVerticalScrollbar: visibleVerticalFraction < 0.98 || !!lockedVerticalDomain,
-      horizontalFillWidth,
-      horizontalMarginLeft,
-      verticalFillHeight,
-      verticalMarginTop,
-      currentHorizontalDomain: { min: universeMinX, max: universeMaxX, viewSize: activeViewWidth },
-      currentVerticalDomain: { min: universeMinY, max: universeMaxY, viewSize: activeViewHeight },
-    };
-  }, [artboardBounds, viewportSize.width, viewportSize.height, pan.x, pan.y, scale, lockedHorizontalDomain, lockedVerticalDomain]);
-
-  const measureHorizontalTrack = useCallback(() => {
-    const track = horizontalTrackRef.current;
-    if (!track) return null;
-    const rect = track.getBoundingClientRect();
-    if (rect.width === 0) return null;
-
-    const handleWidthPx = Math.max(0, (horizontalFillWidth / 100) * rect.width);
-    const travelPx = Math.max(0, rect.width - handleWidthPx);
-    const handleStartPx = (horizontalMarginLeft / 100) * rect.width;
-
-    return { track, rect, handleWidthPx, travelPx, handleStartPx };
-  }, [horizontalFillWidth, horizontalMarginLeft]);
-
-  const measureVerticalTrack = useCallback(() => {
-    const track = verticalTrackRef.current;
-    if (!track) return null;
-    const rect = track.getBoundingClientRect();
-    if (rect.height === 0) return null;
-
-    const handleHeightPx = Math.max(0, (verticalFillHeight / 100) * rect.height);
-    const travelPx = Math.max(0, rect.height - handleHeightPx);
-    const handleStartPx = (verticalMarginTop / 100) * rect.height;
-
-    return { track, rect, handleHeightPx, travelPx, handleStartPx };
-  }, [verticalFillHeight, verticalMarginTop]);
-
-  const handleHorizontalHandlePointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0 && event.pointerType !== 'touch') return;
-    event.preventDefault();
-    event.stopPropagation();
-    const metrics = measureHorizontalTrack();
-    if (!metrics || metrics.travelPx <= 0 || !currentHorizontalDomain) return;
-
-    const lockState: ScrollDomain = {
-      minX: currentHorizontalDomain.min,
-      maxX: currentHorizontalDomain.max,
-      minY: 0,
-      maxY: 0,
-      viewWidthWorld: currentHorizontalDomain.viewSize,
-      viewHeightWorld: 0
-    };
-    setLockedHorizontalDomain(lockState);
-
-    const progressStart = metrics.travelPx === 0 ? 0 : metrics.handleStartPx / metrics.travelPx;
-    setHorizontalScrollActive(true);
-
-    attachDragListeners({
-      pointerId: event.pointerId,
-      axis: 'horizontal',
-      pointerStart: event.clientX,
-      progressStart,
-      travelPx: metrics.travelPx,
-      target: metrics.track,
-      domain: currentHorizontalDomain,
-      onRelease: () => {
-        setHorizontalScrollActive(false);
-        setLockedHorizontalDomain(null);
-      },
-    });
-  }, [attachDragListeners, measureHorizontalTrack, currentHorizontalDomain]);
-
-  const handleVerticalHandlePointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0 && event.pointerType !== 'touch') return;
-    event.preventDefault();
-    event.stopPropagation();
-    const metrics = measureVerticalTrack();
-    if (!metrics || metrics.travelPx <= 0 || !currentVerticalDomain) return;
-
-    const lockState: ScrollDomain = {
-      minX: 0,
-      maxX: 0,
-      minY: currentVerticalDomain.min,
-      maxY: currentVerticalDomain.max,
-      viewWidthWorld: 0,
-      viewHeightWorld: currentVerticalDomain.viewSize
-    };
-    setLockedVerticalDomain(lockState);
-
-    const progressStart = metrics.travelPx === 0 ? 0 : metrics.handleStartPx / metrics.travelPx;
-    setVerticalScrollActive(true);
-
-    attachDragListeners({
-      pointerId: event.pointerId,
-      axis: 'vertical',
-      pointerStart: event.clientY,
-      progressStart,
-      travelPx: metrics.travelPx,
-      target: metrics.track,
-      domain: currentVerticalDomain,
-      onRelease: () => {
-        setVerticalScrollActive(false);
-        setLockedVerticalDomain(null);
-      },
-    });
-  }, [attachDragListeners, measureVerticalTrack, currentVerticalDomain]);
-
-  const handleHorizontalTrackPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.target !== event.currentTarget) return;
-    if (event.button !== 0 && event.pointerType !== 'touch') return;
-    event.preventDefault();
-    const metrics = measureHorizontalTrack();
-    if (!metrics || !currentHorizontalDomain) return;
-
-    const lockState: ScrollDomain = {
-      minX: currentHorizontalDomain.min,
-      maxX: currentHorizontalDomain.max,
-      minY: 0,
-      maxY: 0,
-      viewWidthWorld: currentHorizontalDomain.viewSize,
-      viewHeightWorld: 0
-    };
-    setLockedHorizontalDomain(lockState);
-
-    const pointerWithinTrack = event.clientX - metrics.rect.left;
-    const centerOffset = metrics.handleWidthPx / 2;
-    const desiredStartPx = Math.min(
-      Math.max(pointerWithinTrack - centerOffset, 0),
-      Math.max(metrics.travelPx, 0)
-    );
-    const travelPx = Math.max(metrics.travelPx, 0.0001);
-    const newProgress = travelPx === 0 ? 0 : desiredStartPx / travelPx;
-
-    scrollToHorizontalProgress(newProgress, currentHorizontalDomain);
-
-    setHorizontalScrollActive(true);
-    attachDragListeners({
-      pointerId: event.pointerId,
-      axis: 'horizontal',
-      pointerStart: event.clientX,
-      progressStart: newProgress,
-      travelPx,
-      target: metrics.track,
-      domain: currentHorizontalDomain,
-      onRelease: () => {
-        setHorizontalScrollActive(false);
-        setLockedHorizontalDomain(null);
-      },
-    });
-  }, [attachDragListeners, measureHorizontalTrack, scrollToHorizontalProgress, currentHorizontalDomain]);
-
-  const handleVerticalTrackPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.target !== event.currentTarget) return;
-    if (event.button !== 0 && event.pointerType !== 'touch') return;
-    event.preventDefault();
-    const metrics = measureVerticalTrack();
-    if (!metrics || !currentVerticalDomain) return;
-
-    const lockState: ScrollDomain = {
-      minX: 0,
-      maxX: 0,
-      minY: currentVerticalDomain.min,
-      maxY: currentVerticalDomain.max,
-      viewWidthWorld: 0,
-      viewHeightWorld: currentVerticalDomain.viewSize
-    };
-    setLockedVerticalDomain(lockState);
-
-    const pointerWithinTrack = event.clientY - metrics.rect.top;
-    const centerOffset = metrics.handleHeightPx / 2;
-    const desiredStartPx = Math.min(
-      Math.max(pointerWithinTrack - centerOffset, 0),
-      Math.max(metrics.travelPx, 0)
-    );
-    const travelPx = Math.max(metrics.travelPx, 0.0001);
-    const newProgress = travelPx === 0 ? 0 : desiredStartPx / travelPx;
-
-    scrollToVerticalProgress(newProgress, currentVerticalDomain);
-
-    setVerticalScrollActive(true);
-    attachDragListeners({
-      pointerId: event.pointerId,
-      axis: 'vertical',
-      pointerStart: event.clientY,
-      progressStart: newProgress,
-      travelPx,
-      target: metrics.track,
-      domain: currentVerticalDomain,
-      onRelease: () => {
-        setVerticalScrollActive(false);
-        setLockedVerticalDomain(null);
-      },
-    });
-  }, [attachDragListeners, measureVerticalTrack, scrollToVerticalProgress, currentVerticalDomain]);
 
   // ============================================================================
   // Render
@@ -1001,8 +479,6 @@ export default function ArtboardCanvas() {
         <div
           ref={canvasRef}
           className="relative flex-1 overflow-hidden"
-          onMouseDown={handleMouseDown}
-          style={{ cursor: isPanning ? 'grabbing' : 'default' }}
         >
           {/* Empty State */}
           {artboards.length === 0 && (
@@ -1058,7 +534,7 @@ export default function ArtboardCanvas() {
                   artboard={artboard}
                   isSelected={selectedArtboardId === artboard.id}
                   canvasScale={scale}
-                  canvasPanRef={panRef}
+
                   zIndex={index} // Stack position determines z-index
                   onUpdate={handleUpdateArtboard}
                   onDelete={handleDeleteArtboard}
@@ -1075,6 +551,48 @@ export default function ArtboardCanvas() {
                 />
               ))}
           </div>
+
+          {/* Scrollbars */}
+          {/* Horizontal */}
+          <div
+            className="absolute bottom-0 left-0 right-0 z-50 flex items-center px-1"
+            style={{ height: SCROLLBAR_THICKNESS + SCROLLBAR_MARGIN * 2 }}
+          >
+            <div
+              className="relative h-full w-full rounded-full bg-black/5 hover:bg-black/10 transition-colors"
+              style={{ height: SCROLLBAR_THICKNESS }}
+            >
+              <div
+                className="absolute top-0 bottom-0 rounded-full bg-black/20 hover:bg-black/40 active:bg-black/60 transition-colors cursor-default"
+                style={{
+                  left: ((universe.viewMinX - universe.minX) / universe.width) * viewportSize.width,
+                  width: Math.max(MIN_THUMB_SIZE, (universe.viewWidth / universe.width) * viewportSize.width),
+                }}
+                onMouseDown={(e) => handleScrollbarMouseDown('horizontal', e)}
+              />
+            </div>
+          </div>
+
+          {/* Vertical */}
+          <div
+            className="absolute top-0 bottom-0 right-0 z-50 flex flex-col justify-center py-1"
+            style={{ width: SCROLLBAR_THICKNESS + SCROLLBAR_MARGIN * 2 }}
+          >
+            <div
+              className="relative h-full w-full rounded-full bg-black/5 hover:bg-black/10 transition-colors"
+              style={{ width: SCROLLBAR_THICKNESS }}
+            >
+              <div
+                className="absolute left-0 right-0 rounded-full bg-black/20 hover:bg-black/40 active:bg-black/60 transition-colors cursor-default"
+                style={{
+                  top: ((universe.viewMinY - universe.minY) / universe.height) * viewportSize.height,
+                  height: Math.max(MIN_THUMB_SIZE, (universe.viewHeight / universe.height) * viewportSize.height),
+                }}
+                onMouseDown={(e) => handleScrollbarMouseDown('vertical', e)}
+              />
+            </div>
+          </div>
+
         </div>
       </div>
 

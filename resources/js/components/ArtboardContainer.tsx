@@ -33,7 +33,7 @@ interface ArtboardContainerProps {
   artboard: ArtboardSchema;
   isSelected: boolean;
   canvasScale: number;
-  canvasPanRef: React.MutableRefObject<{ x: number; y: number }>;
+
   zIndex: number;
   onUpdate: (artboardId: string, updates: Partial<ArtboardSchema>) => void;
   onDelete: (artboardId: string) => void;
@@ -53,7 +53,7 @@ function ArtboardContainer({
   artboard,
   isSelected,
   canvasScale,
-  canvasPanRef,
+
   zIndex,
   onUpdate,
   onDelete,
@@ -149,20 +149,7 @@ function ArtboardContainer({
   // Artboard Positioning (Drag to Move) - Transform-Aware
   // ============================================================================
 
-  /**
-   * Convert screen coordinates to canvas space
-   * Accounts for canvas pan and zoom transforms
-   */
-  const screenToCanvasCoords = useCallback(
-    (screenX: number, screenY: number): { x: number; y: number } => {
-      const pan = canvasPanRef.current;
-      return {
-        x: (screenX - pan.x) / canvasScale,
-        y: (screenY - pan.y) / canvasScale,
-      };
-    },
-    [canvasScale, canvasPanRef]
-  );
+
 
   const handleArtboardMouseDown = (e: React.MouseEvent) => {
     if (artboard.locked) return;
