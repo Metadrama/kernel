@@ -8,10 +8,11 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
 import { GridStack } from 'gridstack';
-import { Trash2, Lock, Unlock, Eye, EyeOff, MoreVertical, Copy } from 'lucide-react';
+import { Trash2, Lock, Unlock, Eye, EyeOff, MoreVertical, Copy, Settings } from 'lucide-react';
 import 'gridstack/dist/gridstack.min.css';
 import WidgetShell from '@/components/WidgetShell';
 import { Button } from '@/components/ui/button';
+import ArtboardSettingsDialog from '@/components/ArtboardSettingsDialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -77,6 +78,10 @@ function ArtboardContainer({
   // Context menu state
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Calculate display position (canvas space -> screen space)
+
 
   // ============================================================================
   // GridStack Initialization (per artboard)
@@ -507,6 +512,11 @@ function ArtboardContainer({
                 Duplicate
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setShowSettings(true)}>
+                <Settings className="mr-2 h-4 w-4" />
+                Settings
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => onUpdate(artboard.id, { locked: !artboard.locked })}
               >
@@ -646,6 +656,13 @@ function ArtboardContainer({
           </div>
         </div>
       </div>
+
+      <ArtboardSettingsDialog
+        open={showSettings}
+        onOpenChange={setShowSettings}
+        artboard={artboard}
+        onUpdate={onUpdate}
+      />
     </>
   );
 }
