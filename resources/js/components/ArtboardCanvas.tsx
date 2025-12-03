@@ -21,8 +21,8 @@ import { useArtboardContext } from '@/context/ArtboardContext';
 
 const MIN_SCALE = 0.1;
 const MAX_SCALE = 5;
-const SCROLLBAR_THICKNESS = 10;
-const SCROLLBAR_MARGIN = 4;
+const SCROLLBAR_THICKNESS = 6;
+const SCROLLBAR_MARGIN = 0;
 const MIN_THUMB_SIZE = 24;
 
 const clampScale = (value: number) => Math.min(Math.max(value, MIN_SCALE), MAX_SCALE);
@@ -179,9 +179,19 @@ export default function ArtboardCanvas() {
       } else {
         // Pan
         e.preventDefault();
+
+        let deltaX = e.deltaX;
+        let deltaY = e.deltaY;
+
+        // Shift + Scroll = Horizontal Scroll
+        if (e.shiftKey && deltaY !== 0 && deltaX === 0) {
+          deltaX = deltaY;
+          deltaY = 0;
+        }
+
         setPan((prev) => ({
-          x: prev.x - e.deltaX,
-          y: prev.y - e.deltaY,
+          x: prev.x - deltaX,
+          y: prev.y - deltaY,
         }));
       }
     };
@@ -555,48 +565,50 @@ export default function ArtboardCanvas() {
 
           {/* Scrollbars */}
           {/* Horizontal */}
-          {(universe.width > universe.viewWidth + 1 || isDraggingScrollbar === 'horizontal') && (
+          <div
+            className={`absolute bottom-0 left-0 right-0 z-50 flex items-center transition-opacity duration-150 ease-out ${(universe.width > universe.viewWidth + 1 || isDraggingScrollbar === 'horizontal')
+                ? 'opacity-100'
+                : 'opacity-0 pointer-events-none'
+              }`}
+            style={{ height: SCROLLBAR_THICKNESS }}
+          >
             <div
-              className="absolute bottom-0 left-0 right-0 z-50 flex items-center px-1"
-              style={{ height: SCROLLBAR_THICKNESS + SCROLLBAR_MARGIN * 2 }}
+              className="relative h-full w-full bg-transparent hover:bg-black/5 transition-colors"
+              style={{ height: SCROLLBAR_THICKNESS }}
             >
               <div
-                className="relative h-full w-full rounded-full bg-black/5 hover:bg-black/10 transition-colors"
-                style={{ height: SCROLLBAR_THICKNESS }}
-              >
-                <div
-                  className="absolute top-0 bottom-0 rounded-full bg-black/20 hover:bg-black/40 active:bg-black/60 transition-colors cursor-default"
-                  style={{
-                    left: ((universe.viewMinX - universe.minX) / universe.width) * viewportSize.width,
-                    width: Math.max(MIN_THUMB_SIZE, (universe.viewWidth / universe.width) * viewportSize.width),
-                  }}
-                  onMouseDown={(e) => handleScrollbarMouseDown('horizontal', e)}
-                />
-              </div>
+                className="absolute top-0 bottom-0 rounded-full bg-black/20 hover:bg-black/40 active:bg-black/60 transition-colors cursor-default"
+                style={{
+                  left: ((universe.viewMinX - universe.minX) / universe.width) * viewportSize.width,
+                  width: Math.max(MIN_THUMB_SIZE, (universe.viewWidth / universe.width) * viewportSize.width),
+                }}
+                onMouseDown={(e) => handleScrollbarMouseDown('horizontal', e)}
+              />
             </div>
-          )}
+          </div>
 
           {/* Vertical */}
-          {(universe.height > universe.viewHeight + 1 || isDraggingScrollbar === 'vertical') && (
+          <div
+            className={`absolute top-0 bottom-0 right-0 z-50 flex flex-col justify-center transition-opacity duration-150 ease-out ${(universe.height > universe.viewHeight + 1 || isDraggingScrollbar === 'vertical')
+                ? 'opacity-100'
+                : 'opacity-0 pointer-events-none'
+              }`}
+            style={{ width: SCROLLBAR_THICKNESS }}
+          >
             <div
-              className="absolute top-0 bottom-0 right-0 z-50 flex flex-col justify-center py-1"
-              style={{ width: SCROLLBAR_THICKNESS + SCROLLBAR_MARGIN * 2 }}
+              className="relative h-full w-full bg-transparent hover:bg-black/5 transition-colors"
+              style={{ width: SCROLLBAR_THICKNESS }}
             >
               <div
-                className="relative h-full w-full rounded-full bg-black/5 hover:bg-black/10 transition-colors"
-                style={{ width: SCROLLBAR_THICKNESS }}
-              >
-                <div
-                  className="absolute left-0 right-0 rounded-full bg-black/20 hover:bg-black/40 active:bg-black/60 transition-colors cursor-default"
-                  style={{
-                    top: ((universe.viewMinY - universe.minY) / universe.height) * viewportSize.height,
-                    height: Math.max(MIN_THUMB_SIZE, (universe.viewHeight / universe.height) * viewportSize.height),
-                  }}
-                  onMouseDown={(e) => handleScrollbarMouseDown('vertical', e)}
-                />
-              </div>
+                className="absolute left-0 right-0 rounded-full bg-black/20 hover:bg-black/40 active:bg-black/60 transition-colors cursor-default"
+                style={{
+                  top: ((universe.viewMinY - universe.minY) / universe.height) * viewportSize.height,
+                  height: Math.max(MIN_THUMB_SIZE, (universe.viewHeight / universe.height) * viewportSize.height),
+                }}
+                onMouseDown={(e) => handleScrollbarMouseDown('vertical', e)}
+              />
             </div>
-          )}
+          </div>
 
         </div>
       </div>
