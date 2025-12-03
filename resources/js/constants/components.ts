@@ -33,7 +33,7 @@ export const AVAILABLE_COMPONENTS: ComponentCard[] = [
   // Layout
   {
     id: 'empty-widget',
-    name: 'Empty Widget',
+    name: 'Empty Card',
     description: 'Blank widget container to drop components into later',
     icon: 'LayoutTemplate',
     category: 'test-components',

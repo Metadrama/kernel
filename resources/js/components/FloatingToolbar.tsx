@@ -14,16 +14,37 @@ interface FloatingToolbarProps {
     activeTool: ToolType;
     onToolChange: (tool: ToolType) => void;
     onAddArtboard: () => void;
+    onAddCard: () => void;
 }
 
 export default function FloatingToolbar({
     activeTool,
     onToolChange,
     onAddArtboard,
+    onAddCard,
 }: FloatingToolbarProps) {
     return (
         <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-1 rounded-xl border bg-background p-1.5 shadow-lg">
             <TooltipProvider delayDuration={300}>
+                {/* Add Artboard (Frame) - First Position */}
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground"
+                            onClick={onAddArtboard}
+                        >
+                            <Frame className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                        Frame (F)
+                    </TooltipContent>
+                </Tooltip>
+
+                <Separator orientation="vertical" className="mx-1 h-6" />
+
                 {/* Pointer Tool */}
                 <Tooltip>
                     <TooltipTrigger asChild>
@@ -60,37 +81,20 @@ export default function FloatingToolbar({
 
                 <Separator orientation="vertical" className="mx-1 h-6" />
 
-                {/* Add Artboard (Frame) */}
+                {/* Add Empty Card (was Shapes) */}
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <Button
                             variant="ghost"
                             size="icon"
                             className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground"
-                            onClick={onAddArtboard}
-                        >
-                            <Frame className="h-4 w-4" />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="text-xs">
-                        Frame (F)
-                    </TooltipContent>
-                </Tooltip>
-
-                {/* Shapes (Placeholder) */}
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground"
-                            onClick={() => console.log('Shapes clicked')}
+                            onClick={onAddCard}
                         >
                             <Square className="h-4 w-4" />
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="text-xs">
-                        Shape tools
+                        Add Empty Card
                     </TooltipContent>
                 </Tooltip>
 

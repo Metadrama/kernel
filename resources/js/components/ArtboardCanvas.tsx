@@ -18,6 +18,8 @@ import type { ArtboardSchema, CanvasPosition } from '@/types/artboard';
 import type { WidgetComponent } from '@/types/dashboard';
 import { createArtboard } from '@/lib/artboard-utils';
 import { useArtboardContext } from '@/context/ArtboardContext';
+import { GRID_FINE_GRAIN, upscaleGridUnits } from '@/lib/grid-resolution';
+import type { WidgetSchema } from '@/types/dashboard';
 
 const MIN_SCALE = 0.1;
 const MAX_SCALE = 5;
@@ -455,6 +457,41 @@ export default function ArtboardCanvas() {
     }
   }, [selectedArtboardId]);
 
+  const handleAddCard = useCallback(() => {
+    // Determine target artboard: selected or first
+    const targetArtboardId = selectedArtboardId || (artboards.length > 0 ? artboards[0].id : null);
+
+    if (!targetArtboardId) {
+      console.warn('No artboard to add card to');
+      return;
+    }
+
+    const newWidget: WidgetSchema = {
+      id: `widget-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      x: 0,
+      y: 0,
+      w: 6,
+      h: 5,
+      components: [], // Empty initially
+    };
+
+    setArtboards((prev) =>
+      prev.map((artboard) => {
+        if (artboard.id !== targetArtboardId) return artboard;
+        return {
+          ...artboard,
+          widgets: [...artboard.widgets, newWidget],
+          updatedAt: new Date().toISOString(),
+        };
+      })
+    );
+
+    // If we auto-selected an artboard, make it selected
+    if (!selectedArtboardId) {
+      setSelectedArtboardId(targetArtboardId);
+    }
+  }, [selectedArtboardId, artboards]);
+
   // ============================================================================
   // Persistence
   // ============================================================================
@@ -674,7 +711,7 @@ export default function ArtboardCanvas() {
 
           {/* Block interactions with content in Hand Mode */}
           {(activeTool === 'hand' || isSpacePressed) && (
-            <div className="absolute inset-0 z-[9999] bg-transparent cursor-grab active:cursor-grabbing" />
+            <div className="absolute inset-0 z-40 bg-transparent cursor-grab active:cursor-grabbing" />
           )}
 
           {/* Scrollbars */}
@@ -776,7 +813,9 @@ export default function ArtboardCanvas() {
             setSelectedArtboardId(null);
           }
         }}
+        onAddCard={handleAddCard}
       />
     </div >
   );
 }
+

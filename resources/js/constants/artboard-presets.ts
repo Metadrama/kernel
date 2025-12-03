@@ -20,7 +20,10 @@ function mmToPx(mm: number, dpi: number): number {
 // Print Format Presets
 // ============================================================================
 
-const PRINT_DPI = 300;
+// Use 72 DPI (Logical Points) for layout to match screen pixels.
+// This ensures A4/A3 appear proportionate to widgets (like in Figma).
+// For actual printing, export at 300 DPI (4.16x scale).
+const PRINT_DPI = 72;
 
 const A4_PORTRAIT: ArtboardDimensions = {
   widthMm: 210,
@@ -212,7 +215,7 @@ export const ARTBOARD_PRESETS: Record<string, ArtboardPreset> = {
     icon: 'FileText',
     description: 'A2 paper in landscape orientation',
   },
-  
+
   // Presentation
   'slide-16-9': {
     format: 'slide-16-9',
@@ -228,7 +231,7 @@ export const ARTBOARD_PRESETS: Record<string, ArtboardPreset> = {
     icon: 'Presentation',
     description: 'Standard presentation slide',
   },
-  
+
   // Web
   'web-1440': {
     format: 'web-1440',
@@ -244,7 +247,7 @@ export const ARTBOARD_PRESETS: Record<string, ArtboardPreset> = {
     icon: 'Monitor',
     description: 'Responsive web layout',
   },
-  
+
   // Display
   'display-fhd': {
     format: 'display-fhd',
@@ -260,7 +263,7 @@ export const ARTBOARD_PRESETS: Record<string, ArtboardPreset> = {
     icon: 'Tv',
     description: '4K Ultra HD display',
   },
-  
+
   // Mobile
   'mobile-portrait': {
     format: 'mobile-portrait',
