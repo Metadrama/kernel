@@ -9,11 +9,11 @@
 import { useEffect, useRef, useState, useCallback, useMemo, useLayoutEffect } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import ArtboardToolbar from '@/components/ArtboardToolbar';
 import ArtboardContainer from '@/components/ArtboardContainer';
 import ArtboardInspector from '@/components/ArtboardInspector';
 import { ComponentInspector } from '@/components/config-panel';
 import AddArtboardPanel from '@/components/AddArtboardPanel';
+import FloatingToolbar, { ToolType } from '@/components/FloatingToolbar';
 import type { ArtboardSchema, CanvasPosition } from '@/types/artboard';
 import type { WidgetComponent } from '@/types/dashboard';
 import { createArtboard } from '@/lib/artboard-utils';
@@ -30,6 +30,7 @@ const clampScale = (value: number) => Math.min(Math.max(value, MIN_SCALE), MAX_S
 
 export default function ArtboardCanvas() {
   const canvasRef = useRef<HTMLDivElement>(null);
+  const lastWheelTime = useRef<number>(0);
   const {
     artboards,
     setArtboards,
@@ -41,6 +42,8 @@ export default function ArtboardCanvas() {
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState<CanvasPosition>({ x: 0, y: 0 });
   const [viewportSize, setViewportSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  const [activeTool, setActiveTool] = useState<ToolType>('pointer');
+  const [isSpacePressed, setIsSpacePressed] = useState(false);
   const selectedArtboard = artboards.find(a => a.id === selectedArtboardId) || null;
 
   // Component selection state for inspector
@@ -189,14 +192,70 @@ export default function ArtboardCanvas() {
           deltaY = 0;
         }
 
+        // Scroll Acceleration & Normalization Logic
+        const now = Date.now();
+        const dt = now - lastWheelTime.current;
+        lastWheelTime.current = now;
+
+        // Detect if this is likely a mouse wheel (large fixed deltas, e.g., 100 or 125)
+        // vs a trackpad (small variable deltas)
+        const isMouseWheel = Math.abs(deltaX) >= 50 || Math.abs(deltaY) >= 50;
+
+        // Base scroll speed
+        // If it's a mouse wheel, we dampen the raw delta (often 100px) down to something finer (e.g., 30px)
+        // If it's a trackpad, we trust the raw delta more but maybe slight dampen
+        let effectiveDeltaX = deltaX;
+        let effectiveDeltaY = deltaY;
+
+        if (isMouseWheel) {
+          // Normalize mouse wheel to a consistent "notch" size
+          const NOTCH_SIZE = 5; // Pixel distance per notch for "fine" scrolling
+          effectiveDeltaX = Math.sign(deltaX) * NOTCH_SIZE * (Math.abs(deltaX) > 0 ? 1 : 0);
+          effectiveDeltaY = Math.sign(deltaY) * NOTCH_SIZE * (Math.abs(deltaY) > 0 ? 1 : 0);
+        }
+
+        let velocityFactor = 1;
+
+        // 1. Frequency-based acceleration (for Mouse Wheels)
+        if (dt < 20) {
+          velocityFactor = 25; // Super fast
+        } else if (dt < 40) {
+          velocityFactor = 10; // Fast
+        } else if (dt < 80) {
+          velocityFactor = 3; // Moderate
+        }
+
+        // 2. Magnitude-based acceleration (for Trackpads)
+        // Only apply if we didn't already normalize it as a mouse wheel
+        if (!isMouseWheel) {
+          const magnitude = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+          if (magnitude > 100) {
+            velocityFactor = Math.max(velocityFactor, 2.5);
+          } else if (magnitude > 50) {
+            velocityFactor = Math.max(velocityFactor, 1.5);
+          }
+        }
+
+        // Apply acceleration
         setPan((prev) => ({
-          x: prev.x - deltaX,
-          y: prev.y - deltaY,
+          x: prev.x - effectiveDeltaX * velocityFactor,
+          y: prev.y - effectiveDeltaY * velocityFactor,
         }));
       }
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Tool Shortcuts
+      if (!e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
+        if (e.key.toLowerCase() === 'v') {
+          setActiveTool('pointer');
+        } else if (e.key.toLowerCase() === 'h') {
+          setActiveTool('hand');
+        } else if (e.key === ' ') {
+          if (!isSpacePressed) setIsSpacePressed(true);
+        }
+      }
+
       if (e.ctrlKey) {
         if (e.key === '=' || e.key === '+') {
           e.preventDefault();
@@ -211,19 +270,27 @@ export default function ArtboardCanvas() {
       }
     };
 
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === ' ') {
+        setIsSpacePressed(false);
+      }
+    };
+
     const element = canvasRef.current;
     if (element) {
       element.addEventListener('wheel', handleWheel, { passive: false });
     }
     window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
 
     return () => {
       if (element) {
         element.removeEventListener('wheel', handleWheel);
       }
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [adjustScale]);
+  }, [adjustScale, isSpacePressed]);
 
   useLayoutEffect(() => {
     if (!canvasRef.current) return;
@@ -237,6 +304,58 @@ export default function ArtboardCanvas() {
     observer.observe(canvasRef.current);
     return () => observer.disconnect();
   }, []);
+
+  // ============================================================================
+  // Hand Tool Interaction (Left-Click Drag)
+  // ============================================================================
+  const [isPanning, setIsPanning] = useState(false);
+  const lastMousePos = useRef<{ x: number; y: number } | null>(null);
+
+  const handleCanvasMouseDown = (e: React.MouseEvent) => {
+    // Only allow panning if:
+    // 1. Middle mouse button (button 1) OR
+    // 2. Left mouse button (button 0) AND (Hand tool active OR Spacebar pressed)
+    const isMiddleClick = e.button === 1;
+    const isLeftClick = e.button === 0;
+    const isHandMode = activeTool === 'hand' || isSpacePressed;
+
+    if (isMiddleClick || (isLeftClick && isHandMode)) {
+      e.preventDefault();
+      setIsPanning(true);
+      lastMousePos.current = { x: e.clientX, y: e.clientY };
+    }
+  };
+
+  useEffect(() => {
+    if (!isPanning) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!lastMousePos.current) return;
+
+      const deltaX = e.clientX - lastMousePos.current.x;
+      const deltaY = e.clientY - lastMousePos.current.y;
+
+      lastMousePos.current = { x: e.clientX, y: e.clientY };
+
+      setPan((prev) => ({
+        x: prev.x + deltaX,
+        y: prev.y + deltaY,
+      }));
+    };
+
+    const handleMouseUp = () => {
+      setIsPanning(false);
+      lastMousePos.current = null;
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isPanning]);
 
   // ============================================================================
   // Scrollbar Interaction
@@ -466,16 +585,6 @@ export default function ArtboardCanvas() {
             </div>
 
             <Button variant="outline" size="sm">Preview</Button>
-            <ArtboardToolbar
-              onToggleAddArtboard={() => {
-                setShowAddArtboard(!showAddArtboard);
-                // Close other panels if needed
-                if (!showAddArtboard) {
-                  setShowInspector(false);
-                  setSelectedArtboardId(null);
-                }
-              }}
-            />
             <Button
               size="sm"
               className="bg-black text-white hover:bg-black/90"
@@ -489,7 +598,8 @@ export default function ArtboardCanvas() {
         {/* Infinite Canvas Viewport */}
         <div
           ref={canvasRef}
-          className="relative flex-1 overflow-hidden"
+          className={`relative flex-1 overflow-hidden ${activeTool === 'hand' || isSpacePressed ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
+          onMouseDown={handleCanvasMouseDown}
         >
           {/* Empty State */}
           {artboards.length === 0 && (
@@ -545,7 +655,6 @@ export default function ArtboardCanvas() {
                   artboard={artboard}
                   isSelected={selectedArtboardId === artboard.id}
                   canvasScale={scale}
-
                   zIndex={index} // Stack position determines z-index
                   onUpdate={handleUpdateArtboard}
                   onDelete={handleDeleteArtboard}
@@ -563,12 +672,17 @@ export default function ArtboardCanvas() {
               ))}
           </div>
 
+          {/* Block interactions with content in Hand Mode */}
+          {(activeTool === 'hand' || isSpacePressed) && (
+            <div className="absolute inset-0 z-[9999] bg-transparent cursor-grab active:cursor-grabbing" />
+          )}
+
           {/* Scrollbars */}
           {/* Horizontal */}
           <div
             className={`absolute bottom-0 left-0 right-0 z-50 flex items-center transition-opacity duration-150 ease-out ${(universe.width > universe.viewWidth + 1 || isDraggingScrollbar === 'horizontal')
-                ? 'opacity-100'
-                : 'opacity-0 pointer-events-none'
+              ? 'opacity-100'
+              : 'opacity-0 pointer-events-none'
               }`}
             style={{ height: SCROLLBAR_THICKNESS }}
           >
@@ -590,8 +704,8 @@ export default function ArtboardCanvas() {
           {/* Vertical */}
           <div
             className={`absolute top-0 bottom-0 right-0 z-50 flex flex-col justify-center transition-opacity duration-150 ease-out ${(universe.height > universe.viewHeight + 1 || isDraggingScrollbar === 'vertical')
-                ? 'opacity-100'
-                : 'opacity-0 pointer-events-none'
+              ? 'opacity-100'
+              : 'opacity-0 pointer-events-none'
               }`}
             style={{ width: SCROLLBAR_THICKNESS }}
           >
@@ -614,36 +728,55 @@ export default function ArtboardCanvas() {
       </div>
 
       {/* Component Inspector Panel */}
-      {showInspector && selectedComponent && (
-        <ComponentInspector
-          component={selectedComponent.component}
-          onConfigChange={handleComponentConfigChange}
-          onClose={handleCloseInspector}
-        />
-      )}
+      {
+        showInspector && selectedComponent && (
+          <ComponentInspector
+            component={selectedComponent.component}
+            onConfigChange={handleComponentConfigChange}
+            onClose={handleCloseInspector}
+          />
+        )
+      }
 
       {/* Artboard Inspector Panel */}
-      {selectedArtboard && (
-        <ArtboardInspector
-          artboard={selectedArtboard}
-          onUpdate={(updates) => {
-            if (!selectedArtboardId) return;
-            handleUpdateArtboard(selectedArtboardId, updates);
-          }}
-          onClose={() => setSelectedArtboardId(null)}
-        />
-      )}
+      {
+        selectedArtboard && (
+          <ArtboardInspector
+            artboard={selectedArtboard}
+            onUpdate={(updates) => {
+              if (!selectedArtboardId) return;
+              handleUpdateArtboard(selectedArtboardId, updates);
+            }}
+            onClose={() => setSelectedArtboardId(null)}
+          />
+        )
+      }
 
       {/* Add Artboard Panel */}
-      {showAddArtboard && (
-        <AddArtboardPanel
-          onAddArtboard={(format) => {
-            const newArtboard: ArtboardSchema = createArtboard({ format }, artboards);
-            setArtboards((prev) => [...prev, newArtboard]);
-          }}
-          onClose={() => setShowAddArtboard(false)}
-        />
-      )}
-    </div>
+      {
+        showAddArtboard && (
+          <AddArtboardPanel
+            onAddArtboard={(format) => {
+              const newArtboard: ArtboardSchema = createArtboard({ format }, artboards);
+              setArtboards((prev) => [...prev, newArtboard]);
+            }}
+            onClose={() => setShowAddArtboard(false)}
+          />
+        )
+      }
+
+      {/* Floating Toolbar */}
+      <FloatingToolbar
+        activeTool={isSpacePressed ? 'hand' : activeTool}
+        onToolChange={setActiveTool}
+        onAddArtboard={() => {
+          setShowAddArtboard(!showAddArtboard);
+          if (!showAddArtboard) {
+            setShowInspector(false);
+            setSelectedArtboardId(null);
+          }
+        }}
+      />
+    </div >
   );
 }
