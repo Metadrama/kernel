@@ -1,0 +1,314 @@
+# Modularization & Cohesion Assessment
+
+This document provides a comprehensive assessment of the codebase's modular architecture, cohesion patterns, and recommendations for improvement.
+
+---
+
+## Executive Summary
+
+| Aspect | Rating | Summary |
+|--------|--------|---------|
+| **Type System Cohesion** | ⭐⭐⭐⭐⭐ | Excellent separation of concerns |
+| **Utility Library Cohesion** | ⭐⭐⭐⭐ | Good, with minor overlap |
+| **Component Modularity** | ⭐⭐ | Poor - monolithic components |
+| **Context Management** | ⭐⭐⭐⭐⭐ | Clean, focused implementation |
+| **Overall Architecture** | ⭐⭐⭐ | Mixed - good foundation, execution gaps |
+
+---
+
+## 1. Types Layer Analysis
+
+> [!TIP]
+> The types layer exhibits **excellent cohesion** with clear domain boundaries.
+
+### Files Analyzed
+
+| File | LOC | Purpose | Cohesion |
+|------|-----|---------|----------|
+| [artboard.ts](file:///c:/Users/Local%20User/kernel/resources/js/types/artboard.ts) | 145 | Artboard domain types | ✅ High |
+| [dashboard.ts](file:///c:/Users/Local%20User/kernel/resources/js/types/dashboard.ts) | 52 | Widget/layout types | ✅ High |
+| [component-config.ts](file:///c:/Users/Local%20User/kernel/resources/js/types/component-config.ts) | 392 | Component configuration schemas | ✅ High |
+| [config-schemas.ts](file:///c:/Users/Local%20User/kernel/resources/js/types/config-schemas.ts) | ~400 | Schema metadata | ✅ High |
+
+### Strengths
+
+1. **Single Responsibility**: Each type file focuses on one domain
+2. **Clear Boundaries**: [artboard.ts](file:///c:/Users/Local%20User/kernel/resources/js/types/artboard.ts) vs [dashboard.ts](file:///c:/Users/Local%20User/kernel/resources/js/types/dashboard.ts) separation is logical
+3. **Comprehensive Documentation**: JSDoc comments throughout
+4. **Extensibility**: Union types allow adding new component types easily
+
+### Dependency Graph
+
+```mermaid
+graph TD
+    A[artboard.ts] --> B[dashboard.ts]
+    B --> C[component-config.ts]
+    D[config-schemas.ts] --> C
+    E[component-layout.ts] --> B
+```
+
+---
+
+## 2. Utility Library Analysis
+
+### Files Analyzed
+
+| File | LOC | Purpose | Cohesion |
+|------|-----|---------|----------|
+| [component-layout.ts](file:///c:/Users/Local%20User/kernel/resources/js/lib/component-layout.ts) | 462 | Grid layout calculations | ✅ High |
+| [artboard-utils.ts](file:///c:/Users/Local%20User/kernel/resources/js/lib/artboard-utils.ts) | 257 | Artboard operations | ✅ High |
+| [collision-utils.ts](file:///c:/Users/Local%20User/kernel/resources/js/lib/collision-utils.ts) | ~200 | Collision detection | ✅ High |
+| [grid-resolution.ts](file:///c:/Users/Local%20User/kernel/resources/js/lib/grid-resolution.ts) | 13 | Grid constants | ⚠️ Too small |
+| [utils.ts](file:///c:/Users/Local%20User/kernel/resources/js/lib/utils.ts) | 5 | Generic utilities | ⚠️ Too small |
+
+### Strengths
+
+1. **Pure Functions**: Most utilities are stateless and testable
+2. **Clear Naming**: Function names describe their purpose
+3. **Domain Separation**: Artboard utils vs component layout is logical
+
+### Issues
+
+> [!WARNING]
+> Two micro-files ([grid-resolution.ts](file:///c:/Users/Local%20User/kernel/resources/js/lib/grid-resolution.ts), [utils.ts](file:///c:/Users/Local%20User/kernel/resources/js/lib/utils.ts)) suggest incomplete modularization.
+
+```diff
+- grid-resolution.ts (13 LOC) - Single constant, should merge
+- utils.ts (5 LOC) - Just cn() function, should merge
++ Consider consolidating into existing files
+```
+
+---
+
+## 3. Component Layer Analysis
+
+> [!CAUTION]
+> **Critical Issue**: Four components exceed 500 LOC, indicating poor modularization.
+
+### Large Component Breakdown
+
+````carousel
+### ArtboardCanvas.tsx (822 LOC)
+
+**Responsibilities (Too Many):**
+- Infinite canvas rendering
+- Zoom/pan control
+- Keyboard shortcuts
+- Mouse event handling
+- Scrollbar management
+- State persistence
+
+**Nested Functions:** 13
+
+**Recommended Split:**
+1. `useCanvasInteractions` hook (mouse/keyboard)
+2. `useCanvasZoom` hook (zoom/pan logic)
+3. `CanvasScrollbars` component
+4. `ArtboardCanvas` (orchestration only)
+<!-- slide -->
+### ArtboardContainer.tsx (671 LOC)
+
+**Responsibilities (Too Many):**
+- GridStack integration
+- Widget CRUD operations
+- Drag-and-drop handling
+- Context menu handling
+- Component lifecycle
+
+**Nested Functions:** 15
+
+**Recommended Split:**
+1. `useWidgetOperations` hook
+2. `useArtboardDragDrop` hook
+3. `ArtboardContextMenu` component
+4. `ArtboardContainer` (rendering only)
+<!-- slide -->
+### WidgetShell.tsx (599 LOC)
+
+**Responsibilities (Too Many):**
+- Widget chrome/frame
+- Drag/resize operations
+- Scrollbar management
+- Component rendering
+- Layout calculations
+
+**Nested Functions:** 7
+
+**Recommended Split:**
+1. `useWidgetDrag` hook
+2. `WidgetResizeHandles` component
+3. `WidgetContent` component
+4. `WidgetShell` (composition)
+<!-- slide -->
+### ComponentSidebar.tsx (583 LOC)
+
+**Responsibilities (Too Many):**
+- Navigation state
+- Search/filter logic
+- Component card rendering
+- Layers panel
+- Drag initiation
+
+**Nested Functions:** 18
+
+**Recommended Split:**
+1. `useSidebarNavigation` hook
+2. `ComponentCardList` component
+3. `LayersPanel` component
+4. `SidebarSearch` component
+````
+
+### Component Cohesion Metrics
+
+| Component | LOC | Functions | Props | Cohesion Score |
+|-----------|-----|-----------|-------|----------------|
+| [ArtboardCanvas](file:///c:/Users/Local%20User/kernel/resources/js/components/ArtboardCanvas.tsx#33-821) | 822 | 13 | 0 | 🔴 Low |
+| [ArtboardContainer](file:///c:/Users/Local%20User/kernel/resources/js/components/ArtboardContainer.tsx#53-669) | 671 | 15 | 12 | 🔴 Low |
+| [WidgetShell](file:///c:/Users/Local%20User/kernel/resources/js/components/WidgetShell.tsx#28-599) | 599 | 7 | 9 | 🟡 Medium |
+| [ComponentSidebar](file:///c:/Users/Local%20User/kernel/resources/js/components/ComponentSidebar.tsx#40-583) | 583 | 18 | 0 | 🔴 Low |
+| [DashboardCanvas](file:///c:/Users/Local%20User/kernel/resources/js/components/DashboardCanvas.tsx#18-537) | 537 | 13 | 0 | 🔴 Low |
+| [DataSourceConfig](file:///c:/Users/Local%20User/kernel/resources/js/components/config-panel/DataSourceConfig.tsx#42-400) | 402 | 4 | 3 | 🟢 High |
+
+---
+
+## 4. Context Layer Analysis
+
+### File: [ArtboardContext.tsx](file:///c:/Users/Local%20User/kernel/resources/js/context/ArtboardContext.tsx)
+
+| Metric | Value | Assessment |
+|--------|-------|------------|
+| LOC | 120 | ✅ Appropriate |
+| Exported Functions | 2 | ✅ Minimal surface |
+| State Variables | 3 | ✅ Focused |
+| Side Effects | 2 | ✅ Managed |
+
+> [!NOTE]
+> This is a **model implementation** of a React context - focused, minimal, well-encapsulated.
+
+---
+
+## 5. Cross-Cutting Concerns
+
+### Identified Patterns
+
+1. **Event Handling Duplication**
+   - [handleWheel](file:///c:/Users/Local%20User/kernel/resources/js/components/DashboardCanvas.tsx#35-42), [handleMouseMove](file:///c:/Users/Local%20User/kernel/resources/js/components/ArtboardCanvas.tsx#334-347), [handleMouseUp](file:///c:/Users/Local%20User/kernel/resources/js/components/ArtboardCanvas.tsx#348-352) implemented in 4+ components
+   - Should extract to shared hooks
+
+2. **GridStack Integration**
+   - Tightly coupled in [ArtboardContainer](file:///c:/Users/Local%20User/kernel/resources/js/components/ArtboardContainer.tsx#53-669) and [DashboardCanvas](file:///c:/Users/Local%20User/kernel/resources/js/components/DashboardCanvas.tsx#18-537)
+   - Should create `useGridStack` adapter hook
+
+3. **Drag-and-Drop Logic**
+   - Scattered across components
+   - Should consolidate into `useDragDrop` family of hooks
+
+### Dependency Analysis
+
+```mermaid
+graph LR
+    subgraph Components
+        AC[ArtboardCanvas]
+        ATC[ArtboardContainer]
+        WS[WidgetShell]
+        CS[ComponentSidebar]
+    end
+    
+    subgraph Hooks/Utils
+        AU[artboard-utils]
+        CL[component-layout]
+        CU[collision-utils]
+    end
+    
+    subgraph Context
+        CTX[ArtboardContext]
+    end
+    
+    AC --> AU
+    AC --> CTX
+    ATC --> AU
+    ATC --> CL
+    ATC --> CTX
+    WS --> CL
+    CS --> CTX
+    
+    style AC fill:#ff6b6b
+    style ATC fill:#ff6b6b
+    style WS fill:#feca57
+    style CS fill:#ff6b6b
+```
+
+---
+
+## 6. Recommendations
+
+### Priority 1: Extract Custom Hooks
+
+| Current Location | Proposed Hook | Estimated LOC Saved |
+|------------------|---------------|---------------------|
+| [ArtboardCanvas](file:///c:/Users/Local%20User/kernel/resources/js/components/ArtboardCanvas.tsx#33-821) | `useCanvasZoom` | ~100 |
+| [ArtboardCanvas](file:///c:/Users/Local%20User/kernel/resources/js/components/ArtboardCanvas.tsx#33-821) | `useCanvasInteractions` | ~150 |
+| [ArtboardContainer](file:///c:/Users/Local%20User/kernel/resources/js/components/ArtboardContainer.tsx#53-669) | `useWidgetOperations` | ~120 |
+| [WidgetShell](file:///c:/Users/Local%20User/kernel/resources/js/components/WidgetShell.tsx#28-599) | `useWidgetResize` | ~80 |
+| [ComponentSidebar](file:///c:/Users/Local%20User/kernel/resources/js/components/ComponentSidebar.tsx#40-583) | `useSidebarNavigation` | ~100 |
+
+### Priority 2: Split Large Components
+
+```diff
+components/
++ ├── canvas/
++ │   ├── ArtboardCanvas.tsx (orchestration)
++ │   ├── CanvasScrollbars.tsx
++ │   └── hooks/
++ │       ├── useCanvasZoom.ts
++ │       └── useCanvasInteractions.ts
++ ├── artboard/
++ │   ├── ArtboardContainer.tsx (orchestration)
++ │   ├── ArtboardContextMenu.tsx
++ │   └── hooks/
++ │       └── useWidgetOperations.ts
+- ├── ArtboardCanvas.tsx (822 LOC monolith)
+- ├── ArtboardContainer.tsx (671 LOC monolith)
+```
+
+### Priority 3: Consolidate Micro-Files
+
+```diff
+lib/
+- ├── grid-resolution.ts (13 LOC)
+- ├── utils.ts (5 LOC)
++ ├── grid-constants.ts (merge grid-resolution)
++ └── component-layout.ts (absorb cn() from utils.ts)
+```
+
+### Priority 4: Create Adapter Layer
+
+```typescript
+// Proposed: lib/adapters/gridstack-adapter.ts
+export function useGridStack(options: GridStackOptions) {
+  // Centralize all GridStack integration
+  // Currently duplicated in ArtboardContainer + DashboardCanvas
+}
+```
+
+---
+
+## 7. Cohesion Score Summary
+
+| Layer | Current Score | Target Score | Effort |
+|-------|---------------|--------------|--------|
+| Types | 90/100 | 90/100 | ✅ Done |
+| Utilities | 75/100 | 90/100 | Low |
+| Components | 40/100 | 80/100 | High |
+| Context | 95/100 | 95/100 | ✅ Done |
+| **Overall** | **55/100** | **85/100** | Medium-High |
+
+---
+
+## 8. Immediate Action Items
+
+1. [ ] Create `hooks/` directory structure
+2. [ ] Extract `useCanvasZoom` from [ArtboardCanvas](file:///c:/Users/Local%20User/kernel/resources/js/components/ArtboardCanvas.tsx#33-821)
+3. [ ] Extract `useWidgetOperations` from [ArtboardContainer](file:///c:/Users/Local%20User/kernel/resources/js/components/ArtboardContainer.tsx#53-669)
+4. [ ] Merge [grid-resolution.ts](file:///c:/Users/Local%20User/kernel/resources/js/lib/grid-resolution.ts) → [component-layout.ts](file:///c:/Users/Local%20User/kernel/resources/js/lib/component-layout.ts)
+5. [ ] Create `useGridStack` adapter hook

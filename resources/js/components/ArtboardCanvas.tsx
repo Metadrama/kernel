@@ -18,7 +18,7 @@ import type { ArtboardSchema, CanvasPosition } from '@/types/artboard';
 import type { WidgetComponent } from '@/types/dashboard';
 import { createArtboard } from '@/lib/artboard-utils';
 import { useArtboardContext } from '@/context/ArtboardContext';
-import { GRID_FINE_GRAIN, upscaleGridUnits } from '@/lib/grid-resolution';
+import { GRID_FINE_GRAIN, upscaleGridUnits } from '@/lib/component-layout';
 import type { WidgetSchema } from '@/types/dashboard';
 
 const MIN_SCALE = 0.1;

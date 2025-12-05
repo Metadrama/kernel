@@ -28,7 +28,7 @@ import {
   GRID_FINE_GRAIN,
   downscaleGridUnits,
   upscaleGridUnits,
-} from '@/lib/grid-resolution';
+} from '@/lib/component-layout';
 
 interface ArtboardContainerProps {
   artboard: ArtboardSchema;

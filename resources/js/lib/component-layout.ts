@@ -9,10 +9,30 @@
  * - Maintains aspect ratios for visual components
  */
 
+// ============================================================================
+// Grid Resolution Constants (merged from grid-resolution.ts)
+// ============================================================================
+
+export const GRID_FINE_GRAIN = 2;
+export const GRID_BASE_COLUMNS = 12;
+export const GRID_MAX_COLUMNS = GRID_BASE_COLUMNS * GRID_FINE_GRAIN;
+
+export function upscaleGridUnits(value: number): number {
+  return Math.round(value * GRID_FINE_GRAIN);
+}
+
+export function downscaleGridUnits(value: number): number {
+  return Math.max(0, Math.round(value / GRID_FINE_GRAIN));
+}
+
+// ============================================================================
+// Component Sizing Types
+// ============================================================================
+
 /**
  * Component sizing modes
  */
-export type ComponentSizeMode = 
+export type ComponentSizeMode =
   | 'intrinsic'      // Size based on content (e.g., heading wraps text)
   | 'fixed-ratio'    // Maintains aspect ratio (e.g., charts)
   | 'fill'           // Fills available width, intrinsic height
@@ -119,7 +139,7 @@ export const COMPONENT_INTRINSIC_SIZES: Record<string, ComponentIntrinsicSize> =
     aspectRatio: 16 / 9,
     sizeMode: 'fixed-ratio',
   },
-  
+
   // Text components wrap their content
   'heading': {
     minCols: 2,
@@ -131,7 +151,7 @@ export const COMPONENT_INTRINSIC_SIZES: Record<string, ComponentIntrinsicSize> =
     aspectRatio: null,  // Flexible - wraps text
     sizeMode: 'fill',
   },
-  
+
   // KPI metrics - compact but readable
   'kpi': {
     minCols: 2,
@@ -143,7 +163,7 @@ export const COMPONENT_INTRINSIC_SIZES: Record<string, ComponentIntrinsicSize> =
     aspectRatio: null,  // Flexible - adjusts to content
     sizeMode: 'intrinsic',
   },
-  
+
   // Fallback for unknown components
   'default': {
     minCols: 3,
@@ -175,10 +195,10 @@ export function calculateComponentDimensions(
   const colWidth = (containerWidth - (gridConfig.gap * (gridConfig.columns - 1))) / gridConfig.columns;
   const colSpan = intrinsicSize.defaultCols;
   const width = colSpan * colWidth + (colSpan - 1) * gridConfig.gap;
-  
+
   let rowSpan = intrinsicSize.defaultRows;
   let height = rowSpan * gridConfig.rowHeight + (rowSpan - 1) * gridConfig.gap;
-  
+
   // Adjust for aspect ratio if specified
   if (intrinsicSize.aspectRatio && intrinsicSize.sizeMode === 'fixed-ratio') {
     const targetHeight = width / intrinsicSize.aspectRatio;
@@ -191,7 +211,7 @@ export function calculateComponentDimensions(
     );
     height = rowSpan * gridConfig.rowHeight + (rowSpan - 1) * gridConfig.gap;
   }
-  
+
   return { width, height, colSpan, rowSpan };
 }
 
@@ -211,10 +231,10 @@ function createOccupancyMap(columns: number, rows: number): OccupancyMap {
  * Mark cells as occupied
  */
 function markOccupied(
-  map: OccupancyMap, 
-  col: number, 
-  row: number, 
-  colSpan: number, 
+  map: OccupancyMap,
+  col: number,
+  row: number,
+  colSpan: number,
   rowSpan: number
 ): void {
   for (let r = row; r < row + rowSpan && r < map.length; r++) {
@@ -238,9 +258,9 @@ function isPositionAvailable(
   while (map.length < row + rowSpan) {
     map.push(Array(map[0]?.length || 12).fill(false));
   }
-  
+
   if (col + colSpan > (map[0]?.length || 12)) return false;
-  
+
   for (let r = row; r < row + rowSpan; r++) {
     for (let c = col; c < col + colSpan; c++) {
       if (map[r]?.[c]) return false;
@@ -260,20 +280,20 @@ export function findNextAvailablePosition(
   gridColumns: number
 ): GridPosition {
   let row = 0;
-  
+
   while (true) {
     // Extend map if we've gone past it
     while (occupancyMap.length <= row + rowSpan) {
       occupancyMap.push(Array(gridColumns).fill(false));
     }
-    
+
     for (let col = 0; col <= gridColumns - colSpan; col++) {
       if (isPositionAvailable(occupancyMap, col, row, colSpan, rowSpan)) {
         return { col, row, colSpan, rowSpan };
       }
     }
     row++;
-    
+
     // Safety limit
     if (row > 100) {
       return { col: 0, row: row, colSpan, rowSpan };
@@ -318,21 +338,21 @@ export function calculateWidgetLayout(
   gridConfig: WidgetGridConfig = DEFAULT_WIDGET_GRID
 ): LayoutResult[] {
   if (components.length === 0) return [];
-  
+
   const results: LayoutResult[] = [];
   const occupancyMap = createOccupancyMap(gridConfig.columns, 10);
   const colWidth = (containerWidth - (gridConfig.gap * (gridConfig.columns - 1))) / gridConfig.columns;
-  
+
   // First pass: place components with locked positions
   const lockedComponents = components.filter(c => c.config?.layout?.locked);
   const unlockedComponents = components.filter(c => !c.config?.layout?.locked);
-  
+
   for (const component of lockedComponents) {
     const layout = component.config?.layout;
     if (layout?.gridPosition) {
       const pos = layout.gridPosition;
       markOccupied(occupancyMap, pos.col, pos.row, pos.colSpan, pos.rowSpan);
-      
+
       results.push({
         instanceId: component.instanceId,
         componentType: component.componentType,
@@ -341,15 +361,15 @@ export function calculateWidgetLayout(
       });
     }
   }
-  
+
   // Second pass: auto-layout unlocked components
   for (const component of unlockedComponents) {
     const intrinsicSize = getComponentIntrinsicSize(component.componentType);
-    
+
     // Use existing layout if available, otherwise use intrinsic defaults
     let colSpan = intrinsicSize.defaultCols;
     let rowSpan = intrinsicSize.defaultRows;
-    
+
     if (component.config?.layout?.gridPosition) {
       colSpan = component.config.layout.gridPosition.colSpan;
       rowSpan = component.config.layout.gridPosition.rowSpan;
@@ -365,11 +385,11 @@ export function calculateWidgetLayout(
         )
       );
     }
-    
+
     // Find position
     const position = findNextAvailablePosition(occupancyMap, colSpan, rowSpan, gridConfig.columns);
     markOccupied(occupancyMap, position.col, position.row, position.colSpan, position.rowSpan);
-    
+
     results.push({
       instanceId: component.instanceId,
       componentType: component.componentType,
@@ -377,7 +397,7 @@ export function calculateWidgetLayout(
       pixelBounds: gridPositionToPixels(position, colWidth, gridConfig),
     });
   }
-  
+
   return results;
 }
 
@@ -405,7 +425,7 @@ export function calculateTotalHeight(
   gridConfig: WidgetGridConfig = DEFAULT_WIDGET_GRID
 ): number {
   if (layouts.length === 0) return 0;
-  
+
   const maxRow = Math.max(...layouts.map(l => l.gridPosition.row + l.gridPosition.rowSpan));
   return maxRow * (gridConfig.rowHeight + gridConfig.gap) - gridConfig.gap;
 }
@@ -421,17 +441,17 @@ export function resizeComponent(
   gridConfig: WidgetGridConfig = DEFAULT_WIDGET_GRID
 ): GridPosition {
   const intrinsic = getComponentIntrinsicSize(componentType);
-  
+
   let newColSpan = Math.max(
     intrinsic.minCols,
     Math.min(intrinsic.maxCols, currentPosition.colSpan + deltaColSpan)
   );
-  
+
   let newRowSpan = Math.max(
     intrinsic.minRows,
     Math.min(intrinsic.maxRows, currentPosition.rowSpan + deltaRowSpan)
   );
-  
+
   // Enforce aspect ratio if required
   if (intrinsic.aspectRatio && intrinsic.sizeMode === 'fixed-ratio') {
     // If width changed, adjust height
@@ -449,10 +469,10 @@ export function resizeComponent(
       newColSpan = Math.max(intrinsic.minCols, Math.min(intrinsic.maxCols, newColSpan));
     }
   }
-  
+
   // Ensure doesn't exceed grid
   newColSpan = Math.min(newColSpan, gridConfig.columns - currentPosition.col);
-  
+
   return {
     ...currentPosition,
     colSpan: newColSpan,

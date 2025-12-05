@@ -13,7 +13,7 @@ import {
   GRID_MAX_COLUMNS,
   downscaleGridUnits,
   upscaleGridUnits,
-} from '@/lib/grid-resolution';
+} from '@/lib/component-layout';
 
 export default function DashboardCanvas() {
   const gridRef = useRef<HTMLDivElement>(null);
@@ -21,13 +21,13 @@ export default function DashboardCanvas() {
   const [widgets, setWidgets] = useState<WidgetSchema[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [scale, setScale] = useState(1);
-  
+
   // Component selection state for inspector
   const [selectedComponent, setSelectedComponent] = useState<{
     widgetId: string;
     component: WidgetComponent;
   } | null>(null);
-  
+
   // Show inspector panel
   const [showInspector, setShowInspector] = useState(false);
 
@@ -263,7 +263,7 @@ export default function DashboardCanvas() {
         ),
       }))
     );
-    
+
     // Update selected component reference
     setSelectedComponent((prev) => {
       if (prev && prev.component.instanceId === instanceId) {
@@ -363,166 +363,166 @@ export default function DashboardCanvas() {
     <div className="flex h-screen flex-1 overflow-hidden">
       {/* Main Canvas Area */}
       <div className="flex flex-1 flex-col overflow-hidden bg-muted/30">
-      {/* Top Bar (for future toolbar) - Fixed */}
-      <div className="relative z-50 flex h-14 shrink-0 items-center justify-between border-b bg-background/95 backdrop-blur px-6 supports-[backdrop-filter]:bg-background/60">
-        <div className="flex items-center gap-2">
-          <h1 className="text-sm font-semibold">Untitled Dashboard</h1>
-          <span className="text-xs text-muted-foreground">•</span>
-          <span className="text-xs text-muted-foreground">
-            {widgets.length} {widgets.length === 1 ? 'widget' : 'widgets'}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Zoom Controls */}
-          <div className="mr-2 flex items-center rounded-md border bg-background shadow-sm">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-none rounded-l-md border-r"
-              onClick={() => setScale((prev) => Math.max(prev * 0.9, 0.1))}
-              title="Zoom Out (Ctrl+-)"
-            >
-              <span className="text-xs">-</span>
-            </Button>
-            <div className="flex w-14 items-center justify-center px-2 text-xs font-medium">
-              {Math.round(scale * 100)}%
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-none border-r"
-              onClick={() => setScale((prev) => Math.min(prev * 1.1, 5))}
-              title="Zoom In (Ctrl++)"
-            >
-              <Plus className="h-3 w-3" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-none rounded-r-md"
-              onClick={() => setScale(1)}
-              title="Reset Zoom (Ctrl+0)"
-            >
-              <span className="text-xs">1:1</span>
-            </Button>
+        {/* Top Bar (for future toolbar) - Fixed */}
+        <div className="relative z-50 flex h-14 shrink-0 items-center justify-between border-b bg-background/95 backdrop-blur px-6 supports-[backdrop-filter]:bg-background/60">
+          <div className="flex items-center gap-2">
+            <h1 className="text-sm font-semibold">Untitled Dashboard</h1>
+            <span className="text-xs text-muted-foreground">•</span>
+            <span className="text-xs text-muted-foreground">
+              {widgets.length} {widgets.length === 1 ? 'widget' : 'widgets'}
+            </span>
           </div>
-
-          <Button variant="ghost" size="sm">
-            Preview
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => addWidget()}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Widget
-          </Button>
-          <Button size="sm">Save</Button>
-        </div>
-      </div>
-
-      {/* Scrollable Viewport */}
-      <div
-        className="relative flex-1 overflow-auto"
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-      >
-        {/* Empty State - Fixed relative to viewport, ignores zoom */}
-        {widgets.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-            <div className="text-center space-y-4">
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border-2 border-dashed border-muted-foreground/25 bg-background/50 backdrop-blur-sm">
-                <Plus className="h-8 w-8 text-muted-foreground/50" />
+          <div className="flex items-center gap-2">
+            {/* Zoom Controls */}
+            <div className="mr-2 flex items-center rounded-md border bg-background shadow-sm">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-none rounded-l-md border-r"
+                onClick={() => setScale((prev) => Math.max(prev * 0.9, 0.1))}
+                title="Zoom Out (Ctrl+-)"
+              >
+                <span className="text-xs">-</span>
+              </Button>
+              <div className="flex w-14 items-center justify-center px-2 text-xs font-medium">
+                {Math.round(scale * 100)}%
               </div>
-              <div className="space-y-2">
-                <h3 className="text-lg font-semibold text-foreground">
-                  Your canvas is empty
-                </h3>
-                <p className="text-sm text-muted-foreground max-w-sm">
-                  Click "Add Widget" to create an empty widget, then drag components into it
-                </p>
-              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-none border-r"
+                onClick={() => setScale((prev) => Math.min(prev * 1.1, 5))}
+                title="Zoom In (Ctrl++)"
+              >
+                <Plus className="h-3 w-3" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-none rounded-r-md"
+                onClick={() => setScale(1)}
+                title="Reset Zoom (Ctrl+0)"
+              >
+                <span className="text-xs">1:1</span>
+              </Button>
             </div>
-          </div>
-        )}
 
-        {/* Scaled Content Wrapper */}
+            <Button variant="ghost" size="sm">
+              Preview
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => addWidget()}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Widget
+            </Button>
+            <Button size="sm">Save</Button>
+          </div>
+        </div>
+
+        {/* Scrollable Viewport */}
         <div
-          style={{
-            width: `${100 * scale}%`,
-            minHeight: `${100 * scale}%`,
-            transformOrigin: '0 0',
-          }}
+          className="relative flex-1 overflow-auto"
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
         >
-          {/* Scaled Content */}
+          {/* Empty State - Fixed relative to viewport, ignores zoom */}
+          {widgets.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+              <div className="text-center space-y-4">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border-2 border-dashed border-muted-foreground/25 bg-background/50 backdrop-blur-sm">
+                  <Plus className="h-8 w-8 text-muted-foreground/50" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold text-foreground">
+                    Your canvas is empty
+                  </h3>
+                  <p className="text-sm text-muted-foreground max-w-sm">
+                    Click "Add Widget" to create an empty widget, then drag components into it
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Scaled Content Wrapper */}
           <div
             style={{
-              transform: `scale(${scale})`,
+              width: `${100 * scale}%`,
+              minHeight: `${100 * scale}%`,
               transformOrigin: '0 0',
-              width: `${100 / scale}%`,
-              minHeight: `${100 / scale}%`,
             }}
-            className="relative"
           >
-            {/* Grid Background Pattern */}
+            {/* Scaled Content */}
             <div
-              className={`absolute inset-0 transition-opacity ${isDragOver ? 'opacity-[0.03]' : 'opacity-[0.015]'
-                }`}
               style={{
-                backgroundImage: `
+                transform: `scale(${scale})`,
+                transformOrigin: '0 0',
+                width: `${100 / scale}%`,
+                minHeight: `${100 / scale}%`,
+              }}
+              className="relative"
+            >
+              {/* Grid Background Pattern */}
+              <div
+                className={`absolute inset-0 transition-opacity ${isDragOver ? 'opacity-[0.03]' : 'opacity-[0.015]'
+                  }`}
+                style={{
+                  backgroundImage: `
                   linear-gradient(to right, hsl(var(--foreground)) 1px, transparent 1px),
                   linear-gradient(to bottom, hsl(var(--foreground)) 1px, transparent 1px)
                 `,
-                backgroundSize: '24px 24px',
-              }}
-            />
+                  backgroundSize: '24px 24px',
+                }}
+              />
 
-            {/* Drop Zone Indicator */}
-            {isDragOver && (
-              <div className="absolute inset-0 z-20 flex items-center justify-center bg-primary/5 backdrop-blur-sm pointer-events-none">
-                <div className="rounded-lg border-2 border-dashed border-primary bg-background/90 px-8 py-6 text-center">
-                  <Plus className="mx-auto h-12 w-12 text-primary mb-2" />
-                  <p className="text-lg font-semibold text-primary">Drop to add component</p>
-                </div>
-              </div>
-            )}
-
-            {/* Gridstack Container */}
-            <div className="relative p-4">
-              <div ref={gridRef} className="grid-stack">
-                {widgets.map((widget) => (
-                  <div
-                    key={widget.id}
-                    id={widget.id}
-                    className="grid-stack-item"
-                    gs-id={widget.id}
-                    gs-x={upscaleGridUnits(widget.x)}
-                    gs-y={upscaleGridUnits(widget.y)}
-                    gs-w={upscaleGridUnits(widget.w)}
-                    gs-h={upscaleGridUnits(widget.h)}
-                    gs-min-w={upscaleGridUnits(2)}
-                    gs-min-h={upscaleGridUnits(2)}
-                    gs-max-w={GRID_MAX_COLUMNS}
-                  >
-                    <div className="grid-stack-item-content">
-                      <WidgetShell
-                        widget={widget}
-                        onDelete={() => deleteWidget(widget.id)}
-                        onAddComponent={(component) => handleAddComponentToWidget(widget.id, component)}
-                        onRemoveComponent={(instanceId) => handleRemoveComponentFromWidget(widget.id, instanceId)}
-                        onReorderComponents={(components) => handleReorderComponents(widget.id, components)}
-                        onUpdateComponentLayout={(instanceId, gridPosition) => handleUpdateComponentLayout(widget.id, instanceId, gridPosition)}
-                        onSelectComponent={(component) => handleSelectComponent(widget.id, component)}
-                        selectedComponentId={selectedComponent?.widgetId === widget.id ? selectedComponent.component.instanceId : undefined}
-                      />
-                    </div>
+              {/* Drop Zone Indicator */}
+              {isDragOver && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-primary/5 backdrop-blur-sm pointer-events-none">
+                  <div className="rounded-lg border-2 border-dashed border-primary bg-background/90 px-8 py-6 text-center">
+                    <Plus className="mx-auto h-12 w-12 text-primary mb-2" />
+                    <p className="text-lg font-semibold text-primary">Drop to add component</p>
                   </div>
-                ))}
+                </div>
+              )}
+
+              {/* Gridstack Container */}
+              <div className="relative p-4">
+                <div ref={gridRef} className="grid-stack">
+                  {widgets.map((widget) => (
+                    <div
+                      key={widget.id}
+                      id={widget.id}
+                      className="grid-stack-item"
+                      gs-id={widget.id}
+                      gs-x={upscaleGridUnits(widget.x)}
+                      gs-y={upscaleGridUnits(widget.y)}
+                      gs-w={upscaleGridUnits(widget.w)}
+                      gs-h={upscaleGridUnits(widget.h)}
+                      gs-min-w={upscaleGridUnits(2)}
+                      gs-min-h={upscaleGridUnits(2)}
+                      gs-max-w={GRID_MAX_COLUMNS}
+                    >
+                      <div className="grid-stack-item-content">
+                        <WidgetShell
+                          widget={widget}
+                          onDelete={() => deleteWidget(widget.id)}
+                          onAddComponent={(component) => handleAddComponentToWidget(widget.id, component)}
+                          onRemoveComponent={(instanceId) => handleRemoveComponentFromWidget(widget.id, instanceId)}
+                          onReorderComponents={(components) => handleReorderComponents(widget.id, components)}
+                          onUpdateComponentLayout={(instanceId, gridPosition) => handleUpdateComponentLayout(widget.id, instanceId, gridPosition)}
+                          onSelectComponent={(component) => handleSelectComponent(widget.id, component)}
+                          selectedComponentId={selectedComponent?.widgetId === widget.id ? selectedComponent.component.instanceId : undefined}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-      </div>
-      
+
       {/* Component Inspector Panel */}
       {showInspector && (
         <ComponentInspector
