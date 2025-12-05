@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{PROJECT_NAME}} Codebase Progress Report</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+            color: #e4e4e7;
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, #e94560 0%, #ff6b9d 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: #a1a1aa;
+            font-size: 1rem;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            color: #e94560;
+            margin: 2rem 0 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        h2::before {
+            content: '';
+            display: inline-block;
+            width: 4px;
+            height: 1.5rem;
+            background: linear-gradient(180deg, #e94560, #ff6b9d);
+            border-radius: 2px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Diagram container with zoom/pan */
+        .diagram-container {
+            position: relative;
+            background: #0a0a12;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin: 1rem 0;
+        }
+
+        .diagram-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .diagram-title {
+            font-weight: 600;
+            color: #e4e4e7;
+            font-size: 0.9rem;
+        }
+
+        .zoom-controls {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .zoom-btn {
+            background: rgba(233, 69, 96, 0.2);
+            border: 1px solid rgba(233, 69, 96, 0.4);
+            color: #e94560;
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .zoom-btn:hover {
+            background: rgba(233, 69, 96, 0.4);
+            transform: scale(1.05);
+        }
+
+        .zoom-level {
+            color: #a1a1aa;
+            font-size: 0.85rem;
+            min-width: 50px;
+            text-align: center;
+        }
+
+        .diagram-viewport {
+            width: 100%;
+            height: 600px;
+            overflow: hidden;
+            cursor: grab;
+            position: relative;
+        }
+
+        .diagram-viewport:active {
+            cursor: grabbing;
+        }
+
+        .diagram-content {
+            transform-origin: 0 0;
+            transition: transform 0.1s ease-out;
+            padding: 2rem;
+            display: inline-block;
+            min-width: 100%;
+        }
+
+        .mermaid {
+            display: flex;
+            justify-content: center;
+        }
+
+        .hint {
+            position: absolute;
+            bottom: 1rem;
+            right: 1rem;
+            background: rgba(0, 0, 0, 0.7);
+            color: #a1a1aa;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            pointer-events: none;
+            opacity: 0.8;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+
+        th,
+        td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        th {
+            background: rgba(233, 69, 96, 0.1);
+            color: #e94560;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .status-complete {
+            color: #4ade80;
+        }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 1.25rem;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #4d96ff, #00d9ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            color: #a1a1aa;
+            font-size: 0.85rem;
+            margin-top: 0.25rem;
+        }
+
+        /* Tech badges */
+        .tech-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin: 1rem 0;
+        }
+
+        .tech-badge {
+            background: linear-gradient(135deg, rgba(77, 150, 255, 0.2), rgba(0, 217, 255, 0.1));
+            border: 1px solid rgba(77, 150, 255, 0.3);
+            color: #4d96ff;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>📦 {{PROJECT_NAME}} Codebase Report</h1>
+            <p class="subtitle">{{PROJECT_DESCRIPTION}} • Generated {{DATE}}</p>
+        </header>
+
+        <!-- STATS SECTION -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{TOTAL_FILES}}</div>
+                <div class="stat-label">TypeScript/TSX Files</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{TOTAL_LOC}}</div>
+                <div class="stat-label">Lines of Code</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{TOTAL_COMPONENTS}}</div>
+                <div class="stat-label">React Components</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{TOTAL_HOOKS}}</div>
+                <div class="stat-label">Custom Hooks</div>
+            </div>
+        </div>
+
+        <!-- TECH STACK -->
+        <h2>Technology Stack</h2>
+        <div class="tech-stack">
+            <!-- {{TECH_BADGES}} - Replace with actual badges -->
+            <span class="tech-badge">Laravel</span>
+            <span class="tech-badge">React 19</span>
+            <span class="tech-badge">TypeScript</span>
+        </div>
+
+        <!-- CIRCLE PACKING DIAGRAM -->
+        <h2>Codebase Structure (Circle Packing)</h2>
+        <div class="diagram-container" id="diagram1">
+            <div class="diagram-header">
+                <span class="diagram-title">📊 Module Hierarchy</span>
+                <div class="zoom-controls">
+                    <button class="zoom-btn" onclick="zoomOut('diagram1')">−</button>
+                    <span class="zoom-level" id="diagram1-level">100%</span>
+                    <button class="zoom-btn" onclick="zoomIn('diagram1')">+</button>
+                    <button class="zoom-btn" onclick="resetZoom('diagram1')" title="Reset">⟳</button>
+                </div>
+            </div>
+            <div class="diagram-viewport" id="diagram1-viewport">
+                <div class="diagram-content" id="diagram1-content">
+                    <div class="mermaid">
+                        %%{init: {'theme': 'dark'}}%%
+                        graph TD
+                        subgraph ROOT["📦 {{PROJECT_NAME}}"]
+                        %% {{DIAGRAM_CONTENT}} - Replace with actual structure
+                        A["Module A"] --> B["Module B"]
+                        end
+                    </div>
+                </div>
+                <div class="hint">🖱️ Scroll to zoom • Drag to pan</div>
+            </div>
+        </div>
+
+        <!-- ARCHITECTURE FLOW -->
+        <h2>Architecture Flow</h2>
+        <div class="diagram-container" id="diagram2">
+            <div class="diagram-header">
+                <span class="diagram-title">🔄 Data & Interaction Flow</span>
+                <div class="zoom-controls">
+                    <button class="zoom-btn" onclick="zoomOut('diagram2')">−</button>
+                    <span class="zoom-level" id="diagram2-level">100%</span>
+                    <button class="zoom-btn" onclick="zoomIn('diagram2')">+</button>
+                    <button class="zoom-btn" onclick="resetZoom('diagram2')" title="Reset">⟳</button>
+                </div>
+            </div>
+            <div class="diagram-viewport" id="diagram2-viewport">
+                <div class="diagram-content" id="diagram2-content">
+                    <div class="mermaid">
+                        %%{init: {'theme': 'dark'}}%%
+                        flowchart LR
+                        %% {{FLOW_DIAGRAM}} - Replace with actual flow
+                        User --> Frontend --> Backend
+                    </div>
+                </div>
+                <div class="hint">🖱️ Scroll to zoom • Drag to pan</div>
+            </div>
+        </div>
+
+        <!-- CORE MODULES TABLE -->
+        <h2>Core Modules</h2>
+        <div class="card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Module</th>
+                        <th>Lines</th>
+                        <th>Status</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- {{MODULE_ROWS}} - Replace with actual data -->
+                    <tr>
+                        <td><strong>ExampleModule.tsx</strong></td>
+                        <td>100</td>
+                        <td class="status-complete">✅</td>
+                        <td>Example description</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- RECENT WORK TABLE -->
+        <h2>Recent Work</h2>
+        <div class="card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Sprint/Task</th>
+                        <th>Focus</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- {{WORK_ROWS}} - Replace with actual data -->
+                    <tr>
+                        <td>Example</td>
+                        <td>Example work</td>
+                        <td class="status-complete">✅ Complete</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Mermaid
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'dark',
+            flowchart: { useMaxWidth: false, htmlLabels: true }
+        });
+
+        // Diagram state
+        const diagrams = {};
+
+        function initDiagram(id) {
+            diagrams[id] = { scale: 1, panX: 0, panY: 0, isPanning: false, startX: 0, startY: 0 };
+
+            const viewport = document.getElementById(`${id}-viewport`);
+
+            // Mouse wheel zoom
+            viewport.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                const rect = viewport.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                const oldScale = diagrams[id].scale;
+                diagrams[id].scale = Math.min(Math.max(diagrams[id].scale * delta, 0.2), 5);
+
+                const scaleChange = diagrams[id].scale / oldScale;
+                diagrams[id].panX = mouseX - (mouseX - diagrams[id].panX) * scaleChange;
+                diagrams[id].panY = mouseY - (mouseY - diagrams[id].panY) * scaleChange;
+
+                updateTransform(id);
+            }, { passive: false });
+
+            // Pan with drag
+            viewport.addEventListener('mousedown', (e) => {
+                diagrams[id].isPanning = true;
+                diagrams[id].startX = e.clientX - diagrams[id].panX;
+                diagrams[id].startY = e.clientY - diagrams[id].panY;
+                viewport.style.cursor = 'grabbing';
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!diagrams[id].isPanning) return;
+                diagrams[id].panX = e.clientX - diagrams[id].startX;
+                diagrams[id].panY = e.clientY - diagrams[id].startY;
+                updateTransform(id);
+            });
+
+            document.addEventListener('mouseup', () => {
+                diagrams[id].isPanning = false;
+                viewport.style.cursor = 'grab';
+            });
+        }
+
+        function updateTransform(id) {
+            const content = document.getElementById(`${id}-content`);
+            const levelDisplay = document.getElementById(`${id}-level`);
+            content.style.transform = `translate(${diagrams[id].panX}px, ${diagrams[id].panY}px) scale(${diagrams[id].scale})`;
+            levelDisplay.textContent = `${Math.round(diagrams[id].scale * 100)}%`;
+        }
+
+        function zoomIn(id) { diagrams[id].scale = Math.min(diagrams[id].scale * 1.2, 5); updateTransform(id); }
+        function zoomOut(id) { diagrams[id].scale = Math.max(diagrams[id].scale * 0.8, 0.2); updateTransform(id); }
+        function resetZoom(id) { diagrams[id].scale = 1; diagrams[id].panX = 0; diagrams[id].panY = 0; updateTransform(id); }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => { initDiagram('diagram1'); initDiagram('diagram2'); }, 500);
+        });
+    </script>
+</body>
+
+</html>
