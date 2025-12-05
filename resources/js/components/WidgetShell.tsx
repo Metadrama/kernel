@@ -25,6 +25,8 @@ interface WidgetShellProps {
   onUpdateComponentLayout?: (instanceId: string, gridPosition: GridPosition) => void;
   onSelectComponent?: (component: WidgetComponent) => void;
   selectedComponentId?: string;
+  /** Whether to show the drag handle inside the shell (default: true). Set to false when handle is rendered externally (e.g., by GridStack parent). */
+  showDragHandle?: boolean;
 }
 
 export default function WidgetShell({
@@ -35,6 +37,7 @@ export default function WidgetShell({
   onUpdateComponentLayout,
   onSelectComponent,
   selectedComponentId,
+  showDragHandle = true,
 }: WidgetShellProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -240,7 +243,7 @@ export default function WidgetShell({
     >
       {/* Widget toolbar */}
       {!draggingId && !resizingId && (
-        <WidgetToolbar onDelete={onDelete} />
+        <WidgetToolbar onDelete={onDelete} showDragHandle={showDragHandle} />
       )}
 
       {/* Grid overlay - visible during drag/resize */}

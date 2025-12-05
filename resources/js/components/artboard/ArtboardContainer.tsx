@@ -8,7 +8,7 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
 import { GridStack } from 'gridstack';
-import { Trash2, Lock, Unlock, Eye, EyeOff, MoreVertical, Copy, Settings } from 'lucide-react';
+import { Trash2, Lock, Unlock, Eye, EyeOff, MoreVertical, Copy, Settings, GripVertical } from 'lucide-react';
 import 'gridstack/dist/gridstack.min.css';
 import WidgetShell from '@/components/WidgetShell';
 import { Button } from '@/components/ui/button';
@@ -470,7 +470,7 @@ function ArtboardContainer({
                 <div
                   key={widget.id}
                   id={widget.id}
-                  className="grid-stack-item"
+                  className="grid-stack-item group/widget"
                   gs-id={widget.id}
                   gs-x={upscaleGridUnits(widget.x)}
                   gs-y={upscaleGridUnits(widget.y)}
@@ -480,6 +480,10 @@ function ArtboardContainer({
                   gs-min-h={upscaleGridUnits(2)}
                   gs-max-w={gridSettings.columns * GRID_FINE_GRAIN}
                 >
+                  {/* Drag handle - OUTSIDE of grid-stack-item-content for proper GridStack detection */}
+                  <div className="widget-drag-handle absolute bottom-2 right-2 z-50 cursor-move px-2 py-1 rounded bg-muted/90 backdrop-blur-sm border shadow-sm hover:bg-muted opacity-0 group-hover/widget:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity flex items-center gap-1">
+                    <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                  </div>
                   <div className="grid-stack-item-content">
                     <WidgetShell
                       widget={widget}
@@ -500,6 +504,7 @@ function ArtboardContainer({
                         onSelectComponent(artboard.id, widget.id, component)
                       }
                       selectedComponentId={selectedComponentId}
+                      showDragHandle={false}
                     />
                   </div>
                 </div>
