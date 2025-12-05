@@ -12,7 +12,7 @@ import { Trash2, Lock, Unlock, Eye, EyeOff, MoreVertical, Copy, Settings } from 
 import 'gridstack/dist/gridstack.min.css';
 import WidgetShell from '@/components/WidgetShell';
 import { Button } from '@/components/ui/button';
-import ArtboardSettingsDialog from '@/components/ArtboardSettingsDialog';
+import ArtboardSettingsDialog from './ArtboardSettingsDialog';
 import {
   DropdownMenu,
   DropdownMenuContent,

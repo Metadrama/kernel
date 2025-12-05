@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo, useLayoutEffect } fr
 import { Trash2, Plus, X, GripVertical, Move } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { isComponentRegistered, getComponent } from '@/components/widget-components';
+import { EmptyWidgetState, WidgetToolbar } from '@/components/widget';
 import type { WidgetSchema, ComponentCard, WidgetComponent } from '@/types/dashboard';
 import {
   calculateWidgetLayout,
@@ -25,9 +26,9 @@ interface WidgetShellProps {
   selectedComponentId?: string;
 }
 
-export default function WidgetShell({ 
-  widget, 
-  onDelete, 
+export default function WidgetShell({
+  widget,
+  onDelete,
   onAddComponent,
   onRemoveComponent,
   onUpdateComponentLayout,
@@ -44,7 +45,7 @@ export default function WidgetShell({
   const [containerWidth, setContainerWidth] = useState(0);
   const [layoutWidth, setLayoutWidth] = useState(0);
   const [hideScrollbars, setHideScrollbars] = useState(false);
-  
+
   // Drag state for grid-based movement
   const dragStartRef = useRef<{
     mouseX: number;
@@ -72,7 +73,7 @@ export default function WidgetShell({
 
   useEffect(() => {
     if (!containerRef.current) return;
-    
+
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const width = entry.contentRect.width;
@@ -92,7 +93,7 @@ export default function WidgetShell({
       }
       evaluateOverflow();
     });
-    
+
     observer.observe(containerRef.current);
     return () => observer.disconnect();
   }, [components.length, evaluateOverflow]);
@@ -122,7 +123,7 @@ export default function WidgetShell({
 
   const layouts = useMemo(() => {
     if (effectiveLayoutWidth === 0 || components.length === 0) return [];
-    
+
     const componentInputs = components.map(comp => ({
       instanceId: comp.instanceId,
       componentType: comp.componentType,
@@ -130,7 +131,7 @@ export default function WidgetShell({
         ? { layout: { gridPosition: comp.gridPosition, locked: true } }
         : undefined,
     }));
-    
+
     return calculateWidgetLayout(componentInputs, effectiveLayoutWidth, gridConfig);
   }, [components, effectiveLayoutWidth, gridConfig]);
 
@@ -167,10 +168,10 @@ export default function WidgetShell({
 
     const handleMouseMove = (e: MouseEvent) => {
       if (!containerRef.current || !dragStartRef.current) return;
-      
+
       const deltaX = e.clientX - dragStartRef.current.mouseX;
       const deltaY = e.clientY - dragStartRef.current.mouseY;
-      
+
       const cellWidth = gridCellWidth + gridConfig.gap;
       const cellHeight = gridConfig.rowHeight + gridConfig.gap;
 
@@ -192,7 +193,7 @@ export default function WidgetShell({
         const maxSpan = Math.max(1, visibleRows - startRow);
         return Math.min(rowSpan, maxSpan);
       };
-      
+
       // Convert pixel delta to grid cell delta
       const deltaCols = Math.round(deltaX / cellWidth);
       const deltaRows = Math.round(deltaY / cellHeight);
@@ -207,14 +208,14 @@ export default function WidgetShell({
           ));
           const unclampedRow = Math.max(0, dragStartRef.current.startRow + deltaRows);
           const newRow = clampRowToViewport(unclampedRow, dragStartRef.current.startRowSpan);
-          
+
           const newPosition: GridPosition = {
             col: newCol,
             row: newRow,
             colSpan: dragStartRef.current.startColSpan,
             rowSpan: dragStartRef.current.startRowSpan,
           };
-          
+
           onUpdateComponentLayout?.(draggingId, newPosition);
         }
       } else if (resizingId && resizeDirection) {
@@ -224,7 +225,7 @@ export default function WidgetShell({
           const intrinsic = getComponentIntrinsicSize(component.componentType);
           let newColSpan = dragStartRef.current.startColSpan;
           let newRowSpan = dragStartRef.current.startRowSpan;
-          
+
           if (resizeDirection.includes('e')) {
             newColSpan = Math.max(
               intrinsic.minCols,
@@ -234,7 +235,7 @@ export default function WidgetShell({
               )
             );
           }
-          
+
           if (resizeDirection.includes('s')) {
             newRowSpan = Math.max(
               intrinsic.minRows,
@@ -244,7 +245,7 @@ export default function WidgetShell({
               )
             );
           }
-          
+
           // Maintain aspect ratio if required
           if (intrinsic.aspectRatio && intrinsic.sizeMode === 'fixed-ratio') {
             if (resizeDirection === 'e') {
@@ -264,7 +265,7 @@ export default function WidgetShell({
               );
             }
           }
-          
+
           newRowSpan = clampRowSpanToViewport(newRowSpan, dragStartRef.current.startRow);
 
           const newPosition: GridPosition = {
@@ -273,7 +274,7 @@ export default function WidgetShell({
             colSpan: newColSpan,
             rowSpan: newRowSpan,
           };
-          
+
           onUpdateComponentLayout?.(resizingId, newPosition);
         }
       }
@@ -297,10 +298,10 @@ export default function WidgetShell({
   const startDrag = useCallback((e: React.MouseEvent, component: WidgetComponent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     const layout = layoutMap.get(component.instanceId);
     if (!layout) return;
-    
+
     dragStartRef.current = {
       mouseX: e.clientX,
       mouseY: e.clientY,
@@ -315,10 +316,10 @@ export default function WidgetShell({
   const startResize = useCallback((e: React.MouseEvent, component: WidgetComponent, direction: 'e' | 's' | 'se') => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     const layout = layoutMap.get(component.instanceId);
     if (!layout) return;
-    
+
     dragStartRef.current = {
       mouseX: e.clientX,
       mouseY: e.clientY,
@@ -354,13 +355,13 @@ export default function WidgetShell({
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
-    
+
     try {
       const data = e.dataTransfer.getData('application/json');
       if (!data) return;
-      
+
       const parsed = JSON.parse(data);
-      
+
       if (parsed.id === 'empty-widget') {
         return; // Empty widget template only applies when creating new widgets
       }
@@ -385,91 +386,37 @@ export default function WidgetShell({
     evaluateOverflow();
   }, [contentHeight, layoutWidth, components.length, evaluateOverflow]);
 
-  // Empty widget state
   if (isEmpty) {
     return (
-      <div 
+      <EmptyWidgetState
         ref={containerRef}
-        className={`group relative h-full w-full rounded-lg border-2 border-dashed bg-card text-card-foreground shadow-sm transition-all duration-200 ease-out hover:shadow-md ${
-          isDragOver 
-            ? 'border-primary bg-primary/5 shadow-lg scale-[1.01]' 
-            : 'hover:border-primary/50'
-        }`}
+        isDragOver={isDragOver}
+        onDelete={onDelete}
         onDragOver={handleExternalDragOver}
         onDragLeave={handleExternalDragLeave}
         onDrop={handleExternalDrop}
-      >
-        {/* Widget toolbar - bottom-right corner */}
-        <div className="absolute bottom-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-          <div className="widget-drag-handle cursor-move px-2 py-1 rounded bg-muted/90 backdrop-blur-sm border shadow-sm hover:bg-muted">
-            <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10 bg-muted/90 backdrop-blur-sm border shadow-sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete?.();
-            }}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-
-        {/* Empty state content */}
-        <div className="flex h-full items-center justify-center p-6">
-          <div className={`text-center space-y-3 max-w-xs transition-all duration-200 ${isDragOver ? 'scale-95 opacity-50' : ''}`}>
-            <div className={`mx-auto h-12 w-12 rounded-full border-2 border-dashed flex items-center justify-center transition-all duration-200 ${
-              isDragOver 
-                ? 'border-primary bg-primary/10' 
-                : 'border-muted-foreground/30'
-            }`}>
-              <Plus className={`h-5 w-5 ${isDragOver ? 'text-primary animate-pulse' : 'text-muted-foreground/50'}`} />
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {isDragOver ? 'Drop here' : 'Drop component'}
-            </p>
-          </div>
-        </div>
-      </div>
+      />
     );
   }
 
   // Widget with components - STRUCTURED GRID LAYOUT
   return (
-    <div 
+    <div
       ref={containerRef}
-      className={`group relative h-full w-full rounded-lg border bg-card text-card-foreground shadow-sm transition-all duration-200 ease-out hover:shadow-md overflow-auto ${
-        isDragOver ? 'border-primary ring-2 ring-primary/20' : 'border-border'
-      } ${draggingId || resizingId ? 'select-none' : ''} ${hideScrollbars ? 'widget-shell--hide-scrollbars' : ''}`}
+      className={`group relative h-full w-full rounded-lg border bg-card text-card-foreground shadow-sm transition-all duration-200 ease-out hover:shadow-md overflow-auto ${isDragOver ? 'border-primary ring-2 ring-primary/20' : 'border-border'
+        } ${draggingId || resizingId ? 'select-none' : ''} ${hideScrollbars ? 'widget-shell--hide-scrollbars' : ''}`}
       onDragOver={handleExternalDragOver}
       onDragLeave={handleExternalDragLeave}
       onDrop={handleExternalDrop}
     >
-      {/* Widget toolbar - bottom-right corner */}
+      {/* Widget toolbar */}
       {!draggingId && !resizingId && (
-        <div className="absolute bottom-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity z-30">
-          <div className="widget-drag-handle cursor-move px-2 py-1 rounded bg-muted/90 backdrop-blur-sm border shadow-sm hover:bg-muted">
-            <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10 bg-muted/90 backdrop-blur-sm border shadow-sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete?.();
-            }}
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        </div>
+        <WidgetToolbar onDelete={onDelete} />
       )}
 
       {/* Grid overlay - visible during drag/resize */}
       {(draggingId || resizingId) && (
-        <div 
+        <div
           className="absolute inset-0 pointer-events-none z-[5]"
           style={{
             backgroundSize: `${gridCellWidth + gridConfig.gap}px ${gridConfig.rowHeight + gridConfig.gap}px`,
@@ -483,7 +430,7 @@ export default function WidgetShell({
       )}
 
       {/* Grid-based components container */}
-      <div 
+      <div
         className="relative p-2"
         ref={gridContentRef}
         style={{
@@ -493,7 +440,7 @@ export default function WidgetShell({
         {components.map((component) => {
           const layout = layoutMap.get(component.instanceId);
           if (!layout) return null;
-          
+
           const ComponentToRender = getComponent(component.componentType);
           const isRegistered = isComponentRegistered(component.componentType);
           const isDragging = draggingId === component.instanceId;
@@ -504,9 +451,8 @@ export default function WidgetShell({
           return (
             <div
               key={component.instanceId}
-              className={`absolute group/component transition-all duration-150 ${
-                isDragging ? 'z-20 shadow-xl cursor-grabbing' : 'z-10 hover:z-15'
-              } ${isResizing ? 'z-20' : ''} ${isSelected ? 'z-25' : ''}`}
+              className={`absolute group/component transition-all duration-150 ${isDragging ? 'z-20 shadow-xl cursor-grabbing' : 'z-10 hover:z-15'
+                } ${isResizing ? 'z-20' : ''} ${isSelected ? 'z-25' : ''}`}
               style={{
                 left: layout.pixelBounds.x,
                 top: layout.pixelBounds.y,
@@ -519,15 +465,14 @@ export default function WidgetShell({
               }}
             >
               {/* Component container */}
-              <div className={`h-full w-full rounded-md border bg-background transition-all ${
-                isSelected
+              <div className={`h-full w-full rounded-md border bg-background transition-all ${isSelected
                   ? 'border-primary ring-2 ring-primary/30 shadow-md'
                   : isActive
-                    ? 'border-primary shadow-lg ring-2 ring-primary/30' 
+                    ? 'border-primary shadow-lg ring-2 ring-primary/30'
                     : 'border-transparent group-hover/component:border-border group-hover/component:shadow-sm'
-              }`}>
+                }`}>
                 {/* Move handle - top center */}
-                <div 
+                <div
                   className="absolute -top-0 left-1/2 -translate-x-1/2 opacity-0 group-hover/component:opacity-100 transition-opacity cursor-grab active:cursor-grabbing z-10 bg-background/90 backdrop-blur-sm rounded-b px-2 py-0.5 border border-t-0 shadow-sm"
                   onMouseDown={(e) => startDrag(e, component)}
                 >
@@ -562,19 +507,19 @@ export default function WidgetShell({
 
                 {/* Resize handles - simplified for grid-based layout */}
                 {/* East (right) resize */}
-                <div 
+                <div
                   className="absolute -right-1 top-1/2 -translate-y-1/2 w-2 h-8 bg-primary/60 rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-e-resize z-20 hover:bg-primary"
                   onMouseDown={(e) => startResize(e, component, 'e')}
                 />
-                
+
                 {/* South (bottom) resize */}
-                <div 
+                <div
                   className="absolute left-1/2 -translate-x-1/2 -bottom-1 h-2 w-8 bg-primary/60 rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-s-resize z-20 hover:bg-primary"
                   onMouseDown={(e) => startResize(e, component, 's')}
                 />
-                
+
                 {/* Southeast corner resize */}
-                <div 
+                <div
                   className="absolute -right-1 -bottom-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-se-resize z-20 shadow-sm"
                   onMouseDown={(e) => startResize(e, component, 'se')}
                 />

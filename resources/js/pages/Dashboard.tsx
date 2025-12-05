@@ -1,6 +1,6 @@
 import { Head } from '@inertiajs/react';
 import ComponentSidebar from '@/components/ComponentSidebar';
-import ArtboardCanvas from '@/components/ArtboardCanvas';
+import ArtboardCanvas from '@/components/artboard/ArtboardCanvas';
 import { ArtboardProvider } from '@/context/ArtboardContext';
 import type { DashboardLayout } from '@/types/dashboard';
 import { useEffect } from 'react';
