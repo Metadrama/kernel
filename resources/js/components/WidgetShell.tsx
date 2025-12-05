@@ -227,6 +227,7 @@ export default function WidgetShell({
         onDragOver={handleExternalDragOver}
         onDragLeave={handleExternalDragLeave}
         onDrop={handleExternalDrop}
+        showDragHandle={showDragHandle}
       />
     );
   }
@@ -305,7 +306,7 @@ export default function WidgetShell({
                 }`}>
                 {/* Move handle - top center */}
                 <div
-                  className="absolute -top-0 left-1/2 -translate-x-1/2 opacity-0 group-hover/component:opacity-100 transition-opacity cursor-grab active:cursor-grabbing z-10 bg-background/90 backdrop-blur-sm rounded-b px-2 py-0.5 border border-t-0 shadow-sm"
+                  className="component-drag-handle absolute -top-0 left-1/2 -translate-x-1/2 opacity-0 group-hover/component:opacity-100 transition-opacity cursor-grab active:cursor-grabbing z-10 bg-background/90 backdrop-blur-sm rounded-b px-2 py-0.5 border border-t-0 shadow-sm"
                   onMouseDown={(e) => startDrag(e, component)}
                 >
                   <Move className="h-3 w-3 text-muted-foreground" />
@@ -340,19 +341,19 @@ export default function WidgetShell({
                 {/* Resize handles - simplified for grid-based layout */}
                 {/* East (right) resize */}
                 <div
-                  className="absolute -right-1 top-1/2 -translate-y-1/2 w-2 h-8 bg-primary/60 rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-e-resize z-20 hover:bg-primary"
+                  className="component-drag-handle absolute -right-1 top-1/2 -translate-y-1/2 w-2 h-8 bg-primary/60 rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-e-resize z-20 hover:bg-primary"
                   onMouseDown={(e) => startResize(e, component, 'e')}
                 />
 
                 {/* South (bottom) resize */}
                 <div
-                  className="absolute left-1/2 -translate-x-1/2 -bottom-1 h-2 w-8 bg-primary/60 rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-s-resize z-20 hover:bg-primary"
+                  className="component-drag-handle absolute left-1/2 -translate-x-1/2 -bottom-1 h-2 w-8 bg-primary/60 rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-s-resize z-20 hover:bg-primary"
                   onMouseDown={(e) => startResize(e, component, 's')}
                 />
 
                 {/* Southeast corner resize */}
                 <div
-                  className="absolute -right-1 -bottom-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-se-resize z-20 shadow-sm"
+                  className="component-drag-handle absolute -right-1 -bottom-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-se-resize z-20 shadow-sm"
                   onMouseDown={(e) => startResize(e, component, 'se')}
                 />
               </div>

@@ -8,7 +8,7 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
 import { GridStack } from 'gridstack';
-import { Trash2, Lock, Unlock, Eye, EyeOff, MoreVertical, Copy, Settings, GripVertical } from 'lucide-react';
+import { Trash2, Lock, Unlock, Eye, EyeOff, MoreVertical, Copy, Settings } from 'lucide-react';
 import 'gridstack/dist/gridstack.min.css';
 import WidgetShell from '@/components/WidgetShell';
 import { Button } from '@/components/ui/button';
@@ -124,7 +124,8 @@ function ArtboardContainer({
         animate: true,
         minRow: 1,
         draggable: {
-          handle: '.widget-drag-handle',
+          // Cancel on component handles so they don't trigger widget drag
+          cancel: '.component-drag-handle',
         },
         resizable: {
           handles: 'e, se, s, sw, w',
@@ -480,10 +481,7 @@ function ArtboardContainer({
                   gs-min-h={upscaleGridUnits(2)}
                   gs-max-w={gridSettings.columns * GRID_FINE_GRAIN}
                 >
-                  {/* Drag handle - OUTSIDE of grid-stack-item-content for proper GridStack detection */}
-                  <div className="widget-drag-handle absolute bottom-2 right-2 z-50 cursor-move px-2 py-1 rounded bg-muted/90 backdrop-blur-sm border shadow-sm hover:bg-muted opacity-0 group-hover/widget:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity flex items-center gap-1">
-                    <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
-                  </div>
+
                   <div className="grid-stack-item-content">
                     <WidgetShell
                       widget={widget}

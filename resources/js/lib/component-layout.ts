@@ -13,7 +13,7 @@
 // Grid Resolution Constants (merged from grid-resolution.ts)
 // ============================================================================
 
-export const GRID_FINE_GRAIN = 2;
+export const GRID_FINE_GRAIN = 6;  // Higher = smoother movement (Figma-like)
 export const GRID_BASE_COLUMNS = 12;
 export const GRID_MAX_COLUMNS = GRID_BASE_COLUMNS * GRID_FINE_GRAIN;
 
