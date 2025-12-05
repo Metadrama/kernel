@@ -20,6 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useWidgetOperations, useArtboardDrag } from '@/hooks';
 import type { ArtboardSchema } from '@/types/artboard';
 import type { WidgetSchema, WidgetComponent, ComponentCard } from '@/types/dashboard';
 import type { GridPosition } from '@/lib/component-layout';
@@ -28,6 +29,7 @@ import {
   GRID_FINE_GRAIN,
   downscaleGridUnits,
   upscaleGridUnits,
+  getComponentIntrinsicSize,
 } from '@/lib/component-layout';
 
 interface ArtboardContainerProps {
@@ -69,16 +71,32 @@ function ArtboardContainer({
   const gridInstanceRef = useRef<GridStack | null>(null);
   const artboardRef = useRef<ArtboardSchema>(artboard);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [localPosition, setLocalPosition] = useState<{ x: number; y: number } | null>(null);
-  const dragStartRef = useRef<{ mouseX: number; mouseY: number; artboardX: number; artboardY: number } | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const gridSettings = useMemo(() => calculateArtboardGridConfig(artboard.dimensions), [artboard.dimensions]);
+
+  // Artboard dragging from extracted hook
+  const { isDragging, displayPosition, handleMouseDown: handleArtboardMouseDown } = useArtboardDrag({
+    position: artboard.position,
+    canvasScale,
+    locked: artboard.locked,
+    onPositionChange: (pos) => onUpdate(artboard.id, { position: pos }),
+    onSelect,
+  });
 
   // Context menu state
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [showSettings, setShowSettings] = useState(false);
+
+  // Widget operations from hook
+  const {
+    addWidget: addWidgetToState,
+    deleteWidget: deleteWidgetFromState,
+    addComponentToWidget,
+    removeComponentFromWidget,
+    reorderComponents,
+    updateComponentLayout,
+  } = useWidgetOperations({ artboard, onUpdate });
 
   // Calculate display position (canvas space -> screen space)
 
@@ -150,100 +168,13 @@ function ArtboardContainer({
     };
   }, [artboard.id, gridSettings, onUpdate]);
 
-  // ============================================================================
-  // Artboard Positioning (Drag to Move) - Transform-Aware
-  // ============================================================================
-
-
-
-  const handleArtboardMouseDown = (e: React.MouseEvent) => {
-    if (artboard.locked) return;
-
-    // Only drag from header/title area, not from widgets
-    if (
-      e.target instanceof HTMLElement &&
-      (e.target.classList.contains('artboard-header') ||
-        e.target.closest('.artboard-header'))
-    ) {
-      e.stopPropagation();
-      e.preventDefault();
-
-      // Store drag start positions
-      dragStartRef.current = {
-        mouseX: e.clientX,
-        mouseY: e.clientY,
-        artboardX: artboard.position.x,
-        artboardY: artboard.position.y,
-      };
-
-      setIsDragging(true);
-      setLocalPosition(artboard.position);
-      onSelect();
-    }
-  };
-
-  const handleArtboardMouseMove = useCallback(
-    (e: MouseEvent) => {
-      if (!isDragging || !dragStartRef.current || artboard.locked) return;
-
-      // Calculate movement in screen space
-      const deltaX = e.clientX - dragStartRef.current.mouseX;
-      const deltaY = e.clientY - dragStartRef.current.mouseY;
-
-      // Convert delta to canvas space (account for zoom)
-      const canvasDeltaX = deltaX / canvasScale;
-      const canvasDeltaY = deltaY / canvasScale;
-
-      // Calculate new position in canvas space
-      const newPosition = {
-        x: dragStartRef.current.artboardX + canvasDeltaX,
-        y: dragStartRef.current.artboardY + canvasDeltaY,
-      };
-
-      // Update local state for immediate visual feedback (no parent re-render)
-      setLocalPosition(newPosition);
-    },
-    [isDragging, artboard.locked, canvasScale]
-  );
-
-  const handleArtboardMouseUp = useCallback(() => {
-    if (isDragging && localPosition) {
-      // Commit the final position to parent state
-      onUpdate(artboard.id, { position: localPosition });
-    }
-
-    setIsDragging(false);
-    setLocalPosition(null);
-    dragStartRef.current = null;
-  }, [isDragging, localPosition, artboard.id, onUpdate]);
-
-  useEffect(() => {
-    if (isDragging) {
-      window.addEventListener('mousemove', handleArtboardMouseMove);
-      window.addEventListener('mouseup', handleArtboardMouseUp);
-      return () => {
-        window.removeEventListener('mousemove', handleArtboardMouseMove);
-        window.removeEventListener('mouseup', handleArtboardMouseUp);
-      };
-    }
-  }, [isDragging, handleArtboardMouseMove, handleArtboardMouseUp]);
 
   // ============================================================================
-  // Widget Management
+  // Widget Management (GridStack integration)
   // ============================================================================
 
   const addWidget = () => {
-    const newWidget: WidgetSchema = {
-      id: `widget-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      x: 0,
-      y: 0,
-      w: 6,
-      h: 5,
-      components: [],
-    };
-
-    const updatedWidgets = [...artboard.widgets, newWidget];
-    onUpdate(artboard.id, { widgets: updatedWidgets });
+    const newWidget = addWidgetToState();
 
     // Add to GridStack
     setTimeout(() => {
@@ -262,10 +193,7 @@ function ArtboardContainer({
   };
 
   const deleteWidget = (widgetId: string) => {
-    const updatedWidgets = artboard.widgets.filter((w) => w.id !== widgetId);
-    onUpdate(artboard.id, { widgets: updatedWidgets });
-
-    // Remove from GridStack
+    // Remove from GridStack first
     requestAnimationFrame(() => {
       if (gridInstanceRef.current) {
         const element = document.getElementById(widgetId);
@@ -278,74 +206,8 @@ function ArtboardContainer({
         }
       }
     });
-  };
 
-  const handleAddComponentToWidget = (widgetId: string, component: ComponentCard) => {
-    const newComponent: WidgetComponent = {
-      instanceId: `comp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      componentType: component.id,
-      config: {
-        name: component.name,
-        description: component.description,
-        icon: component.icon,
-      },
-    };
-
-    const updatedWidgets = artboard.widgets.map((widget) =>
-      widget.id === widgetId
-        ? {
-          ...widget,
-          components: [...widget.components, newComponent],
-        }
-        : widget
-    );
-
-    onUpdate(artboard.id, { widgets: updatedWidgets });
-  };
-
-  const handleRemoveComponentFromWidget = (widgetId: string, instanceId: string) => {
-    const updatedWidgets = artboard.widgets.map((widget) =>
-      widget.id === widgetId
-        ? {
-          ...widget,
-          components: widget.components.filter((c) => c.instanceId !== instanceId),
-        }
-        : widget
-    );
-
-    onUpdate(artboard.id, { widgets: updatedWidgets });
-  };
-
-  const handleReorderComponents = (widgetId: string, newComponents: WidgetComponent[]) => {
-    const updatedWidgets = artboard.widgets.map((widget) =>
-      widget.id === widgetId
-        ? {
-          ...widget,
-          components: newComponents,
-        }
-        : widget
-    );
-
-    onUpdate(artboard.id, { widgets: updatedWidgets });
-  };
-
-  const handleUpdateComponentLayout = (
-    widgetId: string,
-    instanceId: string,
-    gridPosition: GridPosition
-  ) => {
-    const updatedWidgets = artboard.widgets.map((widget) =>
-      widget.id === widgetId
-        ? {
-          ...widget,
-          components: widget.components.map((c) =>
-            c.instanceId === instanceId ? { ...c, gridPosition } : c
-          ),
-        }
-        : widget
-    );
-
-    onUpdate(artboard.id, { widgets: updatedWidgets });
+    deleteWidgetFromState(widgetId);
   };
 
   // ============================================================================
@@ -390,14 +252,7 @@ function ArtboardContainer({
       }
 
       // Calculate widget size based on component intrinsics
-      const intrinsicSize = (() => {
-        try {
-          const { getComponentIntrinsicSize } = require('@/lib/component-layout');
-          return getComponentIntrinsicSize(componentData.id);
-        } catch {
-          return { defaultCols: 6, defaultRows: 4 };
-        }
-      })();
+      const intrinsicSize = getComponentIntrinsicSize(componentData.id);
 
       const newWidget: WidgetSchema = {
         id: `widget-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -454,9 +309,6 @@ function ArtboardContainer({
   // ============================================================================
 
   if (!artboard.visible) return null;
-
-  // Use local position during drag for immediate feedback, otherwise use prop
-  const displayPosition = isDragging && localPosition ? localPosition : artboard.position;
 
   return (
     <>
@@ -633,16 +485,16 @@ function ArtboardContainer({
                       widget={widget}
                       onDelete={() => deleteWidget(widget.id)}
                       onAddComponent={(component) =>
-                        handleAddComponentToWidget(widget.id, component)
+                        addComponentToWidget(widget.id, component)
                       }
                       onRemoveComponent={(instanceId) =>
-                        handleRemoveComponentFromWidget(widget.id, instanceId)
+                        removeComponentFromWidget(widget.id, instanceId)
                       }
                       onReorderComponents={(components) =>
-                        handleReorderComponents(widget.id, components)
+                        reorderComponents(widget.id, components)
                       }
                       onUpdateComponentLayout={(instanceId, gridPosition) =>
-                        handleUpdateComponentLayout(widget.id, instanceId, gridPosition)
+                        updateComponentLayout(widget.id, instanceId, gridPosition)
                       }
                       onSelectComponent={(component) =>
                         onSelectComponent(artboard.id, widget.id, component)

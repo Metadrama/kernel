@@ -17,3 +17,7 @@ export type { UseWidgetOperationsOptions, UseWidgetOperationsReturn } from './us
 // GridStack adapter
 export { useGridStack } from './useGridStack';
 export type { GridStackConfig, GridStackWidget, UseGridStackOptions, UseGridStackReturn } from './useGridStack';
+
+// Artboard drag hook
+export { useArtboardDrag } from './useArtboardDrag';
+export type { UseArtboardDragOptions, UseArtboardDragReturn } from './useArtboardDrag';
