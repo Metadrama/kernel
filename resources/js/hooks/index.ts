@@ -21,3 +21,7 @@ export type { GridStackConfig, GridStackWidget, UseGridStackOptions, UseGridStac
 // Artboard drag hook
 export { useArtboardDrag } from './useArtboardDrag';
 export type { UseArtboardDragOptions, UseArtboardDragReturn } from './useArtboardDrag';
+
+// Component drag/resize hook
+export { useComponentDragResize } from './useComponentDragResize';
+export type { UseComponentDragResizeOptions, UseComponentDragResizeReturn } from './useComponentDragResize';

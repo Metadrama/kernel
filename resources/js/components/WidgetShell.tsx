@@ -3,6 +3,7 @@ import { Trash2, Plus, X, GripVertical, Move } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { isComponentRegistered, getComponent } from '@/components/widget-components';
 import { EmptyWidgetState, WidgetToolbar } from '@/components/widget';
+import { useComponentDragResize } from '@/hooks';
 import type { WidgetSchema, ComponentCard, WidgetComponent } from '@/types/dashboard';
 import {
   calculateWidgetLayout,
@@ -36,25 +37,12 @@ export default function WidgetShell({
   selectedComponentId,
 }: WidgetShellProps) {
   const [isDragOver, setIsDragOver] = useState(false);
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [resizingId, setResizingId] = useState<string | null>(null);
-  const [resizeDirection, setResizeDirection] = useState<'e' | 's' | 'se' | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const gridContentRef = useRef<HTMLDivElement>(null);
   const gridPaddingRef = useRef({ top: 0, bottom: 0 });
   const [containerWidth, setContainerWidth] = useState(0);
   const [layoutWidth, setLayoutWidth] = useState(0);
   const [hideScrollbars, setHideScrollbars] = useState(false);
-
-  // Drag state for grid-based movement
-  const dragStartRef = useRef<{
-    mouseX: number;
-    mouseY: number;
-    startCol: number;
-    startRow: number;
-    startColSpan: number;
-    startRowSpan: number;
-  } | null>(null);
 
   const gridConfig: WidgetGridConfig = DEFAULT_WIDGET_GRID;
   const components = widget.components || [];
@@ -162,175 +150,16 @@ export default function WidgetShell({
     return (effectiveLayoutWidth - (gridConfig.gap * (gridConfig.columns - 1))) / gridConfig.columns;
   }, [effectiveLayoutWidth, gridConfig]);
 
-  // Handle mouse move for dragging/resizing
-  useEffect(() => {
-    if (!draggingId && !resizingId) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!containerRef.current || !dragStartRef.current) return;
-
-      const deltaX = e.clientX - dragStartRef.current.mouseX;
-      const deltaY = e.clientY - dragStartRef.current.mouseY;
-
-      const cellWidth = gridCellWidth + gridConfig.gap;
-      const cellHeight = gridConfig.rowHeight + gridConfig.gap;
-
-      const viewportHeight = containerRef.current?.clientHeight ?? 0;
-      const paddingY = gridPaddingRef.current.top + gridPaddingRef.current.bottom;
-      const availableHeight = Math.max(0, viewportHeight - paddingY);
-      const visibleRows = availableHeight > 0
-        ? Math.max(1, Math.floor((availableHeight + gridConfig.gap) / cellHeight))
-        : 0;
-
-      const clampRowToViewport = (row: number, rowSpan: number) => {
-        if (visibleRows === 0) return Math.max(0, row);
-        const maxRow = Math.max(0, visibleRows - rowSpan);
-        return Math.min(Math.max(0, row), maxRow);
-      };
-
-      const clampRowSpanToViewport = (rowSpan: number, startRow: number) => {
-        if (visibleRows === 0) return rowSpan;
-        const maxSpan = Math.max(1, visibleRows - startRow);
-        return Math.min(rowSpan, maxSpan);
-      };
-
-      // Convert pixel delta to grid cell delta
-      const deltaCols = Math.round(deltaX / cellWidth);
-      const deltaRows = Math.round(deltaY / cellHeight);
-
-      if (draggingId) {
-        // Moving component
-        const component = components.find(c => c.instanceId === draggingId);
-        if (component) {
-          const newCol = Math.max(0, Math.min(
-            gridConfig.columns - dragStartRef.current.startColSpan,
-            dragStartRef.current.startCol + deltaCols
-          ));
-          const unclampedRow = Math.max(0, dragStartRef.current.startRow + deltaRows);
-          const newRow = clampRowToViewport(unclampedRow, dragStartRef.current.startRowSpan);
-
-          const newPosition: GridPosition = {
-            col: newCol,
-            row: newRow,
-            colSpan: dragStartRef.current.startColSpan,
-            rowSpan: dragStartRef.current.startRowSpan,
-          };
-
-          onUpdateComponentLayout?.(draggingId, newPosition);
-        }
-      } else if (resizingId && resizeDirection) {
-        // Resizing component
-        const component = components.find(c => c.instanceId === resizingId);
-        if (component) {
-          const intrinsic = getComponentIntrinsicSize(component.componentType);
-          let newColSpan = dragStartRef.current.startColSpan;
-          let newRowSpan = dragStartRef.current.startRowSpan;
-
-          if (resizeDirection.includes('e')) {
-            newColSpan = Math.max(
-              intrinsic.minCols,
-              Math.min(
-                Math.min(intrinsic.maxCols, gridConfig.columns - dragStartRef.current.startCol),
-                dragStartRef.current.startColSpan + deltaCols
-              )
-            );
-          }
-
-          if (resizeDirection.includes('s')) {
-            newRowSpan = Math.max(
-              intrinsic.minRows,
-              Math.min(
-                intrinsic.maxRows,
-                dragStartRef.current.startRowSpan + deltaRows
-              )
-            );
-          }
-
-          // Maintain aspect ratio if required
-          if (intrinsic.aspectRatio && intrinsic.sizeMode === 'fixed-ratio') {
-            if (resizeDirection === 'e') {
-              const targetHeight = (newColSpan * gridCellWidth) / intrinsic.aspectRatio;
-              newRowSpan = Math.max(
-                intrinsic.minRows,
-                Math.min(intrinsic.maxRows, Math.round(targetHeight / gridConfig.rowHeight))
-              );
-            } else if (resizeDirection === 's') {
-              const targetWidth = (newRowSpan * gridConfig.rowHeight) * intrinsic.aspectRatio;
-              newColSpan = Math.max(
-                intrinsic.minCols,
-                Math.min(
-                  Math.min(intrinsic.maxCols, gridConfig.columns - dragStartRef.current.startCol),
-                  Math.round(targetWidth / gridCellWidth)
-                )
-              );
-            }
-          }
-
-          newRowSpan = clampRowSpanToViewport(newRowSpan, dragStartRef.current.startRow);
-
-          const newPosition: GridPosition = {
-            col: dragStartRef.current.startCol,
-            row: dragStartRef.current.startRow,
-            colSpan: newColSpan,
-            rowSpan: newRowSpan,
-          };
-
-          onUpdateComponentLayout?.(resizingId, newPosition);
-        }
-      }
-    };
-
-    const handleMouseUp = () => {
-      setDraggingId(null);
-      setResizingId(null);
-      setResizeDirection(null);
-      dragStartRef.current = null;
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [draggingId, resizingId, resizeDirection, components, gridCellWidth, gridConfig, onUpdateComponentLayout]);
-
-  const startDrag = useCallback((e: React.MouseEvent, component: WidgetComponent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const layout = layoutMap.get(component.instanceId);
-    if (!layout) return;
-
-    dragStartRef.current = {
-      mouseX: e.clientX,
-      mouseY: e.clientY,
-      startCol: layout.gridPosition.col,
-      startRow: layout.gridPosition.row,
-      startColSpan: layout.gridPosition.colSpan,
-      startRowSpan: layout.gridPosition.rowSpan,
-    };
-    setDraggingId(component.instanceId);
-  }, [layoutMap]);
-
-  const startResize = useCallback((e: React.MouseEvent, component: WidgetComponent, direction: 'e' | 's' | 'se') => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const layout = layoutMap.get(component.instanceId);
-    if (!layout) return;
-
-    dragStartRef.current = {
-      mouseX: e.clientX,
-      mouseY: e.clientY,
-      startCol: layout.gridPosition.col,
-      startRow: layout.gridPosition.row,
-      startColSpan: layout.gridPosition.colSpan,
-      startRowSpan: layout.gridPosition.rowSpan,
-    };
-    setResizingId(component.instanceId);
-    setResizeDirection(direction);
-  }, [layoutMap]);
+  // Drag and resize handling via extracted hook
+  const { draggingId, resizingId, isActive, startDrag, startResize } = useComponentDragResize({
+    components,
+    layoutMap,
+    gridConfig,
+    gridCellWidth,
+    containerRef,
+    gridPaddingRef,
+    onUpdateComponentLayout,
+  });
 
   // Handle external component drop (from sidebar)
   const handleExternalDragOver = useCallback((e: React.DragEvent) => {
@@ -466,10 +295,10 @@ export default function WidgetShell({
             >
               {/* Component container */}
               <div className={`h-full w-full rounded-md border bg-background transition-all ${isSelected
-                  ? 'border-primary ring-2 ring-primary/30 shadow-md'
-                  : isActive
-                    ? 'border-primary shadow-lg ring-2 ring-primary/30'
-                    : 'border-transparent group-hover/component:border-border group-hover/component:shadow-sm'
+                ? 'border-primary ring-2 ring-primary/30 shadow-md'
+                : isActive
+                  ? 'border-primary shadow-lg ring-2 ring-primary/30'
+                  : 'border-transparent group-hover/component:border-border group-hover/component:shadow-sm'
                 }`}>
                 {/* Move handle - top center */}
                 <div
