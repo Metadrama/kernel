@@ -27,7 +27,7 @@
 /* Resize handles - subtle visibility on hover */
 .ui-resizable-handle {
   position: absolute;
-  z-index: 10;
+  z-index: 100;
   background: transparent !important;
   border: none !important;
   opacity: 0;
@@ -188,7 +188,7 @@
 }
 
 /* Placeholder while dragging - snappy animation */
-.grid-stack-placeholder > .placeholder-content {
+.grid-stack-placeholder>.placeholder-content {
   background-color: hsl(var(--primary) / 0.1);
   border: 2px dashed hsl(var(--primary) / 0.3);
   border-radius: 0.5rem;
@@ -198,9 +198,12 @@
 }
 
 @keyframes pulse-subtle {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.7;
   }
@@ -212,6 +215,7 @@
     opacity: 0;
     transform: scale(0.95);
   }
+
   100% {
     opacity: 1;
     transform: scale(1);
