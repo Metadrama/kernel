@@ -1,9 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ArtboardSchema } from '@/types/artboard';
+import type { WidgetSchema } from '@/types/dashboard';
 
 interface ArtboardContextValue {
   artboards: ArtboardSchema[];
   setArtboards: React.Dispatch<React.SetStateAction<ArtboardSchema[]>>;
+  archivedWidgets: WidgetSchema[];
+  setArchivedWidgets: React.Dispatch<React.SetStateAction<WidgetSchema[]>>;
   selectedArtboardId: string | null;
   setSelectedArtboardId: React.Dispatch<React.SetStateAction<string | null>>;
   artboardStackOrder: string[];
@@ -27,8 +30,23 @@ const loadArtboards = (): ArtboardSchema[] => {
   }
 };
 
+const loadArchivedWidgets = (): WidgetSchema[] => {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  try {
+    const saved = window.localStorage.getItem('archivedWidgets');
+    return saved ? JSON.parse(saved) : [];
+  } catch (error) {
+    console.error('Failed to load archived widgets:', error);
+    return [];
+  }
+};
+
 export function ArtboardProvider({ children }: { children: React.ReactNode }) {
   const [artboards, setArtboards] = useState<ArtboardSchema[]>(() => loadArtboards());
+  const [archivedWidgets, setArchivedWidgets] = useState<WidgetSchema[]>(() => loadArchivedWidgets());
   const [selectedArtboardId, setSelectedArtboardId] = useState<string | null>(null);
   const [artboardStackOrder, setArtboardStackOrder] = useState<string[]>([]);
 
@@ -64,6 +82,19 @@ export function ArtboardProvider({ children }: { children: React.ReactNode }) {
     }
   }, [artboards]);
 
+  // Persist archived widgets
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem('archivedWidgets', JSON.stringify(archivedWidgets));
+    } catch (error) {
+      console.error('Failed to save archived widgets:', error);
+    }
+  }, [archivedWidgets]);
+
   const bringArtboardToFront = useCallback((artboardId: string) => {
     setArtboardStackOrder((prev) => {
       if (!prev.includes(artboardId)) {
@@ -96,12 +127,14 @@ export function ArtboardProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<ArtboardContextValue>(() => ({
     artboards,
     setArtboards,
+    archivedWidgets,
+    setArchivedWidgets,
     selectedArtboardId,
     setSelectedArtboardId,
     artboardStackOrder,
     bringArtboardToFront,
     moveArtboardLayer,
-  }), [artboards, selectedArtboardId, artboardStackOrder, bringArtboardToFront, moveArtboardLayer]);
+  }), [artboards, archivedWidgets, selectedArtboardId, artboardStackOrder, bringArtboardToFront, moveArtboardLayer]);
 
   return (
     <ArtboardContext.Provider value={value}>

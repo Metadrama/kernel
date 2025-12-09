@@ -4,10 +4,12 @@
  * Represents a single artboard with fixed dimensions based on its format.
  * Contains an isolated GridStack for managing widgets within the artboard.
  * Artboards can be positioned but NOT resized (dimensions are immutable).
+ * 
+ * Supports cross-artboard widget transfer via acceptWidgets.
  */
 
 import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
-import { GridStack } from 'gridstack';
+import { GridStack, GridStackNode } from 'gridstack';
 import { Trash2, Lock, Unlock, Eye, EyeOff, MoreVertical, Copy, Settings } from 'lucide-react';
 import 'gridstack/dist/gridstack.min.css';
 import WidgetShell from '@/components/WidgetShell';
@@ -30,13 +32,15 @@ interface ArtboardContainerProps {
   artboard: ArtboardSchema;
   isSelected: boolean;
   canvasScale: number;
-
   zIndex: number;
   onUpdate: (artboardId: string, updates: Partial<ArtboardSchema>) => void;
   onDelete: (artboardId: string) => void;
   onSelect: () => void;
   onSelectComponent: (artboardId: string, widgetId: string, component: WidgetComponent) => void;
   selectedComponentId?: string;
+  // Widget transfer callbacks for cross-artboard drag
+  onWidgetReceived?: (widget: WidgetSchema, sourceArtboardId: string | undefined) => void;
+  onWidgetRemoved?: (widgetId: string) => void;
   // Header state exposed for external rendering
   onHeaderAction?: (action: {
     type: 'menu' | 'addWidget';
@@ -50,13 +54,14 @@ function ArtboardContainer({
   artboard,
   isSelected,
   canvasScale,
-
   zIndex,
   onUpdate,
   onDelete,
   onSelect,
   onSelectComponent,
   selectedComponentId,
+  onWidgetReceived,
+  onWidgetRemoved,
 }: ArtboardContainerProps) {
   const HEADER_HEIGHT_PX = 52; // matches tailwind h-13 (3.25rem @ 16px)
   const HEADER_GAP_PX = 8;
@@ -106,7 +111,10 @@ function ArtboardContainer({
   useEffect(() => {
     if (!gridRef.current) return;
 
-    // Simple 12-column grid without fine-grain scaling
+    // Track if we're in the middle of a cross-grid transfer to prevent React conflicts
+    let isTransferring = false;
+
+    // Initialize grid with acceptWidgets for cross-artboard transfer
     const grid = GridStack.init(
       {
         column: gridSettings.columns,
@@ -115,6 +123,7 @@ function ArtboardContainer({
         float: true,  // Allow free positioning like Figma
         animate: true,
         minRow: 1,
+        acceptWidgets: '.grid-stack-item', // Accept widgets from any grid
         draggable: {
           // Cancel on component handles so they don't trigger widget drag
           cancel: '.component-drag-handle',
@@ -129,9 +138,24 @@ function ArtboardContainer({
 
     gridInstanceRef.current = grid;
 
-    // Listen for widget changes
-    grid.on('change', (_event, items) => {
+    // Listen for drag start to set transfer flag
+    grid.on('dragstart', () => {
+      isTransferring = true;
+    });
+
+    // Listen for drag stop to clear transfer flag
+    grid.on('dragstop', () => {
+      // Small delay to let GridStack finish its internal updates
+      setTimeout(() => {
+        isTransferring = false;
+      }, 50);
+    });
+
+    // Listen for widget position/size changes within this artboard
+    grid.on('change', (_event: Event, items: GridStackNode[]) => {
       if (!items || items.length === 0) return;
+      // Skip state update during transfer to prevent React conflicts
+      if (isTransferring) return;
 
       const currentArtboard = artboardRef.current;
       const updatedWidgets = currentArtboard.widgets.map((widget) => {
@@ -458,6 +482,7 @@ function ArtboardContainer({
                   gs-min-w={2}
                   gs-min-h={2}
                   gs-max-w={gridSettings.columns}
+                  data-source-artboard={artboard.id}
                 >
 
                   <div className="grid-stack-item-content">

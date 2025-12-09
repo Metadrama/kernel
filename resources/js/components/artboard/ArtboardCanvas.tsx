@@ -3,9 +3,12 @@
  * 
  * Refactored to use extracted hooks and sub-components.
  * Now focuses on orchestrating canvas state and rendering artboards.
+ * 
+ * Cross-artboard widget transfer is enabled via GridStack acceptWidgets.
+ * State updates are deferred during drag to prevent React/DOM conflicts.
  */
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Plus } from 'lucide-react';
 import ArtboardContainer from './ArtboardContainer';
 import ArtboardInspector from './ArtboardInspector';
@@ -15,7 +18,7 @@ import FloatingToolbar, { ToolType } from '@/components/FloatingToolbar';
 import CanvasTopBar from './CanvasTopBar';
 import CanvasScrollbars, { Universe } from './CanvasScrollbars';
 import CanvasEmptyState from './CanvasEmptyState';
-import { useCanvasZoom, useCanvasPan } from '@/hooks';
+import { useCanvasZoom, useCanvasPan, useWidgetTransfer } from '@/hooks';
 import type { ArtboardSchema } from '@/types/artboard';
 import type { WidgetComponent, WidgetSchema } from '@/types/dashboard';
 import { createArtboard } from '@/lib/artboard-utils';
@@ -25,11 +28,23 @@ export default function ArtboardCanvas() {
   const {
     artboards,
     setArtboards,
+    archivedWidgets,
+    setArchivedWidgets,
     selectedArtboardId,
     setSelectedArtboardId,
     artboardStackOrder,
     bringArtboardToFront,
   } = useArtboardContext();
+
+  // Widget transfer hooks prepared for future custom implementation
+  // NOTE: GridStack acceptWidgets between independent grids conflicts with React
+  // These hooks are ready for a custom drag-out-of-bounds approach
+  const { transferWidget, archiveWidget, unarchiveWidget } = useWidgetTransfer({
+    artboards,
+    setArtboards,
+    archivedWidgets,
+    setArchivedWidgets,
+  });
 
   // Canvas zoom/pan from extracted hook
   const { scale, pan, setPan, viewportSize, adjustScale, canvasRef } = useCanvasZoom();
@@ -147,6 +162,10 @@ export default function ArtboardCanvas() {
     );
     if (!selectedArtboardId) setSelectedArtboardId(targetId);
   }, [selectedArtboardId, artboards, setArtboards, setSelectedArtboardId]);
+
+  // NOTE: Cross-artboard transfer handlers removed
+  // GridStack's acceptWidgets between independent grids causes React/DOM conflicts
+  // TODO: Implement custom drag-out-of-bounds detection for seamless transfer
 
   // Component selection
   const handleSelectComponent = useCallback((artboardId: string, widgetId: string, component: WidgetComponent) => {

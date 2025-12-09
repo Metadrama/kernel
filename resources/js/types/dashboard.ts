@@ -27,6 +27,11 @@ export interface WidgetSchema {
   y: number;
   w: number;
   h: number;
+  // Canvas-space position (only for archived widgets on canvas)
+  canvasX?: number;
+  canvasY?: number;
+  // Source artboard ID (for undo/restore from archive)
+  sourceArtboardId?: string;
   // Support multiple components per widget
   components: WidgetComponent[];
   // Legacy single component support (deprecated)
