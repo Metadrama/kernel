@@ -122,7 +122,7 @@ function ArtboardContainer({
         margin: gridSettings.margin,
         float: true,  // Allow free positioning like Figma
         animate: true,
-        minRow: 1,
+        minRow: 5,    // Minimum rows to ensure empty artboards have drop zone
         acceptWidgets: '.grid-stack-item', // Accept widgets from any grid
         draggable: {
           // Cancel on component handles so they don't trigger widget drag
@@ -205,20 +205,20 @@ function ArtboardContainer({
   };
 
   const deleteWidget = (widgetId: string) => {
-    // Remove from GridStack first
-    requestAnimationFrame(() => {
-      if (gridInstanceRef.current) {
-        const element = document.getElementById(widgetId);
-        if (element) {
-          try {
-            gridInstanceRef.current.removeWidget(element, false);
-          } catch (e) {
-            console.debug('Widget already removed:', widgetId);
-          }
+    // Remove from GridStack FIRST (synchronously) to prevent React/DOM conflict
+    if (gridInstanceRef.current) {
+      const element = document.getElementById(widgetId);
+      if (element) {
+        try {
+          // Use removeWidget with removeDOM=false since React will handle DOM removal
+          gridInstanceRef.current.removeWidget(element, false);
+        } catch (e) {
+          console.debug('Widget already removed from grid:', widgetId);
         }
       }
-    });
+    }
 
+    // Then update React state
     deleteWidgetFromState(widgetId);
   };
 
@@ -438,7 +438,7 @@ function ArtboardContainer({
 
         {/* Artboard Content Area */}
         <div
-          className="absolute inset-0 overflow-hidden"
+          className="absolute inset-0"
           style={{
             pointerEvents: 'auto',
           }}
@@ -466,8 +466,8 @@ function ArtboardContainer({
             </div>
           )}
 
-          {/* GridStack Container */}
-          <div className="relative h-full p-4 overflow-hidden">
+          {/* GridStack Container - no overflow-hidden to allow cross-artboard drag */}
+          <div className="relative h-full p-4">
             <div ref={gridRef} className="grid-stack">
               {artboard.widgets.map((widget) => (
                 <div
