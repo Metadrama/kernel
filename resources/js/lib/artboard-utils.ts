@@ -199,19 +199,23 @@ export function validateArtboardPosition(
 /**
  * Calculate grid cell size for artboard
  * Used for GridStack configuration within artboard
+ * 
+ * IMPORTANT: Uses FIXED cell dimensions so widgets maintain consistent size
+ * across all artboard formats. Only the number of columns changes.
  */
 export function calculateArtboardGridConfig(dimensions: ArtboardDimensions) {
-  const columns = 12; // Standard 12-column grid
-  const columnWidth = dimensions.widthPx / columns;
+  // Fixed cell size in pixels - consistent across all artboards
+  const FIXED_CELL_SIZE = 80; // px per grid cell
+  const MARGIN = 8;
 
-  // Calculate row height to maintain reasonable aspect ratio
-  // Aim for roughly square cells
-  const rowHeight = Math.floor(columnWidth * 0.75);
+  // Calculate how many columns fit in this artboard
+  const effectiveWidth = dimensions.widthPx - MARGIN * 2;
+  const columns = Math.max(4, Math.floor(effectiveWidth / FIXED_CELL_SIZE));
 
   return {
     columns,
-    cellHeight: rowHeight,
-    margin: 8,
+    cellHeight: FIXED_CELL_SIZE,
+    margin: MARGIN,
   };
 }
 
