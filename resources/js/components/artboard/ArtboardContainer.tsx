@@ -25,12 +25,6 @@ import type { ArtboardSchema } from '@/types/artboard';
 import type { WidgetSchema, WidgetComponent, ComponentCard } from '@/types/dashboard';
 import type { GridPosition } from '@/lib/component-layout';
 import { calculateArtboardGridConfig } from '@/lib/artboard-utils';
-import {
-  GRID_FINE_GRAIN,
-  downscaleGridUnits,
-  upscaleGridUnits,
-  getComponentIntrinsicSize,
-} from '@/lib/component-layout';
 
 interface ArtboardContainerProps {
   artboard: ArtboardSchema;
@@ -112,13 +106,11 @@ function ArtboardContainer({
   useEffect(() => {
     if (!gridRef.current) return;
 
-    const fineColumns = gridSettings.columns * GRID_FINE_GRAIN;
-    const fineCellHeight = Math.max(16, Math.round(gridSettings.cellHeight / GRID_FINE_GRAIN));
-
+    // Simple 12-column grid without fine-grain scaling
     const grid = GridStack.init(
       {
-        column: fineColumns,
-        cellHeight: fineCellHeight,
+        column: gridSettings.columns,
+        cellHeight: gridSettings.cellHeight,
         margin: gridSettings.margin,
         float: false,
         animate: true,
@@ -146,17 +138,12 @@ function ArtboardContainer({
         const updated = items.find((item) => (item.id ?? item.el?.id) === widget.id);
         if (!updated) return widget;
 
-        const scaledX = downscaleGridUnits(updated.x ?? widget.x * GRID_FINE_GRAIN);
-        const scaledY = downscaleGridUnits(updated.y ?? widget.y * GRID_FINE_GRAIN);
-        const scaledW = Math.max(1, downscaleGridUnits(updated.w ?? widget.w * GRID_FINE_GRAIN));
-        const scaledH = Math.max(1, downscaleGridUnits(updated.h ?? widget.h * GRID_FINE_GRAIN));
-
         return {
           ...widget,
-          x: scaledX,
-          y: scaledY,
-          w: scaledW,
-          h: scaledH,
+          x: updated.x ?? widget.x,
+          y: updated.y ?? widget.y,
+          w: Math.max(1, updated.w ?? widget.w),
+          h: Math.max(1, updated.h ?? widget.h),
         };
       });
 
@@ -184,9 +171,9 @@ function ArtboardContainer({
         if (element) {
           gridInstanceRef.current.makeWidget(element);
           gridInstanceRef.current.update(element, {
-            minW: upscaleGridUnits(2),
-            minH: upscaleGridUnits(2),
-            maxW: gridSettings.columns * GRID_FINE_GRAIN,
+            minW: 2,
+            minH: 2,
+            maxW: gridSettings.columns,
           });
         }
       }
@@ -237,31 +224,22 @@ function ArtboardContainer({
       const componentData = JSON.parse(e.dataTransfer.getData('application/json')) as ComponentCard;
       if (!componentData?.id) return;
 
-      const isEmptyWidgetTemplate = componentData.id === 'empty-widget';
-
-      const newComponents: WidgetComponent[] = [];
-      if (!isEmptyWidgetTemplate) {
-        newComponents.push({
-          instanceId: `comp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          componentType: componentData.id,
-          config: {
-            name: componentData.name,
-            description: componentData.description,
-            icon: componentData.icon,
-          },
-        });
+      // Only allow empty widget template drops on artboard
+      // Direct component drops are disabled to prevent malformed dimensions
+      // Users should first add an empty widget, then add components to it
+      if (componentData.id !== 'empty-widget') {
+        console.debug('Direct component drops on artboard disabled. Drop onto an existing widget instead.');
+        return;
       }
 
-      // Calculate widget size based on component intrinsics
-      const intrinsicSize = getComponentIntrinsicSize(componentData.id);
-
+      // Create empty widget with sensible defaults
       const newWidget: WidgetSchema = {
         id: `widget-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         x: 0,
         y: 0,
-        w: Math.max(3, Math.min(12, intrinsicSize.defaultCols)),
-        h: Math.max(2, Math.min(8, intrinsicSize.defaultRows + 1)),
-        components: newComponents,
+        w: 6,
+        h: 4,
+        components: [],
       };
 
       const updatedWidgets = [...artboard.widgets, newWidget];
@@ -436,7 +414,7 @@ function ArtboardContainer({
 
         {/* Artboard Content Area */}
         <div
-          className="absolute inset-0 overflow-auto"
+          className="absolute inset-0 overflow-visible"
           style={{
             pointerEvents: 'auto',
           }}
@@ -465,7 +443,7 @@ function ArtboardContainer({
           )}
 
           {/* GridStack Container */}
-          <div className="relative h-full p-4 overflow-auto">
+          <div className="relative h-full p-4 overflow-visible">
             <div ref={gridRef} className="grid-stack">
               {artboard.widgets.map((widget) => (
                 <div
@@ -473,13 +451,13 @@ function ArtboardContainer({
                   id={widget.id}
                   className="grid-stack-item group/widget"
                   gs-id={widget.id}
-                  gs-x={upscaleGridUnits(widget.x)}
-                  gs-y={upscaleGridUnits(widget.y)}
-                  gs-w={upscaleGridUnits(widget.w)}
-                  gs-h={upscaleGridUnits(widget.h)}
-                  gs-min-w={upscaleGridUnits(2)}
-                  gs-min-h={upscaleGridUnits(2)}
-                  gs-max-w={gridSettings.columns * GRID_FINE_GRAIN}
+                  gs-x={widget.x}
+                  gs-y={widget.y}
+                  gs-w={widget.w}
+                  gs-h={widget.h}
+                  gs-min-w={2}
+                  gs-min-h={2}
+                  gs-max-w={gridSettings.columns}
                 >
 
                   <div className="grid-stack-item-content">

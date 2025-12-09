@@ -236,7 +236,7 @@ export default function WidgetShell({
   return (
     <div
       ref={containerRef}
-      className={`group relative h-full w-full rounded-lg border bg-card text-card-foreground shadow-sm transition-all duration-200 ease-out hover:shadow-md overflow-auto ${isDragOver ? 'border-primary ring-2 ring-primary/20' : 'border-border'
+      className={`group relative h-full w-full rounded-lg border bg-card text-card-foreground shadow-sm transition-all duration-200 ease-out hover:shadow-md overflow-hidden ${isDragOver ? 'border-primary ring-2 ring-primary/20' : 'border-border'
         } ${draggingId || resizingId ? 'select-none' : ''} ${hideScrollbars ? 'widget-shell--hide-scrollbars' : ''}`}
       onDragOver={handleExternalDragOver}
       onDragLeave={handleExternalDragLeave}
