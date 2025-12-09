@@ -151,7 +151,10 @@ export default function ArtboardCanvas() {
 
     const newWidget: WidgetSchema = {
       id: `widget-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      x: 0, y: 0, w: 6, h: 5, components: [],
+      x: 0, y: 0,
+      w: 60, // 60 * 8px = 480px width
+      h: 50, // 50 * 8px = 400px height
+      components: [],
     };
 
     setArtboards((prev) =>

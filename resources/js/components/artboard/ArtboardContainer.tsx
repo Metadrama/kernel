@@ -195,8 +195,8 @@ function ArtboardContainer({
         if (element) {
           gridInstanceRef.current.makeWidget(element);
           gridInstanceRef.current.update(element, {
-            minW: 2,
-            minH: 2,
+            minW: 20, // 20 * 8px = 160px min width
+            minH: 15, // 15 * 8px = 120px min height
             maxW: gridSettings.columns,
           });
         }
@@ -261,8 +261,8 @@ function ArtboardContainer({
         id: `widget-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         x: 0,
         y: 0,
-        w: 6,
-        h: 4,
+        w: 60, // 60 * 8px = 480px width
+        h: 40, // 40 * 8px = 320px height
         components: [],
       };
 
@@ -276,9 +276,9 @@ function ArtboardContainer({
           if (element) {
             gridInstanceRef.current.makeWidget(element);
             gridInstanceRef.current.update(element, {
-              minW: 2,
-              minH: 2,
-              maxW: 12,
+              minW: 20, // 160px min width
+              minH: 15, // 120px min height
+              maxW: gridSettings.columns,
             });
           }
         }
@@ -479,8 +479,8 @@ function ArtboardContainer({
                   gs-y={widget.y}
                   gs-w={widget.w}
                   gs-h={widget.h}
-                  gs-min-w={2}
-                  gs-min-h={2}
+                  gs-min-w={20}
+                  gs-min-h={15}
                   gs-max-w={gridSettings.columns}
                   data-source-artboard={artboard.id}
                 >
