@@ -112,7 +112,7 @@ function ArtboardContainer({
         column: gridSettings.columns,
         cellHeight: gridSettings.cellHeight,
         margin: gridSettings.margin,
-        float: false,
+        float: true,  // Allow free positioning like Figma
         animate: true,
         minRow: 1,
         draggable: {
@@ -414,7 +414,7 @@ function ArtboardContainer({
 
         {/* Artboard Content Area */}
         <div
-          className="absolute inset-0 overflow-visible"
+          className="absolute inset-0 overflow-hidden"
           style={{
             pointerEvents: 'auto',
           }}
@@ -443,7 +443,7 @@ function ArtboardContainer({
           )}
 
           {/* GridStack Container */}
-          <div className="relative h-full p-4 overflow-visible">
+          <div className="relative h-full p-4 overflow-hidden">
             <div ref={gridRef} className="grid-stack">
               {artboard.widgets.map((widget) => (
                 <div
