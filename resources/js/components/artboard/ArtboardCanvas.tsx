@@ -271,6 +271,7 @@ export default function ArtboardCanvas() {
                     bringArtboardToFront(artboard.id);
                   }}
                   onSelectComponent={handleSelectComponent}
+                  onDeselectComponent={() => setSelectedComponent(null)}
                   selectedComponentId={
                     selectedComponent?.artboardId === artboard.id
                       ? selectedComponent.component.instanceId

@@ -41,3 +41,6 @@ export type { UseComponentDragOptions, UseComponentDragReturn } from './useCompo
 export { useComponentResize } from './useComponentResize';
 export type { UseComponentResizeOptions, UseComponentResizeReturn, ResizeDirection } from './useComponentResize';
 
+// Keyboard shortcuts hook
+export { useKeyboardShortcuts } from './useKeyboardShortcuts';
+export type { UseKeyboardShortcutsOptions, ZOrderOperation } from './useKeyboardShortcuts';

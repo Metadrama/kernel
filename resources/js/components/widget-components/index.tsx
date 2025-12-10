@@ -5,6 +5,7 @@ import { lazy, Suspense } from 'react';
 
 // Lazy load components for better performance
 const ChartComponent = lazy(() => import('./ChartComponent'));
+const ChartLegendComponent = lazy(() => import('./ChartLegendComponent'));
 const HeadingComponent = lazy(() => import('./HeadingComponent'));
 
 // Loading placeholder
@@ -20,7 +21,7 @@ function ComponentLoader() {
 }
 
 // Component registry - maps component type IDs to renderers
-export const COMPONENT_REGISTRY: Record<string, React.ComponentType<{config?: Record<string, unknown>}>> = {
+export const COMPONENT_REGISTRY: Record<string, React.ComponentType<{ config?: Record<string, unknown> }>> = {
   'chart': ({ config }) => (
     <Suspense fallback={<ComponentLoader />}>
       <ChartComponent config={{ ...config, chartType: (config?.chartType as 'line' | 'bar' | 'doughnut') || 'line' }} />
@@ -46,6 +47,11 @@ export const COMPONENT_REGISTRY: Record<string, React.ComponentType<{config?: Re
       <HeadingComponent config={config} />
     </Suspense>
   ),
+  'chart-legend': ({ config }) => (
+    <Suspense fallback={<ComponentLoader />}>
+      <ChartLegendComponent config={config} />
+    </Suspense>
+  ),
 };
 
 // Check if a component type is registered
@@ -54,6 +60,6 @@ export function isComponentRegistered(componentType: string): boolean {
 }
 
 // Get a component by type
-export function getComponent(componentType: string): React.ComponentType<{config?: Record<string, unknown>}> | null {
+export function getComponent(componentType: string): React.ComponentType<{ config?: Record<string, unknown> }> | null {
   return COMPONENT_REGISTRY[componentType] || null;
 }

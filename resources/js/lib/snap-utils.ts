@@ -158,3 +158,123 @@ export function getAllSnapLines(
         ...getContainerSnapLines(containerSize),
     ];
 }
+
+/** Distribution guide for equal spacing */
+export interface DistributionGuide {
+    axis: 'x' | 'y';
+    positions: number[]; // Multiple positions to draw lines at
+    spacing: number;     // The equal spacing value
+}
+
+/**
+ * Find distribution opportunities (equal spacing between items)
+ * Returns guides when the dragged item would create equal spacing with neighbors
+ */
+export function getDistributionGuides(
+    draggedRect: { x: number; y: number; width: number; height: number },
+    siblings: ComponentRect[],
+    threshold: number = DEFAULT_SNAP_THRESHOLD
+): { guides: DistributionGuide[]; snappedPosition: { x: number; y: number } } {
+    const guides: DistributionGuide[] = [];
+    let snappedX = draggedRect.x;
+    let snappedY = draggedRect.y;
+
+    // Sort siblings by position for each axis
+    const sortedByX = [...siblings].sort((a, b) => a.x - b.x);
+    const sortedByY = [...siblings].sort((a, b) => a.y - b.y);
+
+    // Check horizontal distribution (items arranged left to right)
+    for (let i = 0; i < sortedByX.length - 1; i++) {
+        const left = sortedByX[i];
+        const right = sortedByX[i + 1];
+
+        // Gap between left item's right edge and right item's left edge
+        const existingGap = right.x - (left.x + left.width);
+        if (existingGap <= 0) continue; // Overlapping or touching
+
+        // Could dragged item fit between them with equal spacing?
+        const draggedRight = draggedRect.x + draggedRect.width;
+
+        // Check if dragged item is roughly between these two
+        const leftEdge = left.x + left.width;
+        const rightEdge = right.x;
+
+        if (draggedRect.x > leftEdge - 50 && draggedRight < rightEdge + 50) {
+            // Calculate what position would give equal spacing
+            const totalSpace = rightEdge - leftEdge;
+            const equalGap = (totalSpace - draggedRect.width) / 2;
+
+            if (equalGap > 0) {
+                const idealX = leftEdge + equalGap;
+                if (Math.abs(draggedRect.x - idealX) <= threshold) {
+                    snappedX = idealX;
+                    guides.push({
+                        axis: 'x',
+                        positions: [leftEdge, draggedRect.x, draggedRight, rightEdge],
+                        spacing: equalGap,
+                    });
+                }
+            }
+        }
+    }
+
+    // Similar logic for vertical distribution
+    for (let i = 0; i < sortedByY.length - 1; i++) {
+        const top = sortedByY[i];
+        const bottom = sortedByY[i + 1];
+
+        const existingGap = bottom.y - (top.y + top.height);
+        if (existingGap <= 0) continue;
+
+        const draggedBottom = draggedRect.y + draggedRect.height;
+        const topEdge = top.y + top.height;
+        const bottomEdge = bottom.y;
+
+        if (draggedRect.y > topEdge - 50 && draggedBottom < bottomEdge + 50) {
+            const totalSpace = bottomEdge - topEdge;
+            const equalGap = (totalSpace - draggedRect.height) / 2;
+
+            if (equalGap > 0) {
+                const idealY = topEdge + equalGap;
+                if (Math.abs(draggedRect.y - idealY) <= threshold) {
+                    snappedY = idealY;
+                    guides.push({
+                        axis: 'y',
+                        positions: [topEdge, draggedRect.y, draggedBottom, bottomEdge],
+                        spacing: equalGap,
+                    });
+                }
+            }
+        }
+    }
+
+    return { guides, snappedPosition: { x: snappedX, y: snappedY } };
+}
+
+/**
+ * Snap position to a grid
+ */
+export function snapToGrid(
+    position: { x: number; y: number },
+    gridSize: number = 10
+): { x: number; y: number } {
+    return {
+        x: Math.round(position.x / gridSize) * gridSize,
+        y: Math.round(position.y / gridSize) * gridSize,
+    };
+}
+
+/**
+ * Snap bounds to a grid (both position and size)
+ */
+export function snapBoundsToGrid(
+    bounds: { x: number; y: number; width: number; height: number },
+    gridSize: number = 10
+): { x: number; y: number; width: number; height: number } {
+    return {
+        x: Math.round(bounds.x / gridSize) * gridSize,
+        y: Math.round(bounds.y / gridSize) * gridSize,
+        width: Math.round(bounds.width / gridSize) * gridSize,
+        height: Math.round(bounds.height / gridSize) * gridSize,
+    };
+}

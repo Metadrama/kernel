@@ -30,6 +30,15 @@ export const AVAILABLE_COMPONENTS: ComponentCard[] = [
     subcategory: 'chart',
     isFavorite: false,
   },
+  {
+    id: 'chart-legend',
+    name: 'Chart Legend',
+    description: 'Standalone legend for charts',
+    icon: 'List',
+    category: 'test-components',
+    subcategory: 'chart',
+    isFavorite: false,
+  },
   // Layout
   {
     id: 'empty-widget',

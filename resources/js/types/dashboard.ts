@@ -19,6 +19,8 @@ export interface WidgetComponent {
   y: number;
   width: number;
   height: number;
+  // Stacking order (higher = on top)
+  zIndex?: number;
   // Optional: prevent auto-repositioning
   locked?: boolean;
   // Component-specific configuration
@@ -32,6 +34,8 @@ export interface WidgetSchema {
   y: number;
   w: number;
   h: number;
+  // Stacking order (higher = on top)
+  zIndex?: number;
   // Canvas-space position (only for archived widgets on canvas)
   canvasX?: number;
   canvasY?: number;

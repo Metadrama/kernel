@@ -11,8 +11,10 @@ import { constrainToBounds, type ComponentRect } from '@/lib/collision-detection
 import {
     snapToGuides,
     getAllSnapLines,
+    getDistributionGuides,
     DEFAULT_SNAP_THRESHOLD,
-    type SnapLine
+    type SnapLine,
+    type DistributionGuide
 } from '@/lib/snap-utils';
 
 export interface UseComponentDragOptions {
@@ -47,6 +49,8 @@ export interface UseComponentDragReturn {
     displayPosition: { x: number; y: number };
     /** Active alignment guides to display */
     activeGuides: SnapLine[];
+    /** Active distribution guides to display */
+    distributionGuides: DistributionGuide[];
     /** Mouse down handler for the drag handle */
     handleMouseDown: (e: React.MouseEvent) => void;
 }
@@ -67,6 +71,7 @@ export function useComponentDrag({
     const [isDragging, setIsDragging] = useState(false);
     const [localPosition, setLocalPosition] = useState<{ x: number; y: number } | null>(null);
     const [activeGuides, setActiveGuides] = useState<SnapLine[]>([]);
+    const [distributionGuides, setDistributionGuides] = useState<DistributionGuide[]>([]);
     const [shiftPressed, setShiftPressed] = useState(false);
 
     const dragStartRef = useRef<{
@@ -135,6 +140,7 @@ export function useComponentDrag({
 
         // Apply snapping if enabled and shift not pressed
         let guides: SnapLine[] = [];
+        let distGuides: DistributionGuide[] = [];
         if (enableSnapping && !shiftPressed) {
             const snapLines = getAllSnapLines(siblings, containerSize);
             const snapResult = snapToGuides(
@@ -145,6 +151,18 @@ export function useComponentDrag({
             newX = snapResult.x;
             newY = snapResult.y;
             guides = snapResult.activeGuides;
+
+            // Calculate distribution guides (equal spacing)
+            const distResult = getDistributionGuides(
+                { x: newX, y: newY, ...size },
+                siblings,
+                snapThreshold
+            );
+            if (distResult.guides.length > 0) {
+                newX = distResult.snappedPosition.x;
+                newY = distResult.snappedPosition.y;
+                distGuides = distResult.guides;
+            }
         }
 
         // Constrain to bounds
@@ -155,6 +173,7 @@ export function useComponentDrag({
 
         setLocalPosition({ x: constrained.x, y: constrained.y });
         setActiveGuides(guides);
+        setDistributionGuides(distGuides);
     }, [isDragging, containerRef, size, scale, siblings, enableSnapping, shiftPressed, snapThreshold]);
 
     const handleMouseUp = useCallback(() => {
@@ -166,6 +185,7 @@ export function useComponentDrag({
         setIsDragging(false);
         setLocalPosition(null);
         setActiveGuides([]);
+        setDistributionGuides([]);
         dragStartRef.current = null;
     }, [isDragging, localPosition, onPositionChange]);
 
@@ -184,6 +204,7 @@ export function useComponentDrag({
         isDragging,
         displayPosition: isDragging && localPosition ? localPosition : position,
         activeGuides: isDragging ? activeGuides : [],
+        distributionGuides: isDragging ? distributionGuides : [],
         handleMouseDown,
     };
 }

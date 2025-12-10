@@ -22,7 +22,7 @@ export default function ArtboardInspector({ artboard, onUpdate, onClose }: Props
   if (!isOpen || !artboard) return null;
 
   return (
-    <div className="fixed right-0 top-0 z-50 h-screen w-80 border-l bg-background">
+    <div className="h-full w-80 shrink-0 border-l bg-background flex flex-col">
       <div className="flex items-center justify-between border-b p-3">
         <div className="text-sm font-semibold">Artboard Inspector</div>
         <Button variant="ghost" size="sm" onClick={onClose}>Close</Button>

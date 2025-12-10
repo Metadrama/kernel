@@ -22,10 +22,44 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useWidgetOperations, useArtboardDrag } from '@/hooks';
+import { useWidgetOperations, useArtboardDrag, useKeyboardShortcuts } from '@/hooks';
 import type { ArtboardSchema } from '@/types/artboard';
 import type { WidgetSchema, WidgetComponent, ComponentCard } from '@/types/dashboard';
 import { calculateArtboardGridConfig } from '@/lib/artboard-utils';
+import type { SnapLine } from '@/lib/snap-utils';
+
+/**
+ * Widget alignment guides overlay component
+ */
+function WidgetAlignmentGuides({ guides, cellHeight }: { guides: SnapLine[]; cellHeight: number }) {
+  if (guides.length === 0) return null;
+
+  return (
+    <div className="absolute inset-0 pointer-events-none z-50 overflow-visible">
+      {guides.map((guide, i) => (
+        <div
+          key={`${guide.axis}-${guide.position}-${i}`}
+          className="absolute bg-pink-500"
+          style={
+            guide.axis === 'x'
+              ? {
+                left: guide.position,
+                top: 0,
+                bottom: 0,
+                width: 1,
+              }
+              : {
+                top: guide.position * cellHeight,
+                left: 0,
+                right: 0,
+                height: 1,
+              }
+          }
+        />
+      ))}
+    </div>
+  );
+}
 
 interface ArtboardContainerProps {
   artboard: ArtboardSchema;
@@ -36,6 +70,7 @@ interface ArtboardContainerProps {
   onDelete: (artboardId: string) => void;
   onSelect: () => void;
   onSelectComponent: (artboardId: string, widgetId: string, component: WidgetComponent) => void;
+  onDeselectComponent?: () => void;
   selectedComponentId?: string;
   // Widget transfer callbacks for cross-artboard drag
   onWidgetReceived?: (widget: WidgetSchema, sourceArtboardId: string | undefined) => void;
@@ -58,6 +93,7 @@ function ArtboardContainer({
   onDelete,
   onSelect,
   onSelectComponent,
+  onDeselectComponent,
   selectedComponentId,
   onWidgetReceived,
   onWidgetRemoved,
@@ -81,10 +117,21 @@ function ArtboardContainer({
     onSelect,
   });
 
-  // Context menu state
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [showSettings, setShowSettings] = useState(false);
+  const [widgetAlignmentGuides, setWidgetAlignmentGuides] = useState<SnapLine[]>([]);
+  const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(null);
+
+  // Clear widget selection when clicking elsewhere on artboard
+  const handleArtboardClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (e.target === containerRef.current || e.target === gridRef.current) {
+      setSelectedWidgetId(null);
+      onSelect(); // Ensure artboard is selected when background is clicked
+      onDeselectComponent?.();
+    }
+  }, [onSelect, onDeselectComponent]);
 
   // Widget operations from hook
   const {
@@ -94,7 +141,25 @@ function ArtboardContainer({
     removeComponentFromWidget,
     reorderComponents,
     updateComponentBounds,
+    updateComponentZOrder,
+    updateWidgetZOrder,
   } = useWidgetOperations({ artboard, onUpdate });
+
+  // Keyboard shortcuts for selected widget
+  useKeyboardShortcuts({
+    enabled: !!selectedWidgetId && isSelected, // Only when artboard is active and a widget is selected
+    onZOrderChange: (operation) => {
+      if (selectedWidgetId) {
+        updateWidgetZOrder(selectedWidgetId, operation);
+      }
+    },
+    onDelete: () => {
+      if (selectedWidgetId) {
+        deleteWidgetFromState(selectedWidgetId);
+        setSelectedWidgetId(null);
+      }
+    },
+  });
 
   // Calculate display position (canvas space -> screen space)
 
@@ -142,8 +207,70 @@ function ArtboardContainer({
       isTransferring = true;
     });
 
-    // Listen for drag stop to clear transfer flag
+    // Listen for drag movement to calculate alignment guides
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (grid as any).on('drag', (_event: Event, el: HTMLElement, node: any) => {
+      if (!node) return;
+      const draggedId = node.id ?? el.id;
+      const currentArtboard = artboardRef.current;
+
+      // Get positions of other widgets for snapping
+      const otherWidgets = currentArtboard.widgets.filter(w => w.id !== draggedId);
+      const guides: SnapLine[] = [];
+
+      const dragX = node.x ?? 0;
+      const dragY = node.y ?? 0;
+      const dragW = node.w ?? 0;
+      const dragH = node.h ?? 0;
+
+      // Convert grid positions to pixel positions
+      const cellWidth = gridSettings.columns > 0 ? (currentArtboard.dimensions.widthPx / gridSettings.columns) : 50;
+
+      // Check alignment with other widgets
+      for (const widget of otherWidgets) {
+        // Vertical alignments (X axis) - check left and right edges
+        // Left edge alignment
+        if (dragX === widget.x) {
+          guides.push({ axis: 'x', position: widget.x * cellWidth, type: 'left' });
+        }
+        // Right edge alignment
+        if (dragX + dragW === widget.x + widget.w) {
+          guides.push({ axis: 'x', position: (widget.x + widget.w) * cellWidth, type: 'right' });
+        }
+        // Left to right edge alignment
+        if (dragX === widget.x + widget.w) {
+          guides.push({ axis: 'x', position: (widget.x + widget.w) * cellWidth, type: 'right' });
+        }
+        // Right to left edge alignment
+        if (dragX + dragW === widget.x) {
+          guides.push({ axis: 'x', position: widget.x * cellWidth, type: 'left' });
+        }
+
+        // Horizontal alignments (Y axis) - check top and bottom edges
+        // Top edge alignment
+        if (dragY === widget.y) {
+          guides.push({ axis: 'y', position: widget.y, type: 'top' });
+        }
+        // Bottom edge alignment
+        if (dragY + dragH === widget.y + widget.h) {
+          guides.push({ axis: 'y', position: widget.y + widget.h, type: 'bottom' });
+        }
+        // Top to bottom edge alignment
+        if (dragY === widget.y + widget.h) {
+          guides.push({ axis: 'y', position: widget.y + widget.h, type: 'bottom' });
+        }
+        // Bottom to top edge alignment  
+        if (dragY + dragH === widget.y) {
+          guides.push({ axis: 'y', position: widget.y, type: 'top' });
+        }
+      }
+
+      setWidgetAlignmentGuides(guides);
+    });
+
+    // Listen for drag stop to clear transfer flag and guides
     grid.on('dragstop', () => {
+      setWidgetAlignmentGuides([]);
       // Small delay to let GridStack finish its internal updates
       setTimeout(() => {
         isTransferring = false;
@@ -418,10 +545,7 @@ function ArtboardContainer({
           // Disable transitions during dragging for instant response
           transition: isDragging ? 'none' : undefined,
         }}
-        onClick={(e) => {
-          e.stopPropagation();
-          onSelect();
-        }}
+        onClick={handleArtboardClick}
         onContextMenu={handleContextMenu}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -429,7 +553,7 @@ function ArtboardContainer({
       >
         {/* Background layer - starts below header with shadow and ring */}
         <div
-          className={`absolute inset-0 shadow-2xl ${isSelected ? 'ring-2 ring-primary ring-offset-2' : 'ring-1 ring-border'}`}
+          className={`absolute inset-0 shadow-2xl ${isSelected ? 'ring-1 ring-primary/20 ring-offset-2' : 'ring-1 ring-border'}`}
           style={{
             backgroundColor: artboard.backgroundColor,
           }}
@@ -467,6 +591,9 @@ function ArtboardContainer({
 
           {/* GridStack Container - no overflow-hidden to allow cross-artboard drag */}
           <div className="relative h-full p-4">
+            {/* Widget alignment guides overlay */}
+            <WidgetAlignmentGuides guides={widgetAlignmentGuides} cellHeight={gridSettings.cellHeight} />
+
             <div ref={gridRef} className="grid-stack">
               {artboard.widgets.map((widget) => (
                 <div
@@ -500,11 +627,23 @@ function ArtboardContainer({
                       onUpdateComponentBounds={(instanceId, bounds) =>
                         updateComponentBounds(widget.id, instanceId, bounds)
                       }
-                      onSelectComponent={(component) =>
-                        onSelectComponent(artboard.id, widget.id, component)
+                      onUpdateComponentZOrder={(instanceId, operation) =>
+                        updateComponentZOrder(widget.id, instanceId, operation)
                       }
+                      onWidgetZOrderChange={(operation) =>
+                        updateWidgetZOrder(widget.id, operation)
+                      }
+                      onSelectComponent={(component) => {
+                        setSelectedWidgetId(null); // Clear widget selection when component is selected
+                        onSelectComponent(artboard.id, widget.id, component);
+                      }}
                       selectedComponentId={selectedComponentId}
                       scale={canvasScale}
+                      isSelected={selectedWidgetId === widget.id}
+                      onSelectWidget={() => {
+                        setSelectedWidgetId(widget.id);
+                        onDeselectComponent?.(); // Clear component selection when widget is selected
+                      }}
                       showDragHandle={false}
                     />
                   </div>

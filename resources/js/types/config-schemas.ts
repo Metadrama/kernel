@@ -479,6 +479,34 @@ export const HEADING_SCHEMA: ComponentConfigSchema = {
 };
 
 // ============================================================================
+// Chart Legend Schema
+// ============================================================================
+
+export const CHART_LEGEND_SCHEMA: ComponentConfigSchema = {
+  componentType: 'chart-legend',
+  label: 'Chart Legend',
+  fields: [
+    DATA_SOURCE_FIELD,
+    {
+      key: 'dataSource.labelColumn',
+      label: 'Label Column',
+      type: 'column-picker',
+      group: 'Data',
+      description: 'Column for legend labels',
+      showWhen: { field: 'dataSource.type', operator: 'not-equals', value: 'static' },
+    },
+    {
+      key: 'title',
+      label: 'Title',
+      type: 'text',
+      group: 'Display',
+      description: 'Legend title text',
+    },
+    ...COLOR_FIELDS,
+  ],
+};
+
+// ============================================================================
 // KPI Config Schema
 // ============================================================================
 
@@ -614,6 +642,7 @@ export const CONFIG_SCHEMAS: Record<string, ComponentConfigSchema> = {
   'chart-doughnut': DOUGHNUT_CHART_SCHEMA,
   'heading': HEADING_SCHEMA,
   'kpi': KPI_SCHEMA,
+  'chart-legend': CHART_LEGEND_SCHEMA,
 };
 
 export function getConfigSchema(componentType: string): ComponentConfigSchema | undefined {

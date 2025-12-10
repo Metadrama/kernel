@@ -3,14 +3,22 @@
  * 
  * Components are positioned using absolute pixel coordinates.
  * Provides smooth drag and resize with smart snapping to nearby components.
+ * Right-click for context menu with z-order and delete options.
  */
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Plus, X, Move } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Plus, Move, Trash2, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown } from 'lucide-react';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuShortcut,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { isComponentRegistered, getComponent } from '@/components/widget-components';
 import { EmptyWidgetState, WidgetToolbar } from '@/components/widget';
-import { useComponentDrag, useComponentResize } from '@/hooks';
+import { useComponentDrag, useComponentResize, useKeyboardShortcuts } from '@/hooks';
 import type { WidgetSchema, ComponentCard, WidgetComponent } from '@/types/dashboard';
 import type { ComponentRect } from '@/lib/collision-detection';
 import type { SnapLine } from '@/lib/snap-utils';
@@ -23,8 +31,14 @@ interface WidgetShellProps {
   onRemoveComponent?: (instanceId: string) => void;
   onReorderComponents?: (components: WidgetComponent[]) => void;
   onUpdateComponentBounds?: (instanceId: string, bounds: { x: number; y: number; width: number; height: number }) => void;
+  onUpdateComponentZOrder?: (instanceId: string, operation: 'bringToFront' | 'sendToBack' | 'bringForward' | 'sendBackward') => void;
+  onWidgetZOrderChange?: (operation: 'bringToFront' | 'sendToBack' | 'bringForward' | 'sendBackward') => void;
   onSelectComponent?: (component: WidgetComponent) => void;
   selectedComponentId?: string;
+  /** Whether the widget itself is selected */
+  isSelected?: boolean;
+  /** Callback when widget is clicked/selected */
+  onSelectWidget?: () => void;
   /** Canvas scale factor for zoom compensation */
   scale?: number;
   /** Whether to show the drag handle inside the shell (default: true). Set to false when handle is rendered externally (e.g., by GridStack parent). */
@@ -77,6 +91,7 @@ function ComponentItem({
   onBoundsChange,
   onSelect,
   onRemove,
+  onZOrderChange,
   onGuidesChange,
   onActiveChange,
 }: {
@@ -89,6 +104,7 @@ function ComponentItem({
   onBoundsChange: (bounds: { x: number; y: number; width: number; height: number }) => void;
   onSelect: () => void;
   onRemove: () => void;
+  onZOrderChange?: (operation: 'bringToFront' | 'sendToBack' | 'bringForward' | 'sendBackward') => void;
   onGuidesChange: (guides: SnapLine[]) => void;
   onActiveChange: (isActive: boolean) => void;
 }) {
@@ -154,108 +170,131 @@ function ComponentItem({
   const displayHeight = isResizing ? displayBounds.height : component.height;
 
   return (
-    <div
-      className={`absolute group/component ${isDragging ? 'z-30 cursor-grabbing' : 'z-10 hover:z-20'} ${isResizing ? 'z-30' : ''} ${isSelected ? 'z-25' : ''}`}
-      style={{
-        left: displayX,
-        top: displayY,
-        width: displayWidth,
-        height: displayHeight,
-        // Disable transitions during drag/resize for instant feedback
-        transition: isActive ? 'none' : 'box-shadow 150ms ease-out',
-      }}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect();
-      }}
-    >
-      {/* Component container with selection styling */}
-      <div className={`h-full w-full rounded-md border bg-background ${isSelected
-        ? 'border-primary ring-2 ring-primary/30 shadow-md'
-        : isActive
-          ? 'border-primary shadow-lg ring-2 ring-primary/30'
-          : anySiblingActive
-            ? 'border-border/60 shadow-sm'
-            : 'border-transparent group-hover/component:border-border group-hover/component:shadow-sm'
-        }`}>
-
-        {/* Move handle - top center */}
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
         <div
-          className="component-drag-handle absolute -top-0 left-1/2 -translate-x-1/2 opacity-0 group-hover/component:opacity-100 transition-opacity cursor-grab active:cursor-grabbing z-10 bg-background/90 backdrop-blur-sm rounded-b px-2 py-0.5 border border-t-0 shadow-sm"
-          onMouseDown={handleDragMouseDown}
-        >
-          <Move className="h-3 w-3 text-muted-foreground" />
-        </div>
-
-        {/* Remove button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="absolute -right-1 -top-1 h-5 w-5 opacity-0 group-hover/component:opacity-100 transition-opacity z-10 bg-background/90 backdrop-blur-sm rounded-full shadow-sm border text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+          className={`absolute group/component ${isDragging ? 'z-30 cursor-grabbing' : 'z-10 hover:z-20'} ${isResizing ? 'z-30' : ''} ${isSelected ? 'z-25' : ''}`}
+          style={{
+            left: displayX,
+            top: displayY,
+            width: displayWidth,
+            height: displayHeight,
+            // Disable transitions during drag/resize for instant feedback
+            transition: isActive ? 'none' : 'box-shadow 150ms ease-out',
+          }}
           onClick={(e) => {
             e.stopPropagation();
-            onRemove();
+            onSelect();
           }}
         >
-          <X className="h-3 w-3" />
-        </Button>
+          {/* Component container with selection styling */}
+          <div className={`h-full w-full rounded-md border bg-background ${isSelected
+            ? 'border-primary/60 ring-1 ring-primary/20 shadow-sm'
+            : isActive
+              ? 'border-primary/60 shadow-md ring-1 ring-primary/20'
+              : anySiblingActive
+                ? 'border-border/60 shadow-sm'
+                : 'border-transparent group-hover/component:border-border group-hover/component:shadow-sm'
+            }`}>
 
-        {/* Render the actual component */}
-        <div className="h-full w-full overflow-hidden rounded-md">
-          {isRegistered && ComponentToRender ? (
-            <ComponentToRender config={component.config} />
-          ) : (
-            <div className="flex h-full items-center justify-center p-2">
-              <p className="text-xs text-muted-foreground">
-                Unknown: {component.componentType}
-              </p>
+            {/* Move handle - top center */}
+            <div
+              className="component-drag-handle absolute -top-0 left-1/2 -translate-x-1/2 opacity-0 group-hover/component:opacity-100 transition-opacity cursor-grab active:cursor-grabbing z-10 bg-background/90 backdrop-blur-sm rounded-b px-2 py-0.5 border border-t-0 shadow-sm"
+              onMouseDown={handleDragMouseDown}
+            >
+              <Move className="h-3 w-3 text-muted-foreground" />
             </div>
-          )}
-        </div>
 
-        {/* Resize handles - 8 directions for Figma-like control */}
-        {/* North */}
-        <div
-          className="component-drag-handle absolute left-1/2 -translate-x-1/2 -top-1 h-2 w-8 bg-primary/60 rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-n-resize z-20 hover:bg-primary"
-          onMouseDown={(e) => startResize(e, 'n')}
-        />
-        {/* South */}
-        <div
-          className="component-drag-handle absolute left-1/2 -translate-x-1/2 -bottom-1 h-2 w-8 bg-primary/60 rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-s-resize z-20 hover:bg-primary"
-          onMouseDown={(e) => startResize(e, 's')}
-        />
-        {/* East */}
-        <div
-          className="component-drag-handle absolute -right-1 top-1/2 -translate-y-1/2 w-2 h-8 bg-primary/60 rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-e-resize z-20 hover:bg-primary"
-          onMouseDown={(e) => startResize(e, 'e')}
-        />
-        {/* West */}
-        <div
-          className="component-drag-handle absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-8 bg-primary/60 rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-w-resize z-20 hover:bg-primary"
-          onMouseDown={(e) => startResize(e, 'w')}
-        />
-        {/* Northeast */}
-        <div
-          className="component-drag-handle absolute -right-1 -top-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-ne-resize z-20 shadow-sm"
-          onMouseDown={(e) => startResize(e, 'ne')}
-        />
-        {/* Southeast */}
-        <div
-          className="component-drag-handle absolute -right-1 -bottom-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-se-resize z-20 shadow-sm"
-          onMouseDown={(e) => startResize(e, 'se')}
-        />
-        {/* Southwest */}
-        <div
-          className="component-drag-handle absolute -left-1 -bottom-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-sw-resize z-20 shadow-sm"
-          onMouseDown={(e) => startResize(e, 'sw')}
-        />
-        {/* Northwest */}
-        <div
-          className="component-drag-handle absolute -left-1 -top-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-nw-resize z-20 shadow-sm"
-          onMouseDown={(e) => startResize(e, 'nw')}
-        />
-      </div>
-    </div>
+            {/* Render the actual component */}
+            <div className="h-full w-full overflow-hidden rounded-md">
+              {isRegistered && ComponentToRender ? (
+                <ComponentToRender config={component.config} />
+              ) : (
+                <div className="flex h-full items-center justify-center p-2">
+                  <p className="text-xs text-muted-foreground">
+                    Unknown: {component.componentType}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Resize handles - 8 directions for Figma-like control */}
+            {/* North */}
+            <div
+              className="component-drag-handle absolute left-1/2 -translate-x-1/2 -top-1 h-2 w-8 bg-primary/60 rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-n-resize z-20 hover:bg-primary"
+              onMouseDown={(e) => startResize(e, 'n')}
+            />
+            {/* South */}
+            <div
+              className="component-drag-handle absolute left-1/2 -translate-x-1/2 -bottom-1 h-2 w-8 bg-primary/60 rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-s-resize z-20 hover:bg-primary"
+              onMouseDown={(e) => startResize(e, 's')}
+            />
+            {/* East */}
+            <div
+              className="component-drag-handle absolute -right-1 top-1/2 -translate-y-1/2 w-2 h-8 bg-primary/60 rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-e-resize z-20 hover:bg-primary"
+              onMouseDown={(e) => startResize(e, 'e')}
+            />
+            {/* West */}
+            <div
+              className="component-drag-handle absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-8 bg-primary/60 rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-w-resize z-20 hover:bg-primary"
+              onMouseDown={(e) => startResize(e, 'w')}
+            />
+            {/* Northeast */}
+            <div
+              className="component-drag-handle absolute -right-1 -top-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-ne-resize z-20 shadow-sm"
+              onMouseDown={(e) => startResize(e, 'ne')}
+            />
+            {/* Southeast */}
+            <div
+              className="component-drag-handle absolute -right-1 -bottom-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-se-resize z-20 shadow-sm"
+              onMouseDown={(e) => startResize(e, 'se')}
+            />
+            {/* Southwest */}
+            <div
+              className="component-drag-handle absolute -left-1 -bottom-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-sw-resize z-20 shadow-sm"
+              onMouseDown={(e) => startResize(e, 'sw')}
+            />
+            {/* Northwest */}
+            <div
+              className="component-drag-handle absolute -left-1 -top-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-nw-resize z-20 shadow-sm"
+              onMouseDown={(e) => startResize(e, 'nw')}
+            />
+          </div>
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-48">
+        {onZOrderChange && (
+          <>
+            <ContextMenuItem onClick={() => onZOrderChange('bringToFront')}>
+              <ChevronsUp className="h-4 w-4 mr-2" />
+              Bring to Front
+              <ContextMenuShortcut>⌘⇧]</ContextMenuShortcut>
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => onZOrderChange('bringForward')}>
+              <ArrowUp className="h-4 w-4 mr-2" />
+              Bring Forward
+              <ContextMenuShortcut>⌘]</ContextMenuShortcut>
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => onZOrderChange('sendBackward')}>
+              <ArrowDown className="h-4 w-4 mr-2" />
+              Send Backward
+              <ContextMenuShortcut>⌘[</ContextMenuShortcut>
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => onZOrderChange('sendToBack')}>
+              <ChevronsDown className="h-4 w-4 mr-2" />
+              Send to Back
+              <ContextMenuShortcut>⌘⇧[</ContextMenuShortcut>
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+          </>
+        )}
+        <ContextMenuItem variant="destructive" onClick={onRemove}>
+          <Trash2 className="h-4 w-4 mr-2" />
+          Delete
+          <ContextMenuShortcut>⌫</ContextMenuShortcut>
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
 
@@ -265,8 +304,12 @@ export default function WidgetShell({
   onAddComponent,
   onRemoveComponent,
   onUpdateComponentBounds,
+  onUpdateComponentZOrder,
+  onWidgetZOrderChange,
   onSelectComponent,
   selectedComponentId,
+  isSelected,
+  onSelectWidget,
   scale = 1,
   showDragHandle = true,
 }: WidgetShellProps) {
@@ -276,8 +319,27 @@ export default function WidgetShell({
   const [activeGuides, setActiveGuides] = useState<SnapLine[]>([]);
   const [activeComponentId, setActiveComponentId] = useState<string | null>(null);
 
-  const components = widget.components || [];
+  // Sort components by zIndex for proper stacking order
+  const components = useMemo(() => {
+    const comps = widget.components || [];
+    return [...comps].sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
+  }, [widget.components]);
   const isEmpty = components.length === 0;
+
+  // Keyboard shortcuts for selected component z-order
+  useKeyboardShortcuts({
+    enabled: !!selectedComponentId,
+    onZOrderChange: (operation) => {
+      if (selectedComponentId && onUpdateComponentZOrder) {
+        onUpdateComponentZOrder(selectedComponentId, operation);
+      }
+    },
+    onDelete: () => {
+      if (selectedComponentId && onRemoveComponent) {
+        onRemoveComponent(selectedComponentId);
+      }
+    },
+  });
 
   // Track container size for bounds checking
   useEffect(() => {
@@ -359,7 +421,17 @@ export default function WidgetShell({
 
   // Handle guides from any active component
   const handleGuidesChange = useCallback((componentId: string, guides: SnapLine[]) => {
-    setActiveGuides(guides);
+    setActiveGuides(prev => {
+      // Prevent infinite loop by checking if guides actually changed
+      if (prev === guides) return prev;
+      if (prev.length === 0 && guides.length === 0) return prev;
+      if (prev.length === guides.length && prev.every((g, i) =>
+        g.axis === guides[i].axis && g.position === guides[i].position
+      )) {
+        return prev;
+      }
+      return guides;
+    });
   }, []);
 
   if (isEmpty) {
@@ -378,53 +450,89 @@ export default function WidgetShell({
 
   // Widget with components - FREEFORM LAYOUT
   return (
-    <div
-      ref={containerRef}
-      className={`group relative h-full w-full rounded-lg border bg-card text-card-foreground shadow-sm transition-all duration-200 ease-out hover:shadow-md overflow-hidden ${isDragOver ? 'border-primary ring-2 ring-primary/20' : 'border-border'}`}
-      onDragOver={handleExternalDragOver}
-      onDragLeave={handleExternalDragLeave}
-      onDrop={handleExternalDrop}
-    >
-      {/* Widget toolbar */}
-      <WidgetToolbar onDelete={onDelete} showDragHandle={showDragHandle} />
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div
+          ref={containerRef}
+          className={`group relative h-full w-full rounded-lg border bg-card text-card-foreground shadow-sm transition-all duration-200 ease-out hover:shadow-md overflow-hidden ${isDragOver ? 'border-primary ring-1 ring-primary/20' : isSelected ? 'border-primary/60 ring-1 ring-primary/20' : 'border-border'}`}
+          onDragOver={handleExternalDragOver}
+          onDragLeave={handleExternalDragLeave}
+          onDrop={handleExternalDrop}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelectWidget?.();
+          }}
+        >
+          {/* Widget toolbar */}
+          <WidgetToolbar onDelete={onDelete} showDragHandle={showDragHandle} />
 
-      {/* Alignment guides overlay */}
-      <AlignmentGuides guides={activeGuides} />
+          {/* Alignment guides overlay */}
+          <AlignmentGuides guides={activeGuides} />
 
-      {/* Components container - relative for absolute positioning of children */}
-      <div
-        className="relative p-2"
-        style={{
-          minHeight: Math.max(contentHeight, 100),
-        }}
-      >
-        {components.map((component) => (
-          <ComponentItem
-            key={component.instanceId}
-            component={component}
-            isSelected={selectedComponentId === component.instanceId}
-            containerRef={containerRef}
-            siblings={componentRects.filter(r => r.id !== component.instanceId)}
-            scale={scale}
-            anySiblingActive={activeComponentId !== null && activeComponentId !== component.instanceId}
-            onBoundsChange={(bounds) => onUpdateComponentBounds?.(component.instanceId, bounds)}
-            onSelect={() => onSelectComponent?.(component)}
-            onRemove={() => onRemoveComponent?.(component.instanceId)}
-            onGuidesChange={(guides) => handleGuidesChange(component.instanceId, guides)}
-            onActiveChange={(isActive) => setActiveComponentId(isActive ? component.instanceId : null)}
-          />
-        ))}
-      </div>
-
-      {/* Drop indicator overlay */}
-      {isDragOver && (
-        <div className="absolute inset-0 flex items-center justify-center bg-primary/10 rounded-lg pointer-events-none z-20">
-          <div className="flex items-center gap-2 text-primary bg-background/90 px-4 py-2 rounded-lg shadow-lg">
-            <Plus className="h-5 w-5" />
-            <span className="text-sm font-medium">Drop to add</span>
+          {/* Components container - relative for absolute positioning of children */}
+          <div
+            className="relative p-2"
+            style={{
+              minHeight: Math.max(contentHeight, 100),
+            }}
+          >
+            {components.map((component) => (
+              <ComponentItem
+                key={component.instanceId}
+                component={component}
+                isSelected={selectedComponentId === component.instanceId}
+                containerRef={containerRef}
+                siblings={componentRects.filter(r => r.id !== component.instanceId)}
+                scale={scale}
+                anySiblingActive={activeComponentId !== null && activeComponentId !== component.instanceId}
+                onBoundsChange={(bounds) => onUpdateComponentBounds?.(component.instanceId, bounds)}
+                onSelect={() => onSelectComponent?.(component)}
+                onRemove={() => onRemoveComponent?.(component.instanceId)}
+                onZOrderChange={onUpdateComponentZOrder ? (op) => onUpdateComponentZOrder(component.instanceId, op) : undefined}
+                onGuidesChange={(guides) => handleGuidesChange(component.instanceId, guides)}
+                onActiveChange={(isActive) => setActiveComponentId(isActive ? component.instanceId : null)}
+              />
+            ))}
           </div>
+
+          {/* Drop indicator overlay */}
+          {isDragOver && (
+            <div className="absolute inset-0 flex items-center justify-center bg-primary/10 rounded-lg pointer-events-none z-20">
+              <div className="flex items-center gap-2 text-primary bg-background/90 px-4 py-2 rounded-lg shadow-lg">
+                <Plus className="h-5 w-5" />
+                <span className="text-sm font-medium">Drop to add</span>
+              </div>
+            </div>
+          )}
         </div>
-      )}
-    </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-48">
+        {onWidgetZOrderChange && (
+          <>
+            <ContextMenuItem onClick={() => onWidgetZOrderChange('bringToFront')}>
+              <ChevronsUp className="h-4 w-4 mr-2" />
+              Bring to Front
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => onWidgetZOrderChange('bringForward')}>
+              <ArrowUp className="h-4 w-4 mr-2" />
+              Bring Forward
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => onWidgetZOrderChange('sendBackward')}>
+              <ArrowDown className="h-4 w-4 mr-2" />
+              Send Backward
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => onWidgetZOrderChange('sendToBack')}>
+              <ChevronsDown className="h-4 w-4 mr-2" />
+              Send to Back
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+          </>
+        )}
+        <ContextMenuItem variant="destructive" onClick={onDelete}>
+          <Trash2 className="h-4 w-4 mr-2" />
+          Delete Widget
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }

@@ -15,12 +15,12 @@ import {
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { Loader2 } from 'lucide-react';
 import { useGoogleSheetsData, MOCK_CHART_DATA } from '@/lib/use-google-sheets';
-import type { 
-  ChartConfig, 
-  LineChartConfig, 
-  BarChartConfig, 
+import type {
+  ChartConfig,
+  LineChartConfig,
+  BarChartConfig,
   DoughnutChartConfig,
-  GoogleSheetsDataSource 
+  GoogleSheetsDataSource
 } from '@/types/component-config';
 
 // Register Chart.js components
@@ -104,7 +104,7 @@ interface ChartComponentProps {
   title?: string;
 }
 
-interface ChartComponentConfigProps {
+export interface ChartComponentConfigProps {
   config?: Partial<ChartConfig> & {
     chartType?: 'line' | 'bar' | 'doughnut';
     title?: string;
@@ -161,7 +161,7 @@ const getChartOptions = (showLegend: boolean) => ({
           size: 9,
         },
         maxTicksLimit: 5,
-        callback: function(value: number | string) {
+        callback: function (value: number | string) {
           if (typeof value === 'number') {
             if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M';
             if (value >= 1000) return (value / 1000).toFixed(0) + 'k';
@@ -199,23 +199,23 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
   const showTitle = config?.showTitle ?? false;
   const showLegend = config?.showLegend ?? false;
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
   // Check if we should use Google Sheets data
   const dataSource = config?.dataSource;
-  const useGoogleSheets = dataSource?.type === 'google-sheets' && 
+  const useGoogleSheets = dataSource?.type === 'google-sheets' &&
     (dataSource as GoogleSheetsDataSource).spreadsheetId &&
     (dataSource as GoogleSheetsDataSource).sheetName &&
     (dataSource as GoogleSheetsDataSource).labelColumn &&
     (dataSource as GoogleSheetsDataSource).valueColumn;
-  
+
   // Fetch Google Sheets data if configured
   const { data: sheetsData, loading, error } = useGoogleSheetsData({
-    dataSource: useGoogleSheets 
-      ? dataSource as GoogleSheetsDataSource 
+    dataSource: useGoogleSheets
+      ? dataSource as GoogleSheetsDataSource
       : { type: 'google-sheets', spreadsheetId: '', sheetName: '', range: '' },
     aggregation: (config as BarChartConfig | DoughnutChartConfig)?.aggregation,
     sortBy: (config as BarChartConfig | DoughnutChartConfig)?.sortBy,
-    sortOrder: (config as BarChartConfig | DoughnutChartConfig)?.sortOrder,
+    sortOrder: (config as BarChartConfig | DoughnutChartConfig)?.sortOrder as any,
     limit: (config as BarChartConfig | DoughnutChartConfig)?.limit,
     showOther: (config as DoughnutChartConfig)?.showOther,
   });
@@ -251,7 +251,7 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
     const dataCount = chartData.values.length;
     const colors = getChartColors(dataCount, palette);
     const primaryColor = config?.colors?.primary || colors[0];
-    
+
     return {
       labels: chartData.labels,
       datasets: [
@@ -259,7 +259,7 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
           label: title || (chartType === 'line' ? 'Revenue' : 'Value'),
           data: chartData.values,
           borderColor: chartType === 'bar' ? colors : primaryColor,
-          backgroundColor: chartType === 'line' 
+          backgroundColor: chartType === 'line'
             ? `${primaryColor}20` // 20 = ~12% opacity in hex
             : colors.map(c => `${c}cc`), // cc = 80% opacity
           fill: chartType === 'line' ? ((config as LineChartConfig)?.fill ?? true) : undefined,
@@ -277,7 +277,7 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
   const doughnutData = useMemo(() => {
     const palette = config?.colorPalette || 'vibrant';
     const colors = getChartColors(chartData.values.length, palette);
-    
+
     return {
       labels: chartData.labels,
       datasets: [
@@ -311,10 +311,10 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
       );
     }
 
-    const options = chartType === 'doughnut' 
+    const options = chartType === 'doughnut'
       ? getDoughnutOptions(showLegend)
       : getChartOptions(showLegend);
-      
+
     switch (chartType) {
       case 'bar':
         return <Bar data={lineBarData} options={options} />;

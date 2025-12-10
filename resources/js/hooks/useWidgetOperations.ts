@@ -34,6 +34,10 @@ export interface UseWidgetOperationsReturn {
     reorderComponents: (widgetId: string, newComponents: WidgetComponent[]) => void;
     /** Update a component's bounds (position and size) */
     updateComponentBounds: (widgetId: string, instanceId: string, bounds: { x: number; y: number; width: number; height: number }) => void;
+    /** Update a component's z-order */
+    updateComponentZOrder: (widgetId: string, instanceId: string, operation: 'bringToFront' | 'sendToBack' | 'bringForward' | 'sendBackward') => void;
+    /** Update a widget's z-order */
+    updateWidgetZOrder: (widgetId: string, operation: 'bringToFront' | 'sendToBack' | 'bringForward' | 'sendBackward') => void;
 }
 
 export function useWidgetOperations({
@@ -157,6 +161,94 @@ export function useWidgetOperations({
         [artboard.id, artboard.widgets, onUpdate]
     );
 
+    const updateComponentZOrder = useCallback(
+        (widgetId: string, instanceId: string, operation: 'bringToFront' | 'sendToBack' | 'bringForward' | 'sendBackward') => {
+            const widget = artboard.widgets.find(w => w.id === widgetId);
+            if (!widget) return;
+
+            // Sort components by current zIndex
+            const sorted = [...widget.components].sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
+            const targetIndex = sorted.findIndex(c => c.instanceId === instanceId);
+            if (targetIndex === -1) return;
+
+            const newOrder = [...sorted];
+            const target = newOrder[targetIndex];
+
+            switch (operation) {
+                case 'bringToFront':
+                    newOrder.splice(targetIndex, 1);
+                    newOrder.push(target);
+                    break;
+                case 'sendToBack':
+                    newOrder.splice(targetIndex, 1);
+                    newOrder.unshift(target);
+                    break;
+                case 'bringForward':
+                    if (targetIndex < newOrder.length - 1) {
+                        newOrder.splice(targetIndex, 1);
+                        newOrder.splice(targetIndex + 1, 0, target);
+                    }
+                    break;
+                case 'sendBackward':
+                    if (targetIndex > 0) {
+                        newOrder.splice(targetIndex, 1);
+                        newOrder.splice(targetIndex - 1, 0, target);
+                    }
+                    break;
+            }
+
+            // Assign new zIndex values
+            const updatedComponents = newOrder.map((c, i) => ({ ...c, zIndex: i }));
+
+            const updatedWidgets = artboard.widgets.map((w) =>
+                w.id === widgetId ? { ...w, components: updatedComponents } : w
+            );
+
+            onUpdate(artboard.id, { widgets: updatedWidgets });
+        },
+        [artboard.id, artboard.widgets, onUpdate]
+    );
+
+    const updateWidgetZOrder = useCallback(
+        (widgetId: string, operation: 'bringToFront' | 'sendToBack' | 'bringForward' | 'sendBackward') => {
+            // Sort widgets by current zIndex
+            const sorted = [...artboard.widgets].sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
+            const targetIndex = sorted.findIndex(w => w.id === widgetId);
+            if (targetIndex === -1) return;
+
+            const newOrder = [...sorted];
+            const target = newOrder[targetIndex];
+
+            switch (operation) {
+                case 'bringToFront':
+                    newOrder.splice(targetIndex, 1);
+                    newOrder.push(target);
+                    break;
+                case 'sendToBack':
+                    newOrder.splice(targetIndex, 1);
+                    newOrder.unshift(target);
+                    break;
+                case 'bringForward':
+                    if (targetIndex < newOrder.length - 1) {
+                        newOrder.splice(targetIndex, 1);
+                        newOrder.splice(targetIndex + 1, 0, target);
+                    }
+                    break;
+                case 'sendBackward':
+                    if (targetIndex > 0) {
+                        newOrder.splice(targetIndex, 1);
+                        newOrder.splice(targetIndex - 1, 0, target);
+                    }
+                    break;
+            }
+
+            // Assign new zIndex values
+            const updatedWidgets = newOrder.map((w, i) => ({ ...w, zIndex: i }));
+            onUpdate(artboard.id, { widgets: updatedWidgets });
+        },
+        [artboard.id, artboard.widgets, onUpdate]
+    );
+
     return {
         addWidget,
         deleteWidget,
@@ -164,6 +256,7 @@ export function useWidgetOperations({
         removeComponentFromWidget,
         reorderComponents,
         updateComponentBounds,
+        updateComponentZOrder,
+        updateWidgetZOrder,
     };
 }
-
