@@ -73,20 +73,24 @@ function ComponentItem({
   containerRef,
   siblings,
   scale = 1,
+  anySiblingActive = false,
   onBoundsChange,
   onSelect,
   onRemove,
   onGuidesChange,
+  onActiveChange,
 }: {
   component: WidgetComponent;
   isSelected: boolean;
   containerRef: React.RefObject<HTMLDivElement | null>;
   siblings: ComponentRect[];
   scale?: number;
+  anySiblingActive?: boolean;
   onBoundsChange: (bounds: { x: number; y: number; width: number; height: number }) => void;
   onSelect: () => void;
   onRemove: () => void;
   onGuidesChange: (guides: SnapLine[]) => void;
+  onActiveChange: (isActive: boolean) => void;
 }) {
   const ComponentToRender = getComponent(component.componentType);
   const isRegistered = isComponentRegistered(component.componentType);
@@ -132,6 +136,11 @@ function ComponentItem({
 
   const isActive = isDragging || isResizing;
 
+  // Report active state to parent
+  useEffect(() => {
+    onActiveChange(isActive);
+  }, [isActive, onActiveChange]);
+
   // Report active guides to parent
   useEffect(() => {
     const guides = isDragging ? dragGuides : isResizing ? resizeGuides : [];
@@ -165,7 +174,9 @@ function ComponentItem({
         ? 'border-primary ring-2 ring-primary/30 shadow-md'
         : isActive
           ? 'border-primary shadow-lg ring-2 ring-primary/30'
-          : 'border-transparent group-hover/component:border-border group-hover/component:shadow-sm'
+          : anySiblingActive
+            ? 'border-border/60 shadow-sm'
+            : 'border-transparent group-hover/component:border-border group-hover/component:shadow-sm'
         }`}>
 
         {/* Move handle - top center */}
@@ -263,6 +274,7 @@ export default function WidgetShell({
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [activeGuides, setActiveGuides] = useState<SnapLine[]>([]);
+  const [activeComponentId, setActiveComponentId] = useState<string | null>(null);
 
   const components = widget.components || [];
   const isEmpty = components.length === 0;
@@ -394,10 +406,12 @@ export default function WidgetShell({
             containerRef={containerRef}
             siblings={componentRects.filter(r => r.id !== component.instanceId)}
             scale={scale}
+            anySiblingActive={activeComponentId !== null && activeComponentId !== component.instanceId}
             onBoundsChange={(bounds) => onUpdateComponentBounds?.(component.instanceId, bounds)}
             onSelect={() => onSelectComponent?.(component)}
             onRemove={() => onRemoveComponent?.(component.instanceId)}
             onGuidesChange={(guides) => handleGuidesChange(component.instanceId, guides)}
+            onActiveChange={(isActive) => setActiveComponentId(isActive ? component.instanceId : null)}
           />
         ))}
       </div>
