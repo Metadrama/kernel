@@ -138,7 +138,15 @@ export interface DoughnutChartConfig extends BaseChartConfig {
   sortBy?: 'label' | 'value' | 'none';
   sortOrder?: SortOrder;
   limit?: number;
-  showOther?: boolean; // Combine remaining items into "Other"
+  showOther?: boolean; // Combine remaining items into "Other" segment
+
+  // Labels
+  showDataLabels?: boolean;
+  dataLabelPosition?: 'outside' | 'inside';
+  dataLabelType?: 'value' | 'percent' | 'label' | 'all';
+  innerRadius?: number;
+  padAngle?: number;
+  cornerRadius?: number;
 }
 
 export type ChartConfig = LineChartConfig | BarChartConfig | DoughnutChartConfig;

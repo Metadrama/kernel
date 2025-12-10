@@ -28,7 +28,7 @@ export default function ArtboardInspector({ artboard, onUpdate, onClose }: Props
         <Button variant="ghost" size="sm" onClick={onClose}>Close</Button>
       </div>
 
-      <div className="space-y-4 p-3">
+      <div className="flex-1 overflow-y-auto p-3 space-y-4">
         <div className="space-y-2">
           <Label htmlFor="name">Name</Label>
           <Input

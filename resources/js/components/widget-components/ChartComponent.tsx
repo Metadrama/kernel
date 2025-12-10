@@ -1,18 +1,7 @@
 import { useEffect, useRef, useMemo } from 'react';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-  ArcElement,
-} from 'chart.js';
-import { Line, Bar, Doughnut } from 'react-chartjs-2';
+import { ResponsivePie } from '@nivo/pie';
+import { ResponsiveBar } from '@nivo/bar';
+import { ResponsiveLine } from '@nivo/line';
 import { Loader2 } from 'lucide-react';
 import { useGoogleSheetsData, MOCK_CHART_DATA } from '@/lib/use-google-sheets';
 import type {
@@ -23,19 +12,11 @@ import type {
   GoogleSheetsDataSource
 } from '@/types/component-config';
 
-// Register Chart.js components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-  ArcElement
-);
+// ... (color palettes)
+
+// ...
+
+
 
 // Vibrant color palettes for charts
 const COLOR_PALETTES = {
@@ -99,6 +80,9 @@ function getChartColors(count: number, palette: keyof typeof COLOR_PALETTES = 'v
   return result;
 }
 
+
+
+
 interface ChartComponentProps {
   chartType?: 'line' | 'bar' | 'doughnut';
   title?: string;
@@ -114,90 +98,11 @@ export interface ChartComponentConfigProps {
   };
 }
 
-const getChartOptions = (showLegend: boolean) => ({
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      display: showLegend,
-      position: 'bottom' as const,
-      labels: {
-        usePointStyle: true,
-        padding: 8,
-        font: {
-          size: 10,
-        },
-      },
-    },
-    tooltip: {
-      backgroundColor: 'hsl(var(--popover))',
-      titleColor: 'hsl(var(--popover-foreground))',
-      bodyColor: 'hsl(var(--popover-foreground))',
-      borderColor: 'hsl(var(--border))',
-      borderWidth: 1,
-      padding: 8,
-      cornerRadius: 6,
-    },
-  },
-  scales: {
-    x: {
-      grid: {
-        display: false,
-      },
-      ticks: {
-        font: {
-          size: 9,
-        },
-        maxRotation: 0,
-      },
-    },
-    y: {
-      beginAtZero: false,
-      grid: {
-        color: 'hsl(var(--border) / 0.5)',
-      },
-      ticks: {
-        font: {
-          size: 9,
-        },
-        maxTicksLimit: 5,
-        callback: function (value: number | string) {
-          if (typeof value === 'number') {
-            if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M';
-            if (value >= 1000) return (value / 1000).toFixed(0) + 'k';
-            return value;
-          }
-          return value;
-        },
-      },
-    },
-  },
-});
-
-const getDoughnutOptions = (showLegend: boolean) => ({
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      display: showLegend,
-      position: 'bottom' as const,
-      labels: {
-        usePointStyle: true,
-        padding: 8,
-        font: {
-          size: 10,
-        },
-      },
-    },
-  },
-  cutout: '60%',
-});
 
 export default function ChartComponent({ config }: ChartComponentConfigProps) {
   const chartType = config?.chartType || 'line';
-  const title = config?.title;
   const showTitle = config?.showTitle ?? false;
-  const showLegend = config?.showLegend ?? false;
+  const title = config?.title;
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Check if we should use Google Sheets data
@@ -220,77 +125,44 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
     showOther: (config as DoughnutChartConfig)?.showOther,
   });
 
-  // Force chart resize when container size changes
-  useEffect(() => {
-    const observer = new ResizeObserver(() => {
-      // Chart.js handles resize automatically with responsive: true
-    });
+  // Determine chart data and transform for Nivo
+  const nivoData = useMemo(() => {
+    let labels: string[] = [];
+    let values: number[] = [];
 
-    if (containerRef.current) {
-      observer.observe(containerRef.current);
-    }
-
-    return () => observer.disconnect();
-  }, []);
-
-  // Determine chart data
-  const chartData = useMemo(() => {
     if (useGoogleSheets && sheetsData) {
-      return {
-        labels: sheetsData.labels,
-        values: sheetsData.values,
-      };
+      labels = sheetsData.labels;
+      values = sheetsData.values;
+    } else {
+      const mock = MOCK_CHART_DATA[chartType] || MOCK_CHART_DATA.line;
+      labels = mock.labels;
+      values = mock.values;
     }
-    // Fall back to mock data
-    return MOCK_CHART_DATA[chartType] || MOCK_CHART_DATA.line;
-  }, [useGoogleSheets, sheetsData, chartType]);
 
-  // Build Chart.js data object for Line/Bar charts
-  const lineBarData = useMemo(() => {
-    const palette = config?.colorPalette || 'vibrant';
-    const dataCount = chartData.values.length;
-    const colors = getChartColors(dataCount, palette);
-    const primaryColor = config?.colors?.primary || colors[0];
+    // Pie Data
+    const pie = labels.map((l, i) => ({
+      id: l,
+      label: l,
+      value: values[i] || 0
+    }));
 
-    return {
-      labels: chartData.labels,
-      datasets: [
-        {
-          label: title || (chartType === 'line' ? 'Revenue' : 'Value'),
-          data: chartData.values,
-          borderColor: chartType === 'bar' ? colors : primaryColor,
-          backgroundColor: chartType === 'line'
-            ? `${primaryColor}20` // 20 = ~12% opacity in hex
-            : colors.map(c => `${c}cc`), // cc = 80% opacity
-          fill: chartType === 'line' ? ((config as LineChartConfig)?.fill ?? true) : undefined,
-          tension: chartType === 'line' ? ((config as LineChartConfig)?.tension ?? 0.4) : undefined,
-          pointRadius: chartType === 'line' ? ((config as LineChartConfig)?.pointRadius ?? 4) : undefined,
-          pointHoverRadius: chartType === 'line' ? 6 : undefined,
-          pointBackgroundColor: chartType === 'line' ? primaryColor : undefined,
-          borderRadius: chartType === 'bar' ? ((config as BarChartConfig)?.borderRadius ?? 4) : undefined,
-          borderWidth: chartType === 'bar' ? 0 : 2,
-        },
-      ],
-    };
-  }, [chartData, chartType, title, config]);
+    // Bar Data
+    const bar = labels.map((l, i) => ({
+      label: l,
+      value: values[i] || 0
+    }));
 
-  const doughnutData = useMemo(() => {
-    const palette = config?.colorPalette || 'vibrant';
-    const colors = getChartColors(chartData.values.length, palette);
+    // Line Data
+    const line = [{
+      id: title || 'Data',
+      data: labels.map((l, i) => ({
+        x: l,
+        y: values[i] || 0
+      }))
+    }];
 
-    return {
-      labels: chartData.labels,
-      datasets: [
-        {
-          data: chartData.values,
-          backgroundColor: colors,
-          borderColor: '#ffffff',
-          borderWidth: 2,
-          hoverOffset: 4,
-        },
-      ],
-    };
-  }, [chartData, config?.colorPalette]);
+    return { pie, bar, line, length: labels.length };
+  }, [useGoogleSheets, sheetsData, chartType, title]);
 
   const renderChart = () => {
     // Show loading state
@@ -311,34 +183,160 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
       );
     }
 
-    const options = chartType === 'doughnut'
-      ? getDoughnutOptions(showLegend)
-      : getChartOptions(showLegend);
+    const colors = getChartColors(nivoData.length, config?.colorPalette);
 
-    switch (chartType) {
-      case 'bar':
-        return <Bar data={lineBarData} options={options} />;
-      case 'doughnut':
-        return <Doughnut data={doughnutData} options={options} />;
-      case 'line':
-      default:
-        return <Line data={lineBarData} options={options} />;
+    // Common theme
+    const theme = {
+      text: { fill: 'hsl(var(--foreground))', fontSize: 11 },
+      tooltip: {
+        container: {
+          background: 'hsl(var(--popover))',
+          color: 'hsl(var(--popover-foreground))',
+          fontSize: 12,
+          borderRadius: 6,
+          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+          padding: '8px 12px',
+          border: '1px solid hsl(var(--border))'
+        }
+      },
+      axis: {
+        ticks: {
+          text: { fill: 'hsl(var(--muted-foreground))' },
+          line: { stroke: 'hsl(var(--border))' }
+        },
+        legend: { text: { fill: 'hsl(var(--foreground))' } }
+      },
+      grid: {
+        line: { stroke: 'hsl(var(--border) / 0.2)', strokeDasharray: '4 4' }
+      }
+    };
+
+    if (chartType === 'doughnut') {
+      const dConfig = config as DoughnutChartConfig;
+      const showLabels = dConfig?.showDataLabels ?? false;
+      const pos = dConfig?.dataLabelPosition || 'inside';
+      const isSpider = showLabels && pos === 'outside';
+
+      return (
+        <ResponsivePie
+          data={nivoData.pie}
+          // Use minimal margins if spider labels are off to maximize chart size
+          margin={isSpider
+            ? { top: 40, right: 80, bottom: 40, left: 80 }
+            : { top: 20, right: 20, bottom: 20, left: 20 }
+          }
+          innerRadius={dConfig?.innerRadius ?? 0.6}
+          padAngle={dConfig?.padAngle ?? 0.7}
+          cornerRadius={dConfig?.cornerRadius ?? 3}
+          activeOuterRadiusOffset={8}
+          colors={colors}
+          borderWidth={1}
+          borderColor={{ from: 'color', modifiers: [['darker', 0.2]] }}
+          // Spider Labels (ArcLinkLabels)
+          enableArcLinkLabels={isSpider}
+          arcLinkLabelsSkipAngle={10}
+          arcLinkLabelsTextColor="hsl(var(--foreground))"
+          arcLinkLabelsThickness={1}
+          arcLinkLabelsColor={{ from: 'color' }}
+          // Inner Labels (ArcLabels)
+          enableArcLabels={showLabels && pos === 'inside'}
+          arcLabelsSkipAngle={10}
+          arcLabelsTextColor={{ from: 'color', modifiers: [['darker', 2]] }}
+          theme={theme}
+          animate={true}
+          motionConfig="wobbly"
+        />
+      );
     }
+
+    if (chartType === 'bar') {
+      return (
+        <ResponsiveBar
+          data={nivoData.bar}
+          keys={['value']}
+          indexBy="label"
+          margin={{ top: 20, right: 10, bottom: 40, left: 40 }}
+          padding={0.3}
+          colors={colors}
+          theme={theme}
+          borderRadius={4}
+          axisBottom={{
+            tickSize: 0,
+            tickPadding: 10,
+          }}
+          axisLeft={{
+            tickSize: 0,
+            tickPadding: 10,
+          }}
+          enableGridY={true}
+          animate={true}
+          motionConfig="gentle"
+        />
+      );
+    }
+
+    return (
+      <ResponsiveLine
+        data={nivoData.line}
+        margin={{ top: 20, right: 20, bottom: 40, left: 40 }}
+        colors={colors}
+        theme={theme}
+        pointSize={8}
+        pointColor={{ theme: 'background' }}
+        pointBorderWidth={2}
+        pointBorderColor={{ from: 'serieColor' }}
+        useMesh={true}
+        enableGridX={false}
+        axisBottom={{
+          tickSize: 0,
+          tickPadding: 10,
+        }}
+        axisLeft={{
+          tickSize: 0,
+          tickPadding: 10,
+        }}
+        animate={true}
+        motionConfig="gentle"
+      />
+    );
   };
 
-  // Get chart title from config or derive from type
   const displayTitle = title || {
     line: 'Revenue Trend',
     bar: 'Weekly Activity',
     doughnut: 'Device Distribution',
   }[chartType];
 
+  // Apply chart scale (default 1)
+  // We use padding on the container to simulate scaling down.
+  // Scale 1 = 0 padding. Scale 0.5 = 25% padding on each side?
+  // Let's us a simple calc for padding.
+  const scale = (config as any)?.chartScale ?? 1;
+  const paddingPct = (1 - scale) * 20; // 0 to 10% padding roughly? No, max scale 0.5 means half size.
+  // if scale is 0.5, we want chart to be half size.
+  // padding = (1 - scale) * 50 / 2?? No.
+  // flex-1 container.
+  // Let's use CSS padding.
+  const scalePadding = `${(1 - scale) * 100 / 2}%`;
+
+  const bg = config?.colors?.backgroundColor || 'transparent';
+
   return (
-    <div ref={containerRef} className="h-full w-full flex flex-col overflow-hidden" style={{ padding: showTitle ? '12px' : '8px' }}>
+    <div
+      ref={containerRef}
+      className="h-full w-full flex flex-col overflow-hidden transition-all duration-300"
+      style={{
+        padding: showTitle ? '12px' : '8px',
+        backgroundColor: bg
+      }}
+    >
       {showTitle && (
         <h3 className="text-xs font-medium text-muted-foreground mb-2 shrink-0">{displayTitle}</h3>
       )}
-      <div className="flex-1 min-h-0 min-w-0">
+      <div
+        className="flex-1 min-h-0 min-w-0"
+        style={{ padding: scalePadding }}
+      >
         {renderChart()}
       </div>
     </div>

@@ -197,7 +197,7 @@ export function ComponentInspector({
       </div>
 
       {/* Config Fields */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <Accordion type="multiple" defaultValue={defaultOpenGroups} className="w-full">
           {sortedGroups.map(([groupId, fields]) => {
             const groupInfo = CONFIG_GROUPS.find(g => g.id === groupId);
