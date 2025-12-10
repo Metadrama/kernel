@@ -486,6 +486,14 @@ export const CHART_LEGEND_SCHEMA: ComponentConfigSchema = {
   componentType: 'chart-legend',
   label: 'Chart Legend',
   fields: [
+    {
+      key: 'linkedChartId',
+      label: 'Link to Chart',
+      type: 'select',
+      group: 'Data',
+      description: 'Select a chart to use its data and colors',
+      options: [], // Populated dynamically
+    },
     DATA_SOURCE_FIELD,
     {
       key: 'dataSource.labelColumn',
@@ -493,7 +501,7 @@ export const CHART_LEGEND_SCHEMA: ComponentConfigSchema = {
       type: 'column-picker',
       group: 'Data',
       description: 'Column for legend labels',
-      showWhen: { field: 'dataSource.type', operator: 'not-equals', value: 'static' },
+      showWhen: { field: 'linkedChartId', operator: 'not-exists' }, // Only show if NOT linking
     },
     {
       key: 'title',

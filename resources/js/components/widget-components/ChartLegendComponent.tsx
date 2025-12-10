@@ -1,15 +1,40 @@
-
 import { useMemo } from 'react';
 import { useChartData } from './useChartData';
 import { getChartColors } from './chart-utils';
-import type { ChartComponentConfigProps } from './ChartComponent'; // We might need to export this or just redeclare
+import { useArtboardContext } from '@/context/ArtboardContext';
+import type { ChartComponentConfigProps } from './ChartComponent';
 
 export default function ChartLegendComponent({ config }: { config?: any }) {
-    const { chartData } = useChartData(config);
+    const { artboards } = useArtboardContext();
+
+    // Resolve linked chart config if selected
+    const effectiveConfig = useMemo(() => {
+        if (!config?.linkedChartId) return config;
+
+        // Search for the linked component across all artboards
+        for (const artboard of artboards) {
+            for (const widget of artboard.widgets) {
+                const linked = widget.components.find(c => c.instanceId === config.linkedChartId);
+                if (linked && linked.config) {
+                    // Merge: use linked data/colors, but keep own title if set (or override?)
+                    // Usually we want to reflect the chart, so using linked config fully for data/style is best.
+                    // But we might want own title.
+                    return {
+                        ...linked.config,
+                        title: config.title || (linked.config.title ? `${linked.config.title} Legend` : undefined),
+                        // Force legend specific overrides if needed
+                    };
+                }
+            }
+        }
+        return config;
+    }, [config, artboards]);
+
+    const { chartData } = useChartData(effectiveConfig);
 
     const colors = useMemo(() => {
-        return getChartColors(chartData.values.length, config?.colorPalette || 'vibrant');
-    }, [chartData.values.length, config?.colorPalette]);
+        return getChartColors(chartData.values.length, effectiveConfig?.colorPalette || 'vibrant');
+    }, [chartData.values.length, effectiveConfig?.colorPalette]);
 
     if (!chartData.labels || chartData.labels.length === 0) {
         return (

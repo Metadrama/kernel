@@ -75,30 +75,30 @@ export interface ChartColorsConfig {
 export interface BaseChartConfig {
   // Data
   dataSource: DataSource;
-  
+
   // Display
   title?: string;
   showTitle?: boolean;
   showLegend?: boolean;
   legendPosition?: LegendPosition;
-  
+
   // Interactivity
   showTooltip?: boolean;
   enableAnimation?: boolean;
-  
+
   // Colors
   colors?: ChartColorsConfig;
 }
 
 export interface LineChartConfig extends BaseChartConfig {
   chartType: 'line';
-  
+
   // Line specific
   tension?: number; // 0 = straight, 0.4 = curved
   fill?: boolean; // Fill area under line
   pointRadius?: number;
   showPoints?: boolean;
-  
+
   // Axis
   xAxis?: ChartAxisConfig;
   yAxis?: ChartAxisConfig;
@@ -106,17 +106,17 @@ export interface LineChartConfig extends BaseChartConfig {
 
 export interface BarChartConfig extends BaseChartConfig {
   chartType: 'bar';
-  
+
   // Bar specific
   horizontal?: boolean;
   stacked?: boolean;
   borderRadius?: number;
   barThickness?: number | 'flex';
-  
+
   // Axis
   xAxis?: ChartAxisConfig;
   yAxis?: ChartAxisConfig;
-  
+
   // Data transformation
   aggregation?: AggregationType;
   groupBy?: string; // Column to group by
@@ -127,12 +127,12 @@ export interface BarChartConfig extends BaseChartConfig {
 
 export interface DoughnutChartConfig extends BaseChartConfig {
   chartType: 'doughnut';
-  
+
   // Doughnut specific
   cutout?: string | number; // e.g., '60%' or 60
   rotation?: number; // Starting angle in degrees
   circumference?: number; // Arc span in degrees (360 = full circle)
-  
+
   // Data transformation
   aggregation?: AggregationType;
   sortBy?: 'label' | 'value' | 'none';
@@ -176,23 +176,23 @@ export interface TextConfig {
 export interface KpiConfig {
   dataSource: DataSource;
   valueField?: string;
-  
+
   // Display
   title?: string;
   prefix?: string; // e.g., '$', 'RM'
   suffix?: string; // e.g., '%', 'units'
   decimals?: number;
-  
+
   // Comparison
   showTrend?: boolean;
   trendField?: string; // Field to compare against
   trendPeriod?: 'day' | 'week' | 'month' | 'year';
-  
+
   // Formatting
   aggregation?: AggregationType;
   formatType?: 'number' | 'currency' | 'percent';
   currencyCode?: string;
-  
+
   // Styling
   valueColor?: string;
   trendUpColor?: string;
@@ -216,7 +216,7 @@ export interface TableColumnConfig {
 export interface TableConfig {
   dataSource: DataSource;
   columns: TableColumnConfig[];
-  
+
   // Display
   title?: string;
   showTitle?: boolean;
@@ -224,11 +224,11 @@ export interface TableConfig {
   striped?: boolean;
   bordered?: boolean;
   compact?: boolean;
-  
+
   // Pagination
   pageSize?: number;
   showPagination?: boolean;
-  
+
   // Features
   sortable?: boolean;
   filterable?: boolean;
@@ -239,23 +239,23 @@ export interface TableConfig {
 // Component Config Union Type
 // ============================================================================
 
-export type ComponentConfig = 
-  | ChartConfig 
-  | HeadingConfig 
-  | TextConfig 
-  | KpiConfig 
+export type ComponentConfig =
+  | ChartConfig
+  | HeadingConfig
+  | TextConfig
+  | KpiConfig
   | TableConfig;
 
 // ============================================================================
 // Config Schema Metadata (for building UI dynamically)
 // ============================================================================
 
-export type FieldType = 
-  | 'text' 
-  | 'number' 
-  | 'boolean' 
-  | 'select' 
-  | 'color' 
+export type FieldType =
+  | 'text'
+  | 'number'
+  | 'boolean'
+  | 'select'
+  | 'color'
   | 'range'
   | 'data-source'
   | 'column-picker';
@@ -267,19 +267,19 @@ export interface ConfigFieldSchema {
   defaultValue?: unknown;
   description?: string;
   group?: string; // For grouping in UI (e.g., 'Data', 'Display', 'Style')
-  
+
   // For select fields
   options?: Array<{ value: string; label: string }>;
-  
+
   // For number/range fields
   min?: number;
   max?: number;
   step?: number;
-  
+
   // Conditional visibility
   showWhen?: {
     field: string;
-    operator: 'equals' | 'not-equals' | 'exists';
+    operator: 'equals' | 'not-equals' | 'exists' | 'not-exists';
     value?: unknown;
   };
 }
@@ -371,7 +371,7 @@ export function getDefaultConfig(componentType: string): ComponentConfig | undef
     'heading': DEFAULT_HEADING_CONFIG,
     'kpi': DEFAULT_KPI_CONFIG,
   };
-  
+
   return defaults[componentType];
 }
 
