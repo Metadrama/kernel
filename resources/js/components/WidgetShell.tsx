@@ -2,7 +2,7 @@
  * WidgetShell - Container for components with freeform Figma-like positioning
  * 
  * Components are positioned using absolute pixel coordinates.
- * Provides smooth drag and resize with collision detection on drop.
+ * Provides smooth drag and resize with smart snapping to nearby components.
  */
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
@@ -10,9 +10,10 @@ import { Plus, X, Move } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { isComponentRegistered, getComponent } from '@/components/widget-components';
 import { EmptyWidgetState, WidgetToolbar } from '@/components/widget';
-import { useComponentDrag, useComponentResize, type ResizeDirection } from '@/hooks';
+import { useComponentDrag, useComponentResize } from '@/hooks';
 import type { WidgetSchema, ComponentCard, WidgetComponent } from '@/types/dashboard';
 import type { ComponentRect } from '@/lib/collision-detection';
+import type { SnapLine } from '@/lib/snap-utils';
 import { getMinSize, getMaxSize, getAspectRatio } from '@/lib/component-sizes';
 
 interface WidgetShellProps {
@@ -31,6 +32,39 @@ interface WidgetShellProps {
 }
 
 /**
+ * Alignment guides overlay component
+ */
+function AlignmentGuides({ guides }: { guides: SnapLine[] }) {
+  if (guides.length === 0) return null;
+
+  return (
+    <div className="absolute inset-0 pointer-events-none z-50 overflow-visible">
+      {guides.map((guide, i) => (
+        <div
+          key={`${guide.axis}-${guide.position}-${i}`}
+          className="absolute bg-pink-500"
+          style={
+            guide.axis === 'x'
+              ? {
+                left: guide.position,
+                top: -9999,
+                bottom: -9999,
+                width: 1,
+              }
+              : {
+                top: guide.position,
+                left: -9999,
+                right: -9999,
+                height: 1,
+              }
+          }
+        />
+      ))}
+    </div>
+  );
+}
+
+/**
  * Individual component wrapper with drag and resize capabilities
  */
 function ComponentItem({
@@ -42,6 +76,7 @@ function ComponentItem({
   onBoundsChange,
   onSelect,
   onRemove,
+  onGuidesChange,
 }: {
   component: WidgetComponent;
   isSelected: boolean;
@@ -51,6 +86,7 @@ function ComponentItem({
   onBoundsChange: (bounds: { x: number; y: number; width: number; height: number }) => void;
   onSelect: () => void;
   onRemove: () => void;
+  onGuidesChange: (guides: SnapLine[]) => void;
 }) {
   const ComponentToRender = getComponent(component.componentType);
   const isRegistered = isComponentRegistered(component.componentType);
@@ -60,7 +96,12 @@ function ComponentItem({
   const aspectRatio = getAspectRatio(component.componentType);
 
   // Drag hook
-  const { isDragging, displayPosition, handleMouseDown: handleDragMouseDown } = useComponentDrag({
+  const {
+    isDragging,
+    displayPosition,
+    activeGuides: dragGuides,
+    handleMouseDown: handleDragMouseDown
+  } = useComponentDrag({
     position: { x: component.x, y: component.y },
     size: { width: component.width, height: component.height },
     componentId: component.instanceId,
@@ -72,7 +113,12 @@ function ComponentItem({
   });
 
   // Resize hook
-  const { isResizing, displayBounds, startResize } = useComponentResize({
+  const {
+    isResizing,
+    displayBounds,
+    activeGuides: resizeGuides,
+    startResize
+  } = useComponentResize({
     bounds: { x: component.x, y: component.y, width: component.width, height: component.height },
     componentId: component.instanceId,
     minSize,
@@ -85,6 +131,12 @@ function ComponentItem({
   });
 
   const isActive = isDragging || isResizing;
+
+  // Report active guides to parent
+  useEffect(() => {
+    const guides = isDragging ? dragGuides : isResizing ? resizeGuides : [];
+    onGuidesChange(guides);
+  }, [isDragging, isResizing, dragGuides, resizeGuides, onGuidesChange]);
 
   // Use display position/bounds for immediate visual feedback
   const displayX = isResizing ? displayBounds.x : displayPosition.x;
@@ -210,6 +262,7 @@ export default function WidgetShell({
   const [isDragOver, setIsDragOver] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const [activeGuides, setActiveGuides] = useState<SnapLine[]>([]);
 
   const components = widget.components || [];
   const isEmpty = components.length === 0;
@@ -231,7 +284,7 @@ export default function WidgetShell({
     return () => observer.disconnect();
   }, []);
 
-  // Convert components to ComponentRect for collision detection
+  // Convert components to ComponentRect for snapping
   const componentRects = useMemo((): ComponentRect[] => {
     return components.map(c => ({
       id: c.instanceId,
@@ -292,6 +345,11 @@ export default function WidgetShell({
     return maxBottom + 16; // Add padding
   }, [components]);
 
+  // Handle guides from any active component
+  const handleGuidesChange = useCallback((componentId: string, guides: SnapLine[]) => {
+    setActiveGuides(guides);
+  }, []);
+
   if (isEmpty) {
     return (
       <EmptyWidgetState
@@ -318,6 +376,9 @@ export default function WidgetShell({
       {/* Widget toolbar */}
       <WidgetToolbar onDelete={onDelete} showDragHandle={showDragHandle} />
 
+      {/* Alignment guides overlay */}
+      <AlignmentGuides guides={activeGuides} />
+
       {/* Components container - relative for absolute positioning of children */}
       <div
         className="relative p-2"
@@ -336,6 +397,7 @@ export default function WidgetShell({
             onBoundsChange={(bounds) => onUpdateComponentBounds?.(component.instanceId, bounds)}
             onSelect={() => onSelectComponent?.(component)}
             onRemove={() => onRemoveComponent?.(component.instanceId)}
+            onGuidesChange={(guides) => handleGuidesChange(component.instanceId, guides)}
           />
         ))}
       </div>

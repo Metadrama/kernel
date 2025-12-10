@@ -3,15 +3,17 @@
  * 
  * Provides smooth resize with instant visual feedback.
  * Supports aspect ratio locking and min/max size constraints.
- * Collision detection is applied on release.
+ * Smart snapping to nearby components and container edges.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { constrainToBounds, type ComponentRect } from '@/lib/collision-detection';
 import {
-    findNonOverlappingPosition,
-    constrainToBounds,
-    type ComponentRect
-} from '@/lib/collision-detection';
+    snapToGuides,
+    getAllSnapLines,
+    DEFAULT_SNAP_THRESHOLD,
+    type SnapLine
+} from '@/lib/snap-utils';
 
 export type ResizeDirection = 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'nw';
 
@@ -28,10 +30,14 @@ export interface UseComponentResizeOptions {
     aspectRatio?: number | null;
     /** Reference to the container element */
     containerRef: React.RefObject<HTMLElement | null>;
-    /** Other components in the container (for collision detection) */
+    /** Other components in the container (for snapping) */
     siblings: ComponentRect[];
     /** Canvas scale factor (for zoom compensation) */
     scale?: number;
+    /** Enable smart snapping (default: true) */
+    enableSnapping?: boolean;
+    /** Snap threshold in pixels (default: 8) */
+    snapThreshold?: number;
     /** Called when bounds change (on release) */
     onBoundsChange: (bounds: { x: number; y: number; width: number; height: number }) => void;
     /** Whether resizing is disabled */
@@ -45,6 +51,8 @@ export interface UseComponentResizeReturn {
     resizeDirection: ResizeDirection | null;
     /** Bounds to display (local during resize, prop otherwise) */
     displayBounds: { x: number; y: number; width: number; height: number };
+    /** Active alignment guides to display */
+    activeGuides: SnapLine[];
     /** Start resize from a specific handle */
     startResize: (e: React.MouseEvent, direction: ResizeDirection) => void;
 }
@@ -58,12 +66,16 @@ export function useComponentResize({
     containerRef,
     siblings,
     scale = 1,
+    enableSnapping = true,
+    snapThreshold = DEFAULT_SNAP_THRESHOLD,
     onBoundsChange,
     disabled = false,
 }: UseComponentResizeOptions): UseComponentResizeReturn {
     const [isResizing, setIsResizing] = useState(false);
     const [resizeDirection, setResizeDirection] = useState<ResizeDirection | null>(null);
     const [localBounds, setLocalBounds] = useState<typeof bounds | null>(null);
+    const [activeGuides, setActiveGuides] = useState<SnapLine[]>([]);
+    const [shiftPressed, setShiftPressed] = useState(false);
 
     const resizeStartRef = useRef<{
         mouseX: number;
@@ -71,6 +83,25 @@ export function useComponentResize({
         startBounds: typeof bounds;
         direction: ResizeDirection;
     } | null>(null);
+
+    // Track shift key state
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Shift') setShiftPressed(true);
+        };
+        const handleKeyUp = (e: KeyboardEvent) => {
+            if (e.key === 'Shift') setShiftPressed(false);
+        };
+
+        if (isResizing) {
+            window.addEventListener('keydown', handleKeyDown);
+            window.addEventListener('keyup', handleKeyUp);
+            return () => {
+                window.removeEventListener('keydown', handleKeyDown);
+                window.removeEventListener('keyup', handleKeyUp);
+            };
+        }
+    }, [isResizing]);
 
     const startResize = useCallback((e: React.MouseEvent, direction: ResizeDirection) => {
         if (disabled) return;
@@ -90,6 +121,7 @@ export function useComponentResize({
         setIsResizing(true);
         setResizeDirection(direction);
         setLocalBounds(bounds);
+        setActiveGuides([]);
     }, [disabled, bounds]);
 
     const handleMouseMove = useCallback((e: MouseEvent) => {
@@ -133,13 +165,10 @@ export function useComponentResize({
         // Apply aspect ratio if set
         if (aspectRatio) {
             if (direction.includes('e') || direction.includes('w')) {
-                // Width changed - adjust height
                 newHeight = newWidth / aspectRatio;
             } else if (direction.includes('n') || direction.includes('s')) {
-                // Height changed - adjust width
                 newWidth = newHeight * aspectRatio;
             } else {
-                // Corner resize - use the larger delta
                 if (Math.abs(deltaX) > Math.abs(deltaY)) {
                     newHeight = newWidth / aspectRatio;
                 } else {
@@ -147,7 +176,6 @@ export function useComponentResize({
                 }
             }
 
-            // Re-apply min constraints after aspect ratio adjustment
             if (newWidth < minSize.width) {
                 newWidth = minSize.width;
                 newHeight = newWidth / aspectRatio;
@@ -166,46 +194,48 @@ export function useComponentResize({
             newY = startBounds.y + startBounds.height - newHeight;
         }
 
-        // Constrain to container (with scale compensation)
         const container = containerRef.current.getBoundingClientRect();
+        const containerSize = {
+            width: container.width / scale,
+            height: container.height / scale
+        };
+
+        // Apply snapping if enabled and shift not pressed
+        let guides: SnapLine[] = [];
+        if (enableSnapping && !shiftPressed) {
+            const snapLines = getAllSnapLines(siblings, containerSize);
+            const snapResult = snapToGuides(
+                { x: newX, y: newY, width: newWidth, height: newHeight },
+                snapLines,
+                snapThreshold
+            );
+            newX = snapResult.x;
+            newY = snapResult.y;
+            guides = snapResult.activeGuides;
+        }
+
+        // Constrain to container
         const constrained = constrainToBounds(
             { x: newX, y: newY, width: newWidth, height: newHeight },
-            { width: container.width / scale, height: container.height / scale }
+            containerSize
         );
 
         setLocalBounds(constrained);
-    }, [isResizing, containerRef, minSize, maxSize, aspectRatio, scale]);
+        setActiveGuides(guides);
+    }, [isResizing, containerRef, minSize, maxSize, aspectRatio, scale, siblings, enableSnapping, shiftPressed, snapThreshold]);
 
     const handleMouseUp = useCallback(() => {
-        if (isResizing && localBounds && containerRef.current) {
-            const container = containerRef.current.getBoundingClientRect();
-            // Container size with scale compensation
-            const containerSize = {
-                width: container.width / scale,
-                height: container.height / scale
-            };
-
-            // Apply collision detection on release
-            const finalPosition = findNonOverlappingPosition(
-                localBounds,
-                siblings,
-                containerSize,
-                componentId
-            );
-
-            onBoundsChange({
-                x: finalPosition.x,
-                y: finalPosition.y,
-                width: localBounds.width,
-                height: localBounds.height,
-            });
+        if (isResizing && localBounds) {
+            // Simply commit the snapped bounds (no collision detection)
+            onBoundsChange(localBounds);
         }
 
         setIsResizing(false);
         setResizeDirection(null);
         setLocalBounds(null);
+        setActiveGuides([]);
         resizeStartRef.current = null;
-    }, [isResizing, localBounds, containerRef, siblings, componentId, onBoundsChange, scale]);
+    }, [isResizing, localBounds, onBoundsChange]);
 
     useEffect(() => {
         if (isResizing) {
@@ -222,6 +252,7 @@ export function useComponentResize({
         isResizing,
         resizeDirection,
         displayBounds: isResizing && localBounds ? localBounds : bounds,
+        activeGuides: isResizing ? activeGuides : [],
         startResize,
     };
 }

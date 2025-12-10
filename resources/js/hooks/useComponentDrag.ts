@@ -3,15 +3,17 @@
  * 
  * Mirrors the useArtboardDrag pattern for consistent, smooth movement.
  * Provides instant visual feedback via local state during drag.
- * Collision detection is applied on drop, not during drag (for smoothness).
+ * Smart snapping to nearby components and container edges.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { constrainToBounds, type ComponentRect } from '@/lib/collision-detection';
 import {
-    findNonOverlappingPosition,
-    constrainToBounds,
-    type ComponentRect
-} from '@/lib/collision-detection';
+    snapToGuides,
+    getAllSnapLines,
+    DEFAULT_SNAP_THRESHOLD,
+    type SnapLine
+} from '@/lib/snap-utils';
 
 export interface UseComponentDragOptions {
     /** Current position of the component */
@@ -22,10 +24,14 @@ export interface UseComponentDragOptions {
     componentId: string;
     /** Reference to the container element */
     containerRef: React.RefObject<HTMLElement | null>;
-    /** Other components in the container (for collision detection) */
+    /** Other components in the container (for snapping) */
     siblings: ComponentRect[];
     /** Canvas scale factor (for zoom compensation) */
     scale?: number;
+    /** Enable smart snapping (default: true) */
+    enableSnapping?: boolean;
+    /** Snap threshold in pixels (default: 8) */
+    snapThreshold?: number;
     /** Called when position changes (on drop) */
     onPositionChange: (position: { x: number; y: number }) => void;
     /** Called when drag starts */
@@ -39,6 +45,8 @@ export interface UseComponentDragReturn {
     isDragging: boolean;
     /** Position to display (local during drag, prop otherwise) */
     displayPosition: { x: number; y: number };
+    /** Active alignment guides to display */
+    activeGuides: SnapLine[];
     /** Mouse down handler for the drag handle */
     handleMouseDown: (e: React.MouseEvent) => void;
 }
@@ -50,12 +58,16 @@ export function useComponentDrag({
     containerRef,
     siblings,
     scale = 1,
+    enableSnapping = true,
+    snapThreshold = DEFAULT_SNAP_THRESHOLD,
     onPositionChange,
     onSelect,
     disabled = false,
 }: UseComponentDragOptions): UseComponentDragReturn {
     const [isDragging, setIsDragging] = useState(false);
     const [localPosition, setLocalPosition] = useState<{ x: number; y: number } | null>(null);
+    const [activeGuides, setActiveGuides] = useState<SnapLine[]>([]);
+    const [shiftPressed, setShiftPressed] = useState(false);
 
     const dragStartRef = useRef<{
         mouseX: number;
@@ -63,6 +75,25 @@ export function useComponentDrag({
         startX: number;
         startY: number;
     } | null>(null);
+
+    // Track shift key state
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Shift') setShiftPressed(true);
+        };
+        const handleKeyUp = (e: KeyboardEvent) => {
+            if (e.key === 'Shift') setShiftPressed(false);
+        };
+
+        if (isDragging) {
+            window.addEventListener('keydown', handleKeyDown);
+            window.addEventListener('keyup', handleKeyUp);
+            return () => {
+                window.removeEventListener('keydown', handleKeyDown);
+                window.removeEventListener('keyup', handleKeyUp);
+            };
+        }
+    }, [isDragging]);
 
     const handleMouseDown = useCallback((e: React.MouseEvent) => {
         if (disabled) return;
@@ -81,6 +112,7 @@ export function useComponentDrag({
 
         setIsDragging(true);
         setLocalPosition(position);
+        setActiveGuides([]);
         onSelect?.();
     }, [disabled, position, onSelect]);
 
@@ -92,49 +124,50 @@ export function useComponentDrag({
         const deltaY = (e.clientY - dragStartRef.current.mouseY) / scale;
 
         const container = containerRef.current.getBoundingClientRect();
-        // Container size also needs scale compensation
         const containerSize = {
             width: container.width / scale,
             height: container.height / scale
         };
 
-        // Calculate new position (constrained to bounds during drag for UX)
-        const newRect = constrainToBounds(
-            {
-                x: dragStartRef.current.startX + deltaX,
-                y: dragStartRef.current.startY + deltaY,
-                ...size,
-            },
+        // Calculate raw position
+        let newX = dragStartRef.current.startX + deltaX;
+        let newY = dragStartRef.current.startY + deltaY;
+
+        // Apply snapping if enabled and shift not pressed
+        let guides: SnapLine[] = [];
+        if (enableSnapping && !shiftPressed) {
+            const snapLines = getAllSnapLines(siblings, containerSize);
+            const snapResult = snapToGuides(
+                { x: newX, y: newY, ...size },
+                snapLines,
+                snapThreshold
+            );
+            newX = snapResult.x;
+            newY = snapResult.y;
+            guides = snapResult.activeGuides;
+        }
+
+        // Constrain to bounds
+        const constrained = constrainToBounds(
+            { x: newX, y: newY, ...size },
             containerSize
         );
 
-        setLocalPosition({ x: newRect.x, y: newRect.y });
-    }, [isDragging, containerRef, size, scale]);
+        setLocalPosition({ x: constrained.x, y: constrained.y });
+        setActiveGuides(guides);
+    }, [isDragging, containerRef, size, scale, siblings, enableSnapping, shiftPressed, snapThreshold]);
 
     const handleMouseUp = useCallback(() => {
-        if (isDragging && localPosition && containerRef.current) {
-            const container = containerRef.current.getBoundingClientRect();
-            // Container size with scale compensation
-            const containerSize = {
-                width: container.width / scale,
-                height: container.height / scale
-            };
-
-            // Apply collision detection on drop
-            const finalPosition = findNonOverlappingPosition(
-                { ...localPosition, ...size },
-                siblings,
-                containerSize,
-                componentId
-            );
-
-            onPositionChange(finalPosition);
+        if (isDragging && localPosition) {
+            // Simply commit the snapped position (no collision detection)
+            onPositionChange(localPosition);
         }
 
         setIsDragging(false);
         setLocalPosition(null);
+        setActiveGuides([]);
         dragStartRef.current = null;
-    }, [isDragging, localPosition, containerRef, size, siblings, componentId, onPositionChange, scale]);
+    }, [isDragging, localPosition, onPositionChange]);
 
     useEffect(() => {
         if (isDragging) {
@@ -150,7 +183,7 @@ export function useComponentDrag({
     return {
         isDragging,
         displayPosition: isDragging && localPosition ? localPosition : position,
+        activeGuides: isDragging ? activeGuides : [],
         handleMouseDown,
     };
 }
-
