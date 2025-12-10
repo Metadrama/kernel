@@ -1,4 +1,3 @@
-import type { GridPosition } from '@/lib/component-layout';
 import type { ArtboardSchema } from './artboard';
 
 export interface ComponentCard {
@@ -15,11 +14,17 @@ export interface ComponentCard {
 export interface WidgetComponent {
   instanceId: string;
   componentType: string;
-  // Grid-based layout position (calculated by layout system if not provided)
-  gridPosition?: GridPosition;
+  // Freeform pixel positioning (relative to widget container)
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  // Optional: prevent auto-repositioning
+  locked?: boolean;
   // Component-specific configuration
   config?: Record<string, unknown>;
 }
+
 
 export interface WidgetSchema {
   id: string;

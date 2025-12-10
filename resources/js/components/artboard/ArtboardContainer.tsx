@@ -25,7 +25,6 @@ import {
 import { useWidgetOperations, useArtboardDrag } from '@/hooks';
 import type { ArtboardSchema } from '@/types/artboard';
 import type { WidgetSchema, WidgetComponent, ComponentCard } from '@/types/dashboard';
-import type { GridPosition } from '@/lib/component-layout';
 import { calculateArtboardGridConfig } from '@/lib/artboard-utils';
 
 interface ArtboardContainerProps {
@@ -94,7 +93,7 @@ function ArtboardContainer({
     addComponentToWidget,
     removeComponentFromWidget,
     reorderComponents,
-    updateComponentLayout,
+    updateComponentBounds,
   } = useWidgetOperations({ artboard, onUpdate });
 
   // Calculate display position (canvas space -> screen space)
@@ -498,13 +497,14 @@ function ArtboardContainer({
                       onReorderComponents={(components) =>
                         reorderComponents(widget.id, components)
                       }
-                      onUpdateComponentLayout={(instanceId, gridPosition) =>
-                        updateComponentLayout(widget.id, instanceId, gridPosition)
+                      onUpdateComponentBounds={(instanceId, bounds) =>
+                        updateComponentBounds(widget.id, instanceId, bounds)
                       }
                       onSelectComponent={(component) =>
                         onSelectComponent(artboard.id, widget.id, component)
                       }
                       selectedComponentId={selectedComponentId}
+                      scale={canvasScale}
                       showDragHandle={false}
                     />
                   </div>

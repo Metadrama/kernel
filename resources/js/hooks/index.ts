@@ -33,3 +33,11 @@ export type { UseArtboardDragOptions, UseArtboardDragReturn } from './useArtboar
 export { useComponentDragResize } from './useComponentDragResize';
 export type { UseComponentDragResizeOptions, UseComponentDragResizeReturn } from './useComponentDragResize';
 
+// Freeform component drag hook
+export { useComponentDrag } from './useComponentDrag';
+export type { UseComponentDragOptions, UseComponentDragReturn } from './useComponentDrag';
+
+// Freeform component resize hook
+export { useComponentResize } from './useComponentResize';
+export type { UseComponentResizeOptions, UseComponentResizeReturn, ResizeDirection } from './useComponentResize';
+

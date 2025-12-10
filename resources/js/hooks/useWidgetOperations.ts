@@ -5,13 +5,14 @@
  * Handles:
  * - Adding/deleting widgets
  * - Adding/removing/reordering components within widgets
- * - Updating component layouts
+ * - Updating component bounds (freeform pixel positioning)
  */
 
 import { useCallback } from 'react';
 import type { WidgetSchema, WidgetComponent, ComponentCard } from '@/types/dashboard';
-import type { GridPosition } from '@/lib/component-layout';
 import type { ArtboardSchema } from '@/types/artboard';
+import { getDefaultSize } from '@/lib/component-sizes';
+import { findInitialPosition, type ComponentRect } from '@/lib/collision-detection';
 
 export interface UseWidgetOperationsOptions {
     /** Current artboard */
@@ -26,13 +27,13 @@ export interface UseWidgetOperationsReturn {
     /** Delete a widget by ID */
     deleteWidget: (widgetId: string) => void;
     /** Add a component to a widget */
-    addComponentToWidget: (widgetId: string, component: ComponentCard) => void;
+    addComponentToWidget: (widgetId: string, component: ComponentCard, containerSize?: { width: number; height: number }) => void;
     /** Remove a component from a widget */
     removeComponentFromWidget: (widgetId: string, instanceId: string) => void;
     /** Reorder components within a widget */
     reorderComponents: (widgetId: string, newComponents: WidgetComponent[]) => void;
-    /** Update a component's grid layout */
-    updateComponentLayout: (widgetId: string, instanceId: string, gridPosition: GridPosition) => void;
+    /** Update a component's bounds (position and size) */
+    updateComponentBounds: (widgetId: string, instanceId: string, bounds: { x: number; y: number; width: number; height: number }) => void;
 }
 
 export function useWidgetOperations({
@@ -61,10 +62,36 @@ export function useWidgetOperations({
         onUpdate(artboard.id, { widgets: updatedWidgets });
     }, [artboard.id, artboard.widgets, onUpdate]);
 
-    const addComponentToWidget = useCallback((widgetId: string, component: ComponentCard) => {
+    const addComponentToWidget = useCallback((
+        widgetId: string,
+        component: ComponentCard,
+        containerSize: { width: number; height: number } = { width: 400, height: 300 }
+    ) => {
+        const widget = artboard.widgets.find(w => w.id === widgetId);
+        if (!widget) return;
+
+        // Get default size for this component type
+        const defaultSize = getDefaultSize(component.id);
+
+        // Convert existing components to ComponentRect for collision detection
+        const existingRects: ComponentRect[] = widget.components.map(c => ({
+            id: c.instanceId,
+            x: c.x,
+            y: c.y,
+            width: c.width,
+            height: c.height,
+        }));
+
+        // Find initial position that doesn't overlap
+        const position = findInitialPosition(defaultSize, existingRects, containerSize);
+
         const newComponent: WidgetComponent = {
             instanceId: `comp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             componentType: component.id,
+            x: position.x,
+            y: position.y,
+            width: defaultSize.width,
+            height: defaultSize.height,
             config: {
                 name: component.name,
                 description: component.description,
@@ -72,13 +99,13 @@ export function useWidgetOperations({
             },
         };
 
-        const updatedWidgets = artboard.widgets.map((widget) =>
-            widget.id === widgetId
+        const updatedWidgets = artboard.widgets.map((w) =>
+            w.id === widgetId
                 ? {
-                    ...widget,
-                    components: [...widget.components, newComponent],
+                    ...w,
+                    components: [...w.components, newComponent],
                 }
-                : widget
+                : w
         );
 
         onUpdate(artboard.id, { widgets: updatedWidgets });
@@ -110,14 +137,16 @@ export function useWidgetOperations({
         onUpdate(artboard.id, { widgets: updatedWidgets });
     }, [artboard.id, artboard.widgets, onUpdate]);
 
-    const updateComponentLayout = useCallback(
-        (widgetId: string, instanceId: string, gridPosition: GridPosition) => {
+    const updateComponentBounds = useCallback(
+        (widgetId: string, instanceId: string, bounds: { x: number; y: number; width: number; height: number }) => {
             const updatedWidgets = artboard.widgets.map((widget) =>
                 widget.id === widgetId
                     ? {
                         ...widget,
                         components: widget.components.map((c) =>
-                            c.instanceId === instanceId ? { ...c, gridPosition } : c
+                            c.instanceId === instanceId
+                                ? { ...c, x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }
+                                : c
                         ),
                     }
                     : widget
@@ -134,6 +163,7 @@ export function useWidgetOperations({
         addComponentToWidget,
         removeComponentFromWidget,
         reorderComponents,
-        updateComponentLayout,
+        updateComponentBounds,
     };
 }
+
