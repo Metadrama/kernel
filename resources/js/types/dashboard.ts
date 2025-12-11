@@ -53,6 +53,8 @@ export interface DashboardLayout {
   name: string;
   // Artboards contain widgets (new architecture)
   artboards: ArtboardSchema[];
+  // Archived widgets (stored for restoration)
+  archivedWidgets?: WidgetSchema[];
   // Legacy: Direct widgets on canvas (deprecated, kept for backward compatibility)
   widgets?: WidgetSchema[];
   createdAt: string;

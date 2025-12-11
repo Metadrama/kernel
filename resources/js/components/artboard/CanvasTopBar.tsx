@@ -4,7 +4,7 @@
  * Displays dashboard title, artboard count, zoom controls, and action buttons.
  */
 
-import { Plus } from 'lucide-react';
+import { Plus, Loader2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface CanvasTopBarProps {
@@ -14,6 +14,8 @@ interface CanvasTopBarProps {
     onZoomOut: () => void;
     onZoomReset: () => void;
     onSave: () => void;
+    isSaving?: boolean;
+    saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
 }
 
 export default function CanvasTopBar({
@@ -23,6 +25,8 @@ export default function CanvasTopBar({
     onZoomOut,
     onZoomReset,
     onSave,
+    isSaving = false,
+    saveStatus = 'idle',
 }: CanvasTopBarProps) {
     return (
         <div className="relative z-50 flex h-14 shrink-0 items-center justify-between border-b bg-background/95 backdrop-blur px-6 supports-[backdrop-filter]:bg-background/60">
@@ -71,12 +75,30 @@ export default function CanvasTopBar({
                 <Button variant="outline" size="sm">Preview</Button>
                 <Button
                     size="sm"
-                    className="bg-black text-white hover:bg-black/90"
+                    className={`min-w-[70px] transition-all ${saveStatus === 'saved'
+                        ? 'bg-green-600 hover:bg-green-700'
+                        : saveStatus === 'error'
+                            ? 'bg-red-600 hover:bg-red-700'
+                            : 'bg-black hover:bg-black/90'
+                        } text-white`}
                     onClick={onSave}
+                    disabled={isSaving}
                 >
-                    Save
+                    {isSaving ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : saveStatus === 'saved' ? (
+                        <>
+                            <Check className="h-4 w-4 mr-1" />
+                            Saved
+                        </>
+                    ) : saveStatus === 'error' ? (
+                        'Error!'
+                    ) : (
+                        'Save'
+                    )}
                 </Button>
             </div>
         </div>
     );
 }
+

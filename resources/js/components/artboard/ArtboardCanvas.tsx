@@ -57,6 +57,10 @@ export default function ArtboardCanvas() {
   const [showAddArtboard, setShowAddArtboard] = useState(false);
   const [showInspector, setShowInspector] = useState(false);
 
+  // Save state
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
   // Component selection state
   const [selectedComponent, setSelectedComponent] = useState<{
     artboardId: string;
@@ -206,15 +210,52 @@ export default function ArtboardCanvas() {
     setSelectedComponent(null);
   }, []);
 
-  // Persistence
-  const handleSave = () => {
+  // Persistence - save to database
+  const handleSave = useCallback(async () => {
+    setIsSaving(true);
+    setSaveStatus('saving');
     try {
-      window.localStorage.setItem('artboards', JSON.stringify(artboards));
-      console.log('Artboards saved');
-    } catch (e) {
-      console.error('Save failed:', e);
+      // Get CSRF token from XSRF-TOKEN cookie (Laravel sets this automatically)
+      const getCookie = (name: string) => {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return decodeURIComponent(parts.pop()?.split(';').shift() ?? '');
+        return '';
+      };
+      const csrfToken = getCookie('XSRF-TOKEN');
+
+      const response = await fetch('/dashboard/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-XSRF-TOKEN': csrfToken,
+        },
+        body: JSON.stringify({
+          id: 'default',
+          name: 'Untitled Dashboard',
+          artboards: artboards,
+          archivedWidgets: archivedWidgets,
+        }),
+      });
+      if (response.ok) {
+        setSaveStatus('saved');
+        // Reset to idle after 2 seconds
+        setTimeout(() => setSaveStatus('idle'), 2000);
+      } else {
+        console.error('Save failed:', await response.text());
+        setSaveStatus('error');
+        setTimeout(() => setSaveStatus('idle'), 3000);
+      }
+    } catch (error) {
+      console.error('Save error:', error);
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    } finally {
+      setIsSaving(false);
     }
-  };
+  }, [artboards, archivedWidgets]);
 
   return (
     <div className="flex h-screen flex-1 overflow-hidden">
@@ -226,6 +267,8 @@ export default function ArtboardCanvas() {
           onZoomOut={() => adjustScale((s) => s * 0.9)}
           onZoomReset={() => adjustScale(() => 1)}
           onSave={handleSave}
+          isSaving={isSaving}
+          saveStatus={saveStatus}
         />
 
         <div

@@ -16,7 +16,25 @@ interface ArtboardContextValue {
 
 const ArtboardContext = createContext<ArtboardContextValue | undefined>(undefined);
 
-const loadArtboards = (): ArtboardSchema[] => {
+interface InitialData {
+  dashboardId?: string;
+  dashboardName?: string;
+  artboards?: ArtboardSchema[];
+  archivedWidgets?: WidgetSchema[];
+}
+
+interface ArtboardProviderProps {
+  children: React.ReactNode;
+  initialData?: InitialData;
+}
+
+const loadArtboards = (initialData?: InitialData): ArtboardSchema[] => {
+  // Prefer server data if provided
+  if (initialData?.artboards && initialData.artboards.length > 0) {
+    return initialData.artboards;
+  }
+
+  // Fallback to localStorage
   if (typeof window === 'undefined') {
     return [];
   }
@@ -30,7 +48,13 @@ const loadArtboards = (): ArtboardSchema[] => {
   }
 };
 
-const loadArchivedWidgets = (): WidgetSchema[] => {
+const loadArchivedWidgets = (initialData?: InitialData): WidgetSchema[] => {
+  // Prefer server data if provided
+  if (initialData?.archivedWidgets && initialData.archivedWidgets.length > 0) {
+    return initialData.archivedWidgets;
+  }
+
+  // Fallback to localStorage
   if (typeof window === 'undefined') {
     return [];
   }
@@ -44,9 +68,9 @@ const loadArchivedWidgets = (): WidgetSchema[] => {
   }
 };
 
-export function ArtboardProvider({ children }: { children: React.ReactNode }) {
-  const [artboards, setArtboards] = useState<ArtboardSchema[]>(() => loadArtboards());
-  const [archivedWidgets, setArchivedWidgets] = useState<WidgetSchema[]>(() => loadArchivedWidgets());
+export function ArtboardProvider({ children, initialData }: ArtboardProviderProps) {
+  const [artboards, setArtboards] = useState<ArtboardSchema[]>(() => loadArtboards(initialData));
+  const [archivedWidgets, setArchivedWidgets] = useState<WidgetSchema[]>(() => loadArchivedWidgets(initialData));
   const [selectedArtboardId, setSelectedArtboardId] = useState<string | null>(null);
   const [artboardStackOrder, setArtboardStackOrder] = useState<string[]>([]);
 

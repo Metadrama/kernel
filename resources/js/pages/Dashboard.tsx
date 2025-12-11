@@ -3,29 +3,34 @@ import ComponentSidebar from '@/components/ComponentSidebar';
 import ArtboardCanvas from '@/components/artboard/ArtboardCanvas';
 import { ArtboardProvider } from '@/context/ArtboardContext';
 import type { DashboardLayout } from '@/types/dashboard';
-import { useEffect } from 'react';
-import { router } from '@inertiajs/react';
+
+interface SavedDashboard {
+  id: string;
+  name: string;
+  updatedAt: string | null;
+  artboardCount: number;
+}
 
 interface DashboardProps {
-  dashboards: DashboardLayout[];
+  savedDashboards: SavedDashboard[];
   currentDashboard: DashboardLayout | null;
 }
 
-export default function Dashboard(props: DashboardProps) {
-  // Provide a simple save hook via window for now
-  useEffect(() => {
-    (window as any).saveDashboardLayout = (layout: DashboardLayout) => {
-      router.post('/dashboard/save', layout, {
-        preserveScroll: true,
-      });
-    };
-  }, []);
+export default function Dashboard({ savedDashboards, currentDashboard }: DashboardProps) {
+  // Prepare initial data from server props
+  const initialData = currentDashboard ? {
+    dashboardId: currentDashboard.id,
+    dashboardName: currentDashboard.name,
+    artboards: currentDashboard.artboards ?? [],
+    archivedWidgets: currentDashboard.archivedWidgets ?? [],
+  } : undefined;
+
   return (
     <>
       <Head title="Dashboard Builder" />
-      <ArtboardProvider>
+      <ArtboardProvider initialData={initialData}>
         <div className="flex h-screen overflow-hidden bg-background">
-          <ComponentSidebar />
+          <ComponentSidebar savedDashboards={savedDashboards} currentDashboardId={currentDashboard?.id} />
           <ArtboardCanvas />
         </div>
       </ArtboardProvider>
