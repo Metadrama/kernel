@@ -12,6 +12,7 @@ interface ArtboardContextValue {
   artboardStackOrder: string[];
   bringArtboardToFront: (artboardId: string) => void;
   moveArtboardLayer: (artboardId: string, direction: 'up' | 'down') => void;
+  duplicateArtboard: (artboardId: string, count: number) => void;
 }
 
 const ArtboardContext = createContext<ArtboardContextValue | undefined>(undefined);
@@ -148,6 +149,54 @@ export function ArtboardProvider({ children, initialData }: ArtboardProviderProp
     });
   }, []);
 
+  // Deep duplicate artboard with new IDs
+  const duplicateArtboard = useCallback((artboardId: string, count: number) => {
+    setArtboards((prev) => {
+      const source = prev.find((a) => a.id === artboardId);
+      if (!source) return prev;
+
+      const newArtboards: ArtboardSchema[] = [];
+      const now = new Date().toISOString();
+
+      // Find the rightmost position to append the duplicates
+      let maxX = source.position.x;
+      prev.forEach(a => {
+        const right = a.position.x + a.dimensions.widthPx;
+        if (right > maxX) maxX = right;
+      });
+      // Start duplicates after the global rightmost element with gap
+      let startX = maxX + 100;
+
+      for (let i = 0; i < count; i++) {
+        // Deep clone widgets
+        const newWidgets = source.widgets.map((w) => ({
+          ...w,
+          id: `widget-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        }));
+
+        const newArtboard: ArtboardSchema = {
+          ...source,
+          id: `artboard-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          name: `${source.name} Copy${count > 1 ? ` ${i + 1}` : ''}`,
+          position: {
+            x: startX,
+            y: source.position.y,
+          },
+          widgets: newWidgets,
+          createdAt: now,
+          updatedAt: now,
+          // Reset interaction states
+          locked: false,
+        };
+
+        newArtboards.push(newArtboard);
+        startX += newArtboard.dimensions.widthPx + 100; // Increment for next copy
+      }
+
+      return [...prev, ...newArtboards];
+    });
+  }, []);
+
   const value = useMemo<ArtboardContextValue>(() => ({
     artboards,
     setArtboards,
@@ -158,7 +207,8 @@ export function ArtboardProvider({ children, initialData }: ArtboardProviderProp
     artboardStackOrder,
     bringArtboardToFront,
     moveArtboardLayer,
-  }), [artboards, archivedWidgets, selectedArtboardId, artboardStackOrder, bringArtboardToFront, moveArtboardLayer]);
+    duplicateArtboard,
+  }), [artboards, archivedWidgets, selectedArtboardId, artboardStackOrder, bringArtboardToFront, moveArtboardLayer, duplicateArtboard]);
 
   return (
     <ArtboardContext.Provider value={value}>

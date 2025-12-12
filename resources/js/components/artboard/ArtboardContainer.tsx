@@ -15,6 +15,14 @@ import 'gridstack/dist/gridstack.min.css';
 import WidgetShell from '@/components/WidgetShell';
 import { Button } from '@/components/ui/button';
 import ArtboardSettingsDialog from './ArtboardSettingsDialog';
+import DuplicateArtboardDialog from './DuplicateArtboardDialog';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +30,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useArtboardContext } from '@/context/ArtboardContext';
 import { useWidgetOperations, useArtboardDrag, useKeyboardShortcuts } from '@/hooks';
 import type { ArtboardSchema } from '@/types/artboard';
 import type { WidgetSchema, WidgetComponent, ComponentCard } from '@/types/dashboard';
@@ -107,6 +116,9 @@ function ArtboardContainer({
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const gridSettings = useMemo(() => calculateArtboardGridConfig(artboard.dimensions), [artboard.dimensions]);
+
+  const { duplicateArtboard } = useArtboardContext();
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
 
   // Artboard dragging from extracted hook
   const { isDragging, displayPosition, handleMouseDown: handleArtboardMouseDown } = useArtboardDrag({
@@ -418,19 +430,12 @@ function ArtboardContainer({
   // Context Menu (Right-Click)
   // ============================================================================
 
-  const handleContextMenu = (e: React.MouseEvent) => {
-    // Only show artboard menu if not right-clicking on widgets/GridStack content
-    const target = e.target as HTMLElement;
-    const isWidgetContent = target.closest('.grid-stack-item') || target.closest('.grid-stack');
+  // ============================================================================
+  // Context Menu (Right-Click) - Handled by ContextMenu component
+  // ============================================================================
 
-    if (!isWidgetContent) {
-      e.preventDefault();
-      e.stopPropagation();
-
-      setContextMenuPosition({ x: e.clientX, y: e.clientY });
-      setContextMenuOpen(true);
-      onSelect(); // Bring artboard to front
-    }
+  const handleDuplicate = (count: number) => {
+    duplicateArtboard(artboard.id, count);
   };
 
   // ============================================================================
@@ -488,7 +493,7 @@ function ArtboardContainer({
               <DropdownMenuItem onClick={addWidget}>
                 Add Widget
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => console.log('Duplicate artboard')}>
+              <DropdownMenuItem onClick={() => setShowDuplicateDialog(true)}>
                 <Copy className="mr-2 h-4 w-4" />
                 Duplicate
               </DropdownMenuItem>
@@ -532,133 +537,183 @@ function ArtboardContainer({
         </div>
       </div>
 
-      {/* Artboard Container with background */}
-      <div
-        ref={containerRef}
-        className={`absolute transition-all ${isDragging ? 'cursor-grabbing' : ''}`}
-        style={{
-          left: displayPosition.x,
-          top: displayPosition.y,
-          width: artboard.dimensions.widthPx,
-          height: artboard.dimensions.heightPx,
-          zIndex: zIndex, // Stack order from parent
-          // Disable transitions during dragging for instant response
-          transition: isDragging ? 'none' : undefined,
-        }}
-        onClick={handleArtboardClick}
-        onContextMenu={handleContextMenu}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-      >
-        {/* Background layer - starts below header with shadow and ring */}
-        <div
-          className={`absolute inset-0 shadow-2xl ${isSelected ? 'ring-1 ring-primary/20 ring-offset-2' : 'ring-1 ring-border'}`}
-          style={{
-            backgroundColor: artboard.backgroundColor,
-          }}
-        />
-
-        {/* Artboard Content Area */}
-        <div
-          className="absolute inset-0"
-          style={{
-            pointerEvents: 'auto',
-          }}
-        >
-          {/* Grid guides (if enabled) */}
-          {artboard.showGrid && (
+      {/* Artboard Container with background wrapped in Context Menu */}
+      <ContextMenu>
+        <ContextMenuTrigger>
+          <div
+            ref={containerRef}
+            className={`absolute transition-all ${isDragging ? 'cursor-grabbing' : ''}`}
+            style={{
+              left: displayPosition.x,
+              top: displayPosition.y,
+              width: artboard.dimensions.widthPx,
+              height: artboard.dimensions.heightPx,
+              zIndex: zIndex, // Stack order from parent
+              // Disable transitions during dragging for instant response
+              transition: isDragging ? 'none' : undefined,
+            }}
+            onClick={handleArtboardClick}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            {/* Background layer - starts below header with shadow and ring */}
             <div
-              className="absolute inset-0 pointer-events-none opacity-[0.03]"
+              className={`absolute inset-0 shadow-2xl ${isSelected ? 'ring-1 ring-primary/20 ring-offset-2' : 'ring-1 ring-border'}`}
               style={{
-                backgroundImage: `
+                backgroundColor: artboard.backgroundColor,
+              }}
+            />
+
+            {/* Artboard Content Area */}
+            <div
+              className="absolute inset-0"
+              style={{
+                pointerEvents: 'auto',
+              }}
+            >
+              {/* Grid guides (if enabled) */}
+              {artboard.showGrid && (
+                <div
+                  className="absolute inset-0 pointer-events-none opacity-[0.03]"
+                  style={{
+                    backgroundImage: `
                 linear-gradient(to right, hsl(var(--foreground)) 1px, transparent 1px),
                 linear-gradient(to bottom, hsl(var(--foreground)) 1px, transparent 1px)
               `,
-                backgroundSize: '24px 24px',
-              }}
-            />
-          )}
+                    backgroundSize: '24px 24px',
+                  }}
+                />
+              )}
 
-          {/* Drop zone indicator */}
-          {isDragOver && (
-            <div className="absolute inset-0 z-40 flex items-center justify-center bg-primary/5 backdrop-blur-sm pointer-events-none">
-              <div className="rounded-lg border-2 border-dashed border-primary bg-background/90 px-6 py-4">
-                <p className="text-sm font-semibold text-primary">Drop to add component</p>
-              </div>
-            </div>
-          )}
-
-          {/* GridStack Container - no overflow-hidden to allow cross-artboard drag */}
-          <div className="relative h-full p-4">
-            {/* Widget alignment guides overlay */}
-            <WidgetAlignmentGuides guides={widgetAlignmentGuides} cellHeight={gridSettings.cellHeight} />
-
-            <div ref={gridRef} className="grid-stack">
-              {artboard.widgets.map((widget) => (
-                <div
-                  key={widget.id}
-                  id={widget.id}
-                  className="grid-stack-item group/widget"
-                  gs-id={widget.id}
-                  gs-x={widget.x}
-                  gs-y={widget.y}
-                  gs-w={widget.w}
-                  gs-h={widget.h}
-                  gs-min-w={20}
-                  gs-min-h={15}
-                  gs-max-w={gridSettings.columns}
-                  data-source-artboard={artboard.id}
-                >
-
-                  <div className="grid-stack-item-content">
-                    <WidgetShell
-                      widget={widget}
-                      onDelete={() => deleteWidget(widget.id)}
-                      onAddComponent={(component) =>
-                        addComponentToWidget(widget.id, component)
-                      }
-                      onRemoveComponent={(instanceId) =>
-                        removeComponentFromWidget(widget.id, instanceId)
-                      }
-                      onReorderComponents={(components) =>
-                        reorderComponents(widget.id, components)
-                      }
-                      onUpdateComponentBounds={(instanceId, bounds) =>
-                        updateComponentBounds(widget.id, instanceId, bounds)
-                      }
-                      onUpdateComponentZOrder={(instanceId, operation) =>
-                        updateComponentZOrder(widget.id, instanceId, operation)
-                      }
-                      onWidgetZOrderChange={(operation) =>
-                        updateWidgetZOrder(widget.id, operation)
-                      }
-                      onSelectComponent={(component) => {
-                        setSelectedWidgetId(null); // Clear widget selection when component is selected
-                        onSelectComponent(artboard.id, widget.id, component);
-                      }}
-                      selectedComponentId={selectedComponentId}
-                      scale={canvasScale}
-                      isSelected={selectedWidgetId === widget.id}
-                      onSelectWidget={() => {
-                        setSelectedWidgetId(widget.id);
-                        onDeselectComponent?.(); // Clear component selection when widget is selected
-                      }}
-                      showDragHandle={false}
-                    />
+              {/* Drop zone indicator */}
+              {isDragOver && (
+                <div className="absolute inset-0 z-40 flex items-center justify-center bg-primary/5 backdrop-blur-sm pointer-events-none">
+                  <div className="rounded-lg border-2 border-dashed border-primary bg-background/90 px-6 py-4">
+                    <p className="text-sm font-semibold text-primary">Drop to add component</p>
                   </div>
                 </div>
-              ))}
+              )}
+
+              {/* GridStack Container - no overflow-hidden to allow cross-artboard drag */}
+              <div className="relative h-full p-4">
+                {/* Widget alignment guides overlay */}
+                <WidgetAlignmentGuides guides={widgetAlignmentGuides} cellHeight={gridSettings.cellHeight} />
+
+                <div ref={gridRef} className="grid-stack">
+                  {artboard.widgets.map((widget) => (
+                    <div
+                      key={widget.id}
+                      id={widget.id}
+                      className="grid-stack-item group/widget"
+                      gs-id={widget.id}
+                      gs-x={widget.x}
+                      gs-y={widget.y}
+                      gs-w={widget.w}
+                      gs-h={widget.h}
+                      gs-min-w={20}
+                      gs-min-h={15}
+                      gs-max-w={gridSettings.columns}
+                      data-source-artboard={artboard.id}
+                    >
+
+                      <div className="grid-stack-item-content">
+                        <WidgetShell
+                          widget={widget}
+                          onDelete={() => deleteWidget(widget.id)}
+                          onAddComponent={(component) =>
+                            addComponentToWidget(widget.id, component)
+                          }
+                          onRemoveComponent={(instanceId) =>
+                            removeComponentFromWidget(widget.id, instanceId)
+                          }
+                          onReorderComponents={(components) =>
+                            reorderComponents(widget.id, components)
+                          }
+                          onUpdateComponentBounds={(instanceId, bounds) =>
+                            updateComponentBounds(widget.id, instanceId, bounds)
+                          }
+                          onUpdateComponentZOrder={(instanceId, operation) =>
+                            updateComponentZOrder(widget.id, instanceId, operation)
+                          }
+                          onWidgetZOrderChange={(operation) =>
+                            updateWidgetZOrder(widget.id, operation)
+                          }
+                          onSelectComponent={(component) => {
+                            setSelectedWidgetId(null); // Clear widget selection when component is selected
+                            onSelectComponent(artboard.id, widget.id, component);
+                          }}
+                          selectedComponentId={selectedComponentId}
+                          scale={canvasScale}
+                          isSelected={selectedWidgetId === widget.id}
+                          onSelectWidget={() => {
+                            setSelectedWidgetId(widget.id);
+                            onDeselectComponent?.(); // Clear component selection when widget is selected
+                          }}
+                          showDragHandle={false}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-64">
+          <ContextMenuItem onClick={addWidget}>
+            Add Widget
+          </ContextMenuItem>
+          <ContextMenuItem onClick={() => setShowDuplicateDialog(true)}>
+            <Copy className="mr-2 h-4 w-4" />
+            Duplicate...
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem onClick={() => setShowSettings(true)}>
+            <Settings className="mr-2 h-4 w-4" />
+            Settings...
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem onClick={() => onUpdate(artboard.id, { locked: !artboard.locked })}>
+            {artboard.locked ? (
+              <>
+                <Unlock className="mr-2 h-4 w-4" />
+                Unlock Position
+              </>
+            ) : (
+              <>
+                <Lock className="mr-2 h-4 w-4" />
+                Lock Position
+              </>
+            )}
+          </ContextMenuItem>
+          <ContextMenuItem onClick={() => onUpdate(artboard.id, { visible: false })}>
+            <EyeOff className="mr-2 h-4 w-4" />
+            Hide
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem
+            onClick={() => onDelete(artboard.id)}
+            className="text-destructive focus:text-destructive"
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete Artboard
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu >
 
       <ArtboardSettingsDialog
         open={showSettings}
         onOpenChange={setShowSettings}
         artboard={artboard}
         onUpdate={onUpdate}
+      />
+
+      <DuplicateArtboardDialog
+        open={showDuplicateDialog}
+        onOpenChange={setShowDuplicateDialog}
+        onDuplicate={handleDuplicate}
+        artboardName={artboard.name}
       />
     </>
   );
