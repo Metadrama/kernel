@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react';
 import ComponentSidebar from '@/components/ComponentSidebar';
 import ArtboardCanvas from '@/components/artboard/ArtboardCanvas';
+import MobileDashboardView from '@/components/mobile/MobileDashboardView';
 import { ArtboardProvider } from '@/context/ArtboardContext';
 import type { DashboardLayout } from '@/types/dashboard';
 
@@ -29,9 +30,15 @@ export default function Dashboard({ savedDashboards, currentDashboard }: Dashboa
     <>
       <Head title="Dashboard Builder" />
       <ArtboardProvider initialData={initialData}>
-        <div className="flex h-screen overflow-hidden bg-background">
+        {/* Desktop View */}
+        <div className="hidden md:flex h-screen overflow-hidden bg-background">
           <ComponentSidebar savedDashboards={savedDashboards} currentDashboardId={currentDashboard?.id} />
           <ArtboardCanvas />
+        </div>
+
+        {/* Mobile View */}
+        <div className="md:hidden flex h-screen overflow-hidden bg-background">
+          <MobileDashboardView />
         </div>
       </ArtboardProvider>
     </>
