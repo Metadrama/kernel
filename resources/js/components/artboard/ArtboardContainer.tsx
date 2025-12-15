@@ -727,6 +727,7 @@ function ArtboardContainer({
                       gs-min-h={15}
                       gs-max-w={gridSettings.columns}
                       data-source-artboard={artboard.id}
+                      style={{ zIndex: widget.zIndex ?? 1 }}
                     >
 
                       <div className="grid-stack-item-content">
