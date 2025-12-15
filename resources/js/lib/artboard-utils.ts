@@ -294,3 +294,92 @@ export function artboardToCanvasCoords(
     y: localPos.y + artboard.position.y,
   };
 }
+
+/**
+ * Find the next available non-overlapping position for a widget
+ * Uses a radial search pattern starting from the preferred "Right" position.
+ */
+export function findNextAvailablePosition(
+  sourceWidget: { x: number; y: number; w: number; h: number },
+  existingWidgets: { x: number; y: number; w: number; h: number; id: string }[],
+  gridConfig: { columns: number; maxRows: number }
+): { x: number; y: number } {
+  const { x, y, w, h } = sourceWidget;
+  const { columns, maxRows } = gridConfig;
+
+  // Collision check helper
+  const isOccupied = (tx: number, ty: number) => {
+    return existingWidgets.some(other =>
+      other.id !== (sourceWidget as any).id && // Safety check if source is in list
+      tx < other.x + other.w &&
+      tx + w > other.x &&
+      ty < other.y + other.h &&
+      ty + h > other.y
+    );
+  };
+
+  // 1. Try immediate Preferred Spots (Right, Bottom)
+  const preferred = [
+    { x: x + w, y: y }, // Right
+    { x: x, y: y + h }, // Bottom
+  ];
+
+  for (const p of preferred) {
+    if (p.x + w <= columns && p.y + h <= maxRows && !isOccupied(p.x, p.y)) {
+      return p;
+    }
+  }
+
+  // 2. Radial Search (Spiral)
+  // We search in expanding concentric layers around the center (x, y)
+  // Step size = 1 grid unit (cellHeight/8px is small, maybe use w/2 or fixed step?)
+  // Actually, searching every single grid unit is expensive if layer is huge.
+  // But grid units are the atomic unit.
+
+  // Optimization: Scan in larger steps first? No, GridStack aligns to 1 unit.
+
+  // Limit search radius
+  const maxRadius = Math.max(columns, maxRows);
+
+  // Start from radius 1 (we already checked immediate attached spots, but simple spiral covers them too)
+  // We want to find NEAREST valid hole.
+  // We can just BFS/flood fill the grid state? No, simply iterate distance.
+
+  // Simplified Spiral:
+  // Iterate d from 1 to maxRadius
+  // Check perimeter: (x-d, y-d) to (x+d, y+d)
+
+  // To optimize for "Reading Order" (Right/Down preference), we can sort checks.
+
+  // Let's rely on a simpler Grid Scan starting from top-left of the bounding area of the widget
+  // But scan OUTWARDS.
+
+  for (let r = 1; r < 200; r++) { // Hard limit 200 units radius
+    // Check X direction (Right and Left sides of the box)
+    for (let dy = -r; dy <= r; dy++) {
+      // Right Side
+      let tx = x + r;
+      let ty = y + dy;
+      if (tx >= 0 && tx + w <= columns && ty >= 0 && ty + h <= maxRows && !isOccupied(tx, ty)) return { x: tx, y: ty };
+
+      // Left Side
+      tx = x - r;
+      if (tx >= 0 && tx + w <= columns && ty >= 0 && ty + h <= maxRows && !isOccupied(tx, ty)) return { x: tx, y: ty };
+    }
+
+    // Check Y direction (Bottom and Top sides of the box)
+    for (let dx = -r + 1; dx <= r - 1; dx++) { // Avoid corners already checked
+      // Bottom Side
+      let tx = x + dx;
+      let ty = y + r;
+      if (tx >= 0 && tx + w <= columns && ty >= 0 && ty + h <= maxRows && !isOccupied(tx, ty)) return { x: tx, y: ty };
+
+      // Top Side
+      ty = y - r;
+      if (tx >= 0 && tx + w <= columns && ty >= 0 && ty + h <= maxRows && !isOccupied(tx, ty)) return { x: tx, y: ty };
+    }
+  }
+
+  // Fallback: Just return offset (should catch above unless full)
+  return { x: x + 2, y: y + 2 };
+}

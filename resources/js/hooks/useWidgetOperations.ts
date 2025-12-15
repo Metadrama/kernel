@@ -13,7 +13,7 @@ import type { WidgetSchema, WidgetComponent, ComponentCard } from '@/types/dashb
 import type { ArtboardSchema } from '@/types/artboard';
 import { getDefaultSize } from '@/lib/component-sizes';
 import { findInitialPosition, type ComponentRect } from '@/lib/collision-detection';
-import { calculateArtboardGridConfig, calculateEffectiveGridConfig } from '@/lib/artboard-utils';
+import { calculateArtboardGridConfig, calculateEffectiveGridConfig, findNextAvailablePosition } from '@/lib/artboard-utils';
 
 export interface UseWidgetOperationsOptions {
     /** Current artboard */
@@ -269,9 +269,23 @@ export function useWidgetOperations({
             // Use 2% of columns, min 2 units, max 5 units
             const offsetUnits = Math.max(2, Math.min(5, Math.floor(effectiveGridConfig.columns * 0.02)));
 
+            // Helper to check overlap with specific widget list
+            const checkOverlap = (rect: { x: number, y: number, w: number, h: number }, widgets: WidgetSchema[]) => {
+                return widgets.some(w =>
+                    w.id !== widgetId && // Ignore self (source)
+                    rect.x < w.x + w.w &&
+                    rect.x + rect.w > w.x &&
+                    rect.y < w.y + w.h &&
+                    rect.y + rect.h > w.y
+                );
+            };
+
             const newWidgets: WidgetSchema[] = [];
+            // Track potential positions to avoid stepping on own toes during multi-duplicate
+            const allWidgetsForCollision = [...artboard.widgets];
+
             for (let i = 0; i < count; i++) {
-                let newX, newY, newW, newH;
+                let newX = 0, newY = 0, newW = widget.w, newH = widget.h;
 
                 if (options.fill) {
                     // Fill Mode: Cover entire artboard
@@ -280,23 +294,53 @@ export function useWidgetOperations({
                     newW = effectiveGridConfig.columns;
                     newH = effectiveGridConfig.maxRows;
                 } else {
-                    // Standard Mode: Offset slightly
+                    // Standard Mode: Smart Placement
                     newW = widget.w;
                     newH = widget.h;
 
-                    const totalOffset = (i + 1) * offsetUnits;
-                    newX = widget.x + totalOffset;
-                    newY = widget.y + totalOffset;
+                    // define candidate strategies
+                    const candidates = [
+                        // 1. Right side
+                        { x: widget.x + widget.w, y: widget.y },
+                        // 2. Bottom side
+                        { x: widget.x, y: widget.y + widget.h },
+                        // 3. Right-Bottom
+                        { x: widget.x + widget.w, y: widget.y + widget.h }
+                    ];
 
-                    // Clamp to stay within artboard bounds
-                    const maxX = effectiveGridConfig.columns - newW;
-                    newX = Math.max(0, Math.min(newX, maxX));
-                    newY = Math.max(0, newY);
+                    let foundSpot = false;
+                    for (const candidate of candidates) {
+                        // Check bounds
+                        if (candidate.x + newW <= effectiveGridConfig.columns &&
+                            candidate.y + newH <= effectiveGridConfig.maxRows) {
 
-                    // If x would overflow, wrap to next row at x=0
-                    if (newX + newW > effectiveGridConfig.columns) {
-                        newX = 0;
-                        newY = widget.y + widget.h + (i * offsetUnits);
+                            // Check collisions
+                            if (!checkOverlap({ x: candidate.x, y: candidate.y, w: newW, h: newH }, allWidgetsForCollision)) {
+                                newX = candidate.x;
+                                newY = candidate.y;
+                                foundSpot = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!foundSpot) {
+                        // Fallback: Diagonal adaptive offset (standard behavior)
+                        // If multiple duplicates, offset each one further from the ORIGINAL
+                        const totalOffset = (i + 1) * offsetUnits;
+                        newX = widget.x + totalOffset;
+                        newY = widget.y + totalOffset;
+
+                        // Clamp to stay within artboard bounds
+                        const maxX = effectiveGridConfig.columns - newW;
+                        newX = Math.max(0, Math.min(newX, maxX));
+                        newY = Math.max(0, newY);
+
+                        // If x would overflow, wrap to next row at x=0
+                        if (newX + newW > effectiveGridConfig.columns) {
+                            newX = 0;
+                            newY = widget.y + widget.h + (i * offsetUnits);
+                        }
                     }
                 }
 
@@ -317,6 +361,7 @@ export function useWidgetOperations({
                     })),
                 };
                 newWidgets.push(newWidget);
+                allWidgetsForCollision.push(newWidget);
             }
 
             const updatedWidgets = [...artboard.widgets, ...newWidgets];
