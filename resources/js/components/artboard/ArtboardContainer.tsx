@@ -225,8 +225,11 @@ function ArtboardContainer({
     // Track if we're in the middle of a cross-grid transfer to prevent React conflicts
     let isTransferring = false;
 
+    // Use configured padding or fallback to default
+    const padding = artboard.gridPadding ?? 16;
+
     // Calculate effective grid configuration (accounting for container padding)
-    const effectiveGridConfig = calculateEffectiveGridConfig(artboard.dimensions);
+    const effectiveGridConfig = calculateEffectiveGridConfig(artboard.dimensions, padding);
 
     // Initialize grid with acceptWidgets for cross-artboard transfer
     const grid = GridStack.init(
@@ -702,7 +705,10 @@ function ArtboardContainer({
               )}
 
               {/* GridStack Container - no overflow-hidden to allow cross-artboard drag */}
-              <div className="relative h-full p-4">
+              <div
+                className="relative h-full"
+                style={{ padding: (artboard.gridPadding ?? 16) + 'px' }}
+              >
                 {/* Widget alignment guides overlay */}
                 <WidgetAlignmentGuides guides={widgetAlignmentGuides} cellHeight={gridSettings.cellHeight} />
 

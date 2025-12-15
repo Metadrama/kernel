@@ -262,7 +262,8 @@ export function useWidgetOperations({
             if (!widget) return;
 
             // Calculate effective grid bounds (accounting for container padding)
-            const effectiveGridConfig = calculateEffectiveGridConfig(artboard.dimensions);
+            const padding = artboard.gridPadding ?? 16;
+            const effectiveGridConfig = calculateEffectiveGridConfig(artboard.dimensions, padding);
 
             // Calculate adaptive offset (proportional to artboard width) instead of fixed +2
             // Use 2% of columns, min 2 units, max 5 units
@@ -337,7 +338,8 @@ export function useWidgetOperations({
     const pasteWidget = useCallback(
         (widgetData: WidgetSchema) => {
             // Calculate effective grid bounds (accounting for container padding)
-            const effectiveGridConfig = calculateEffectiveGridConfig(artboard.dimensions);
+            const padding = artboard.gridPadding ?? 16;
+            const effectiveGridConfig = calculateEffectiveGridConfig(artboard.dimensions, padding);
             const maxX = effectiveGridConfig.columns - widgetData.w;
 
             // Calculate offset position, clamped within bounds

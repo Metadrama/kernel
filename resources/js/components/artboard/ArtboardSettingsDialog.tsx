@@ -19,6 +19,8 @@ interface ArtboardSettingsDialogProps {
     onUpdate: (artboardId: string, updates: Partial<ArtboardSchema>) => void;
 }
 
+import { ARTBOARD_CONTAINER_PADDING } from '@/lib/artboard-utils';
+
 export default function ArtboardSettingsDialog({
     open,
     onOpenChange,
@@ -26,10 +28,12 @@ export default function ArtboardSettingsDialog({
     onUpdate,
 }: ArtboardSettingsDialogProps) {
     const [dpi, setDpi] = useState<number>(72);
+    const [padding, setPadding] = useState<number>(ARTBOARD_CONTAINER_PADDING);
 
     useEffect(() => {
         if (open) {
             setDpi(artboard.dimensions.dpi || 72);
+            setPadding(artboard.gridPadding ?? ARTBOARD_CONTAINER_PADDING);
         }
     }, [open, artboard]);
 
@@ -54,6 +58,7 @@ export default function ArtboardSettingsDialog({
                 heightPx: newHeightPx,
                 dpi: newDpi,
             },
+            gridPadding: padding,
         });
 
         onOpenChange(false);
@@ -65,23 +70,42 @@ export default function ArtboardSettingsDialog({
                 <DialogHeader>
                     <DialogTitle>Artboard Settings</DialogTitle>
                     <DialogDescription>
-                        Adjust the pixel density (DPI) of the artboard. This will resize the canvas pixels while keeping physical dimensions constant.
+                        Adjust settings for this artboard instance.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="padding" className="text-right">
+                            Padding
+                        </Label>
+                        <div className="col-span-3 flex items-center gap-2">
+                            <Input
+                                id="padding"
+                                type="number"
+                                value={padding}
+                                onChange={(e) => setPadding(Math.max(0, Number(e.target.value)))}
+                                min={0}
+                            />
+                            <span className="text-sm text-muted-foreground whitespace-nowrap">px</span>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="dpi" className="text-right">
                             DPI
                         </Label>
-                        <Input
-                            id="dpi"
-                            type="number"
-                            value={dpi}
-                            onChange={(e) => setDpi(Number(e.target.value))}
-                            className="col-span-3"
-                            min={1}
-                        />
+                        <div className="col-span-3 flex items-center gap-2">
+                            <Input
+                                id="dpi"
+                                type="number"
+                                value={dpi}
+                                onChange={(e) => setDpi(Number(e.target.value))}
+                                min={1}
+                            />
+                            <span className="text-sm text-muted-foreground whitespace-nowrap">dpi</span>
+                        </div>
                     </div>
+
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label className="text-right text-xs text-muted-foreground">
                             Current Size

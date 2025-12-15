@@ -15,9 +15,9 @@ import type { WidgetSchema } from './dashboard';
 /**
  * Supported artboard format presets
  */
-export type ArtboardFormat = 
+export type ArtboardFormat =
   // Print formats
-  | 'a4-portrait' 
+  | 'a4-portrait'
   | 'a4-landscape'
   | 'a3-portrait'
   | 'a3-landscape'
@@ -112,6 +112,8 @@ export interface ArtboardSchema {
   showGrid: boolean;
   /** Show ruler guides */
   showRulers: boolean;
+  /** Internal padding for grid (px) */
+  gridPadding: number;
   /** Creation timestamp */
   createdAt: string;
   /** Last update timestamp */
@@ -141,4 +143,5 @@ export interface UpdateArtboardOptions {
   visible?: boolean;
   showGrid?: boolean;
   showRulers?: boolean;
+  gridPadding?: number;
 }

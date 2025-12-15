@@ -97,6 +97,7 @@ export function createArtboard(
     visible: true,
     showGrid: true,
     showRulers: false,
+    gridPadding: ARTBOARD_CONTAINER_PADDING,
     createdAt: now,
     updatedAt: now,
   };
@@ -231,9 +232,9 @@ export const ARTBOARD_CONTAINER_PADDING = 16; // px (p-4 = 16px)
  * The GridStack container has padding which reduces available space.
  * This function calculates the true dimensions GridStack can use.
  */
-export function calculateEffectiveGridConfig(dimensions: ArtboardDimensions) {
+export function calculateEffectiveGridConfig(dimensions: ArtboardDimensions, padding: number = ARTBOARD_CONTAINER_PADDING) {
   // Account for container padding on both sides
-  const paddingTotal = ARTBOARD_CONTAINER_PADDING * 2;
+  const paddingTotal = padding * 2;
 
   const effectiveDimensions: ArtboardDimensions = {
     ...dimensions,
