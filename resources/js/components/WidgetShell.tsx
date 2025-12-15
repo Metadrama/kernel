@@ -7,7 +7,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Plus, Move, Trash2, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown } from 'lucide-react';
+import { Plus, Move, Trash2, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, Lock, Unlock, Copy, Clipboard } from 'lucide-react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/context-menu";
 import { isComponentRegistered, getComponent } from '@/components/widget-components';
 import { EmptyWidgetState, WidgetToolbar } from '@/components/widget';
+import DuplicateWidgetDialog from '@/components/widget/DuplicateWidgetDialog';
 import { useComponentDrag, useComponentResize, useKeyboardShortcuts } from '@/hooks';
 import type { WidgetSchema, ComponentCard, WidgetComponent } from '@/types/dashboard';
 import type { ComponentRect } from '@/lib/collision-detection';
@@ -33,6 +34,12 @@ interface WidgetShellProps {
   onUpdateComponentBounds?: (instanceId: string, bounds: { x: number; y: number; width: number; height: number }) => void;
   onUpdateComponentZOrder?: (instanceId: string, operation: 'bringToFront' | 'sendToBack' | 'bringForward' | 'sendBackward') => void;
   onWidgetZOrderChange?: (operation: 'bringToFront' | 'sendToBack' | 'bringForward' | 'sendBackward') => void;
+  /** Callback to toggle widget lock state */
+  onLockChange?: (locked: boolean) => void;
+  /** Callback to copy widget to clipboard */
+  onCopy?: () => void;
+  /** Callback to duplicate widget with count */
+  onDuplicate?: (count: number, options?: { fill?: boolean }) => void;
   onSelectComponent?: (component: WidgetComponent) => void;
   selectedComponentId?: string;
   /** Whether the widget itself is selected */
@@ -306,6 +313,9 @@ export default function WidgetShell({
   onUpdateComponentBounds,
   onUpdateComponentZOrder,
   onWidgetZOrderChange,
+  onLockChange,
+  onCopy,
+  onDuplicate,
   onSelectComponent,
   selectedComponentId,
   isSelected,
@@ -318,6 +328,7 @@ export default function WidgetShell({
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [activeGuides, setActiveGuides] = useState<SnapLine[]>([]);
   const [activeComponentId, setActiveComponentId] = useState<string | null>(null);
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
 
   // Sort components by zIndex for proper stacking order
   const components = useMemo(() => {
@@ -436,136 +447,246 @@ export default function WidgetShell({
 
   if (isEmpty) {
     return (
-      <ContextMenu>
-        <ContextMenuTrigger asChild>
-          <EmptyWidgetState
-            ref={containerRef}
-            isDragOver={isDragOver}
-            onDelete={onDelete}
-            onDragOver={handleExternalDragOver}
-            onDragLeave={handleExternalDragLeave}
-            onDrop={handleExternalDrop}
-            showDragHandle={showDragHandle}
-            isSelected={isSelected}
-            onSelectWidget={onSelectWidget}
+      <>
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            <EmptyWidgetState
+              ref={containerRef}
+              isDragOver={isDragOver}
+              onDelete={onDelete}
+              onDragOver={handleExternalDragOver}
+              onDragLeave={handleExternalDragLeave}
+              onDrop={handleExternalDrop}
+              showDragHandle={showDragHandle}
+              isSelected={isSelected}
+              onSelectWidget={onSelectWidget}
+            />
+          </ContextMenuTrigger>
+          <ContextMenuContent className="w-56">
+            {/* Copy & Duplicate */}
+            {onCopy && (
+              <ContextMenuItem onClick={onCopy}>
+                <Clipboard className="h-4 w-4 mr-2" />
+                Copy
+                <ContextMenuShortcut>⌘C</ContextMenuShortcut>
+              </ContextMenuItem>
+            )}
+            {onDuplicate && (
+              <ContextMenuItem onClick={() => setShowDuplicateDialog(true)}>
+                <Copy className="h-4 w-4 mr-2" />
+                Duplicate...
+              </ContextMenuItem>
+            )}
+            {(onCopy || onDuplicate) && <ContextMenuSeparator />}
+
+            {/* Z-Order */}
+            {onWidgetZOrderChange && (
+              <>
+                <ContextMenuItem onClick={() => onWidgetZOrderChange('bringToFront')}>
+                  <ChevronsUp className="h-4 w-4 mr-2" />
+                  Bring to Front
+                  <ContextMenuShortcut>⌘⇧]</ContextMenuShortcut>
+                </ContextMenuItem>
+                <ContextMenuItem onClick={() => onWidgetZOrderChange('bringForward')}>
+                  <ArrowUp className="h-4 w-4 mr-2" />
+                  Bring Forward
+                  <ContextMenuShortcut>⌘]</ContextMenuShortcut>
+                </ContextMenuItem>
+                <ContextMenuItem onClick={() => onWidgetZOrderChange('sendBackward')}>
+                  <ArrowDown className="h-4 w-4 mr-2" />
+                  Send Backward
+                  <ContextMenuShortcut>⌘[</ContextMenuShortcut>
+                </ContextMenuItem>
+                <ContextMenuItem onClick={() => onWidgetZOrderChange('sendToBack')}>
+                  <ChevronsDown className="h-4 w-4 mr-2" />
+                  Send to Back
+                  <ContextMenuShortcut>⌘⇧[</ContextMenuShortcut>
+                </ContextMenuItem>
+                <ContextMenuSeparator />
+              </>
+            )}
+
+            {/* Lock */}
+            {onLockChange && (
+              <>
+                <ContextMenuItem onClick={() => onLockChange(!widget.locked)}>
+                  {widget.locked ? (
+                    <>
+                      <Unlock className="h-4 w-4 mr-2" />
+                      Unlock
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="h-4 w-4 mr-2" />
+                      Lock
+                    </>
+                  )}
+                </ContextMenuItem>
+                <ContextMenuSeparator />
+              </>
+            )}
+
+            {/* Delete */}
+            <ContextMenuItem variant="destructive" onClick={onDelete}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Widget
+              <ContextMenuShortcut>⌫</ContextMenuShortcut>
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
+
+        {/* Duplicate Dialog */}
+        {onDuplicate && (
+          <DuplicateWidgetDialog
+            open={showDuplicateDialog}
+            onOpenChange={setShowDuplicateDialog}
+            onDuplicate={onDuplicate}
           />
-        </ContextMenuTrigger>
-        <ContextMenuContent className="w-48">
-          {onWidgetZOrderChange && (
-            <>
-              <ContextMenuItem onClick={() => onWidgetZOrderChange('bringToFront')}>
-                <ChevronsUp className="h-4 w-4 mr-2" />
-                Bring to Front
-              </ContextMenuItem>
-              <ContextMenuItem onClick={() => onWidgetZOrderChange('bringForward')}>
-                <ArrowUp className="h-4 w-4 mr-2" />
-                Bring Forward
-              </ContextMenuItem>
-              <ContextMenuItem onClick={() => onWidgetZOrderChange('sendBackward')}>
-                <ArrowDown className="h-4 w-4 mr-2" />
-                Send Backward
-              </ContextMenuItem>
-              <ContextMenuItem onClick={() => onWidgetZOrderChange('sendToBack')}>
-                <ChevronsDown className="h-4 w-4 mr-2" />
-                Send to Back
-              </ContextMenuItem>
-              <ContextMenuSeparator />
-            </>
-          )}
-          <ContextMenuItem variant="destructive" onClick={onDelete}>
-            <Trash2 className="h-4 w-4 mr-2" />
-            Delete Widget
-          </ContextMenuItem>
-        </ContextMenuContent>
-      </ContextMenu>
+        )}
+      </>
     );
   }
 
   // Widget with components - FREEFORM LAYOUT
   return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <div
-          ref={containerRef}
-          className={`group relative h-full w-full rounded-lg border bg-card text-card-foreground shadow-sm transition-all duration-200 ease-out hover:shadow-md overflow-hidden ${isDragOver ? 'border-primary ring-1 ring-primary/20' : isSelected ? 'border-primary/60 ring-1 ring-primary/20' : 'border-border'}`}
-          onDragOver={handleExternalDragOver}
-          onDragLeave={handleExternalDragLeave}
-          onDrop={handleExternalDrop}
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelectWidget?.();
-          }}
-        >
-          {/* Widget toolbar */}
-          <WidgetToolbar onDelete={onDelete} showDragHandle={showDragHandle} />
-
-          {/* Alignment guides overlay */}
-          <AlignmentGuides guides={activeGuides} />
-
-          {/* Components container - relative for absolute positioning of children */}
+    <>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
           <div
-            className="relative p-2"
-            style={{
-              minHeight: Math.max(contentHeight, 100),
+            ref={containerRef}
+            className={`group relative h-full w-full rounded-lg border bg-card text-card-foreground shadow-sm transition-all duration-200 ease-out hover:shadow-md overflow-hidden ${isDragOver ? 'border-primary ring-1 ring-primary/20' : isSelected ? 'border-primary/60 ring-1 ring-primary/20' : 'border-border'}`}
+            onDragOver={handleExternalDragOver}
+            onDragLeave={handleExternalDragLeave}
+            onDrop={handleExternalDrop}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectWidget?.();
             }}
           >
-            {components.map((component) => (
-              <ComponentItem
-                key={component.instanceId}
-                component={component}
-                isSelected={selectedComponentId === component.instanceId}
-                containerRef={containerRef}
-                siblings={componentRects.filter(r => r.id !== component.instanceId)}
-                scale={scale}
-                anySiblingActive={activeComponentId !== null && activeComponentId !== component.instanceId}
-                onBoundsChange={(bounds) => onUpdateComponentBounds?.(component.instanceId, bounds)}
-                onSelect={() => onSelectComponent?.(component)}
-                onRemove={() => onRemoveComponent?.(component.instanceId)}
-                onZOrderChange={onUpdateComponentZOrder ? (op) => onUpdateComponentZOrder(component.instanceId, op) : undefined}
-                onGuidesChange={(guides) => handleGuidesChange(component.instanceId, guides)}
-                onActiveChange={(isActive) => setActiveComponentId(isActive ? component.instanceId : null)}
-              />
-            ))}
-          </div>
+            {/* Widget toolbar */}
+            <WidgetToolbar onDelete={onDelete} showDragHandle={showDragHandle} />
 
-          {/* Drop indicator overlay */}
-          {isDragOver && (
-            <div className="absolute inset-0 flex items-center justify-center bg-primary/10 rounded-lg pointer-events-none z-20">
-              <div className="flex items-center gap-2 text-primary bg-background/90 px-4 py-2 rounded-lg shadow-lg">
-                <Plus className="h-5 w-5" />
-                <span className="text-sm font-medium">Drop to add</span>
-              </div>
+            {/* Alignment guides overlay */}
+            <AlignmentGuides guides={activeGuides} />
+
+            {/* Components container - relative for absolute positioning of children */}
+            <div
+              className="relative p-2"
+              style={{
+                minHeight: Math.max(contentHeight, 100),
+              }}
+            >
+              {components.map((component) => (
+                <ComponentItem
+                  key={component.instanceId}
+                  component={component}
+                  isSelected={selectedComponentId === component.instanceId}
+                  containerRef={containerRef}
+                  siblings={componentRects.filter(r => r.id !== component.instanceId)}
+                  scale={scale}
+                  anySiblingActive={activeComponentId !== null && activeComponentId !== component.instanceId}
+                  onBoundsChange={(bounds) => onUpdateComponentBounds?.(component.instanceId, bounds)}
+                  onSelect={() => onSelectComponent?.(component)}
+                  onRemove={() => onRemoveComponent?.(component.instanceId)}
+                  onZOrderChange={onUpdateComponentZOrder ? (op) => onUpdateComponentZOrder(component.instanceId, op) : undefined}
+                  onGuidesChange={(guides) => handleGuidesChange(component.instanceId, guides)}
+                  onActiveChange={(isActive) => setActiveComponentId(isActive ? component.instanceId : null)}
+                />
+              ))}
             </div>
+
+            {/* Drop indicator overlay */}
+            {isDragOver && (
+              <div className="absolute inset-0 flex items-center justify-center bg-primary/10 rounded-lg pointer-events-none z-20">
+                <div className="flex items-center gap-2 text-primary bg-background/90 px-4 py-2 rounded-lg shadow-lg">
+                  <Plus className="h-5 w-5" />
+                  <span className="text-sm font-medium">Drop to add</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-56">
+          {/* Copy & Duplicate */}
+          {onCopy && (
+            <ContextMenuItem onClick={onCopy}>
+              <Clipboard className="h-4 w-4 mr-2" />
+              Copy
+              <ContextMenuShortcut>⌘C</ContextMenuShortcut>
+            </ContextMenuItem>
           )}
-        </div>
-      </ContextMenuTrigger>
-      <ContextMenuContent className="w-48">
-        {onWidgetZOrderChange && (
-          <>
-            <ContextMenuItem onClick={() => onWidgetZOrderChange('bringToFront')}>
-              <ChevronsUp className="h-4 w-4 mr-2" />
-              Bring to Front
+          {onDuplicate && (
+            <ContextMenuItem onClick={() => setShowDuplicateDialog(true)}>
+              <Copy className="h-4 w-4 mr-2" />
+              Duplicate...
             </ContextMenuItem>
-            <ContextMenuItem onClick={() => onWidgetZOrderChange('bringForward')}>
-              <ArrowUp className="h-4 w-4 mr-2" />
-              Bring Forward
-            </ContextMenuItem>
-            <ContextMenuItem onClick={() => onWidgetZOrderChange('sendBackward')}>
-              <ArrowDown className="h-4 w-4 mr-2" />
-              Send Backward
-            </ContextMenuItem>
-            <ContextMenuItem onClick={() => onWidgetZOrderChange('sendToBack')}>
-              <ChevronsDown className="h-4 w-4 mr-2" />
-              Send to Back
-            </ContextMenuItem>
-            <ContextMenuSeparator />
-          </>
-        )}
-        <ContextMenuItem variant="destructive" onClick={onDelete}>
-          <Trash2 className="h-4 w-4 mr-2" />
-          Delete Widget
-        </ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
+          )}
+          {(onCopy || onDuplicate) && <ContextMenuSeparator />}
+
+          {/* Z-Order */}
+          {onWidgetZOrderChange && (
+            <>
+              <ContextMenuItem onClick={() => onWidgetZOrderChange('bringToFront')}>
+                <ChevronsUp className="h-4 w-4 mr-2" />
+                Bring to Front
+                <ContextMenuShortcut>⌘⇧]</ContextMenuShortcut>
+              </ContextMenuItem>
+              <ContextMenuItem onClick={() => onWidgetZOrderChange('bringForward')}>
+                <ArrowUp className="h-4 w-4 mr-2" />
+                Bring Forward
+                <ContextMenuShortcut>⌘]</ContextMenuShortcut>
+              </ContextMenuItem>
+              <ContextMenuItem onClick={() => onWidgetZOrderChange('sendBackward')}>
+                <ArrowDown className="h-4 w-4 mr-2" />
+                Send Backward
+                <ContextMenuShortcut>⌘[</ContextMenuShortcut>
+              </ContextMenuItem>
+              <ContextMenuItem onClick={() => onWidgetZOrderChange('sendToBack')}>
+                <ChevronsDown className="h-4 w-4 mr-2" />
+                Send to Back
+                <ContextMenuShortcut>⌘⇧[</ContextMenuShortcut>
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+            </>
+          )}
+
+          {/* Lock */}
+          {onLockChange && (
+            <>
+              <ContextMenuItem onClick={() => onLockChange(!widget.locked)}>
+                {widget.locked ? (
+                  <>
+                    <Unlock className="h-4 w-4 mr-2" />
+                    Unlock
+                  </>
+                ) : (
+                  <>
+                    <Lock className="h-4 w-4 mr-2" />
+                    Lock
+                  </>
+                )}
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+            </>
+          )}
+
+          {/* Delete */}
+          <ContextMenuItem variant="destructive" onClick={onDelete}>
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete Widget
+            <ContextMenuShortcut>⌫</ContextMenuShortcut>
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+
+      {/* Duplicate Dialog */}
+      {onDuplicate && (
+        <DuplicateWidgetDialog
+          open={showDuplicateDialog}
+          onOpenChange={setShowDuplicateDialog}
+          onDuplicate={onDuplicate}
+        />
+      )}
+    </>
   );
 }

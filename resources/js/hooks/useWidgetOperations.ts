@@ -8,11 +8,12 @@
  * - Updating component bounds (freeform pixel positioning)
  */
 
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { WidgetSchema, WidgetComponent, ComponentCard } from '@/types/dashboard';
 import type { ArtboardSchema } from '@/types/artboard';
 import { getDefaultSize } from '@/lib/component-sizes';
 import { findInitialPosition, type ComponentRect } from '@/lib/collision-detection';
+import { calculateArtboardGridConfig, calculateEffectiveGridConfig } from '@/lib/artboard-utils';
 
 export interface UseWidgetOperationsOptions {
     /** Current artboard */
@@ -26,6 +27,12 @@ export interface UseWidgetOperationsReturn {
     addWidget: () => WidgetSchema;
     /** Delete a widget by ID */
     deleteWidget: (widgetId: string) => void;
+    /** Duplicate a widget with optional count and options */
+    duplicateWidget: (widgetId: string, count?: number, options?: { fill?: boolean }) => void;
+    /** Paste a widget from clipboard data */
+    pasteWidget: (widgetData: WidgetSchema) => void;
+    /** Update widget lock state */
+    updateWidgetLock: (widgetId: string, locked: boolean) => void;
     /** Add a component to a widget */
     addComponentToWidget: (widgetId: string, component: ComponentCard, containerSize?: { width: number; height: number }) => void;
     /** Remove a component from a widget */
@@ -249,9 +256,130 @@ export function useWidgetOperations({
         [artboard.id, artboard.widgets, onUpdate]
     );
 
+    const duplicateWidget = useCallback(
+        (widgetId: string, count: number = 1, options: { fill?: boolean } = {}) => {
+            const widget = artboard.widgets.find(w => w.id === widgetId);
+            if (!widget) return;
+
+            // Calculate effective grid bounds (accounting for container padding)
+            const effectiveGridConfig = calculateEffectiveGridConfig(artboard.dimensions);
+
+            // Calculate adaptive offset (proportional to artboard width) instead of fixed +2
+            // Use 2% of columns, min 2 units, max 5 units
+            const offsetUnits = Math.max(2, Math.min(5, Math.floor(effectiveGridConfig.columns * 0.02)));
+
+            const newWidgets: WidgetSchema[] = [];
+            for (let i = 0; i < count; i++) {
+                let newX, newY, newW, newH;
+
+                if (options.fill) {
+                    // Fill Mode: Cover entire artboard
+                    newX = 0;
+                    newY = 0;
+                    newW = effectiveGridConfig.columns;
+                    newH = effectiveGridConfig.maxRows;
+                } else {
+                    // Standard Mode: Offset slightly
+                    newW = widget.w;
+                    newH = widget.h;
+
+                    const totalOffset = (i + 1) * offsetUnits;
+                    newX = widget.x + totalOffset;
+                    newY = widget.y + totalOffset;
+
+                    // Clamp to stay within artboard bounds
+                    const maxX = effectiveGridConfig.columns - newW;
+                    newX = Math.max(0, Math.min(newX, maxX));
+                    newY = Math.max(0, newY);
+
+                    // If x would overflow, wrap to next row at x=0
+                    if (newX + newW > effectiveGridConfig.columns) {
+                        newX = 0;
+                        newY = widget.y + widget.h + (i * offsetUnits);
+                    }
+                }
+
+                const newWidget: WidgetSchema = {
+                    ...widget,
+                    id: `widget-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${i}`,
+                    x: newX,
+                    y: newY,
+                    w: newW,
+                    h: newH,
+                    // Deep clone components with new IDs when filling? 
+                    // Usually we keep components, but their positions might need adjustment if using % based
+                    // but for now we just clone them as is. GridStack inside components (if any) or freeform 
+                    // layout might need specific handling, but we leave that to the component layer for now.
+                    components: widget.components.map(c => ({
+                        ...c,
+                        instanceId: `comp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    })),
+                };
+                newWidgets.push(newWidget);
+            }
+
+            const updatedWidgets = [...artboard.widgets, ...newWidgets];
+            onUpdate(artboard.id, { widgets: updatedWidgets });
+        },
+        [artboard.id, artboard.widgets, artboard.dimensions, onUpdate]
+    );
+
+    const updateWidgetLock = useCallback(
+        (widgetId: string, locked: boolean) => {
+            const updatedWidgets = artboard.widgets.map((w) =>
+                w.id === widgetId ? { ...w, locked } : w
+            );
+            onUpdate(artboard.id, { widgets: updatedWidgets });
+        },
+        [artboard.id, artboard.widgets, onUpdate]
+    );
+
+    const pasteWidget = useCallback(
+        (widgetData: WidgetSchema) => {
+            // Calculate effective grid bounds (accounting for container padding)
+            const effectiveGridConfig = calculateEffectiveGridConfig(artboard.dimensions);
+            const maxX = effectiveGridConfig.columns - widgetData.w;
+
+            // Calculate offset position, clamped within bounds
+            let newX = widgetData.x + 2;
+            let newY = widgetData.y + 2;
+
+            // Clamp to stay within artboard bounds
+            newX = Math.max(0, Math.min(newX, maxX));
+            newY = Math.max(0, newY);
+
+            // If x would still overflow (widget too wide), place at x=0
+            if (newX + widgetData.w > effectiveGridConfig.columns) {
+                newX = 0;
+            }
+
+            // Create a new widget with fresh IDs based on the pasted data
+            const newWidget: WidgetSchema = {
+                ...widgetData,
+                id: `widget-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                x: newX,
+                y: newY,
+                // Clamp width if widget is too wide for artboard
+                w: Math.min(widgetData.w, effectiveGridConfig.columns),
+                // Deep clone components with new IDs
+                components: widgetData.components.map(c => ({
+                    ...c,
+                    instanceId: `comp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                })),
+            };
+
+            const updatedWidgets = [...artboard.widgets, newWidget];
+            onUpdate(artboard.id, { widgets: updatedWidgets });
+        },
+        [artboard.id, artboard.widgets, artboard.dimensions, onUpdate]
+    );
+
     return {
         addWidget,
         deleteWidget,
+        duplicateWidget,
+        pasteWidget,
+        updateWidgetLock,
         addComponentToWidget,
         removeComponentFromWidget,
         reorderComponents,

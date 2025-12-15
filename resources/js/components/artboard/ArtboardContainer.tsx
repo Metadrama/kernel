@@ -10,7 +10,7 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
 import { GridStack, GridStackNode } from 'gridstack';
-import { Trash2, Lock, Unlock, Eye, EyeOff, MoreVertical, Copy, Settings } from 'lucide-react';
+import { Trash2, Lock, Unlock, Eye, EyeOff, MoreVertical, Copy, Settings, Clipboard } from 'lucide-react';
 import 'gridstack/dist/gridstack.min.css';
 import WidgetShell from '@/components/WidgetShell';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
+  ContextMenuShortcut,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import {
@@ -34,7 +35,7 @@ import { useArtboardContext } from '@/context/ArtboardContext';
 import { useWidgetOperations, useArtboardDrag, useKeyboardShortcuts } from '@/hooks';
 import type { ArtboardSchema } from '@/types/artboard';
 import type { WidgetSchema, WidgetComponent, ComponentCard } from '@/types/dashboard';
-import { calculateArtboardGridConfig } from '@/lib/artboard-utils';
+import { calculateArtboardGridConfig, calculateEffectiveGridConfig } from '@/lib/artboard-utils';
 import type { SnapLine } from '@/lib/snap-utils';
 
 /**
@@ -149,6 +150,9 @@ function ArtboardContainer({
   const {
     addWidget: addWidgetToState,
     deleteWidget: deleteWidgetFromState,
+    duplicateWidget,
+    pasteWidget,
+    updateWidgetLock,
     addComponentToWidget,
     removeComponentFromWidget,
     reorderComponents,
@@ -156,6 +160,21 @@ function ArtboardContainer({
     updateComponentZOrder,
     updateWidgetZOrder,
   } = useWidgetOperations({ artboard, onUpdate });
+
+  // Handle paste from clipboard
+  const handlePaste = useCallback(async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      const widgetData = JSON.parse(text);
+      // Validate it looks like a widget
+      if (widgetData && widgetData.id && typeof widgetData.w === 'number' && Array.isArray(widgetData.components)) {
+        pasteWidget(widgetData);
+      }
+    } catch (error) {
+      // Clipboard doesn't contain valid widget data, ignore
+      console.debug('Paste failed: clipboard does not contain valid widget data');
+    }
+  }, [pasteWidget]);
 
   // Keyboard shortcuts for selected widget
   useKeyboardShortcuts({
@@ -173,6 +192,21 @@ function ArtboardContainer({
     },
   });
 
+  // Ctrl+V paste handler for artboard
+  useEffect(() => {
+    if (!isSelected) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        e.preventDefault();
+        handlePaste();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSelected, handlePaste]);
+
   // Calculate display position (canvas space -> screen space)
 
 
@@ -184,11 +218,15 @@ function ArtboardContainer({
     artboardRef.current = artboard;
   }, [artboard]);
 
+
   useEffect(() => {
     if (!gridRef.current) return;
 
     // Track if we're in the middle of a cross-grid transfer to prevent React conflicts
     let isTransferring = false;
+
+    // Calculate effective grid configuration (accounting for container padding)
+    const effectiveGridConfig = calculateEffectiveGridConfig(artboard.dimensions);
 
     // Initialize grid with acceptWidgets for cross-artboard transfer
     const grid = GridStack.init(
@@ -199,6 +237,7 @@ function ArtboardContainer({
         float: true,  // Allow free positioning like Figma
         animate: true,
         minRow: 5,    // Minimum rows to ensure empty artboards have drop zone
+        maxRow: effectiveGridConfig.maxRows, // Maximum rows based on effective height
         acceptWidgets: '.grid-stack-item', // Accept widgets from any grid
         draggable: {
           // Cancel on component handles so they don't trigger widget drag
@@ -300,12 +339,42 @@ function ArtboardContainer({
         const updated = items.find((item) => (item.id ?? item.el?.id) === widget.id);
         if (!updated) return widget;
 
+        // Enforce bounds constraints
+        let newX = updated.x ?? widget.x;
+        let newY = updated.y ?? widget.y;
+        let newW = Math.max(1, updated.w ?? widget.w);
+        let newH = Math.max(1, updated.h ?? widget.h);
+
+        // Clamp X within bounds (0 to columns - width)
+        newX = Math.max(0, Math.min(newX, gridSettings.columns - newW));
+
+        // Clamp Y within bounds (0 to maxRows - height) - use effective maxRows
+        newY = Math.max(0, Math.min(newY, effectiveGridConfig.maxRows - newH));
+
+        // Clamp width to not exceed columns
+        if (newX + newW > gridSettings.columns) {
+          newW = gridSettings.columns - newX;
+        }
+
+        // Clamp height to not exceed max rows
+        if (newY + newH > effectiveGridConfig.maxRows) {
+          newH = effectiveGridConfig.maxRows - newY;
+        }
+
+        // If constraints changed the values, update GridStack
+        if (newX !== updated.x || newY !== updated.y || newW !== updated.w || newH !== updated.h) {
+          const element = document.getElementById(widget.id);
+          if (element && grid) {
+            grid.update(element, { x: newX, y: newY, w: newW, h: newH });
+          }
+        }
+
         return {
           ...widget,
-          x: updated.x ?? widget.x,
-          y: updated.y ?? widget.y,
-          w: Math.max(1, updated.w ?? widget.w),
-          h: Math.max(1, updated.h ?? widget.h),
+          x: newX,
+          y: newY,
+          w: newW,
+          h: newH,
         };
       });
 
@@ -316,7 +385,7 @@ function ArtboardContainer({
       grid.destroy(false);
       gridInstanceRef.current = null;
     };
-  }, [artboard.id, gridSettings, onUpdate]);
+  }, [artboard.id, artboard.dimensions, gridSettings, onUpdate]);
 
 
   // ============================================================================
@@ -359,6 +428,43 @@ function ArtboardContainer({
     // Then update React state
     deleteWidgetFromState(widgetId);
   };
+
+  // Track widget IDs to detect new widgets added via paste/duplicate
+  const previousWidgetIdsRef = useRef<Set<string>>(new Set(artboard.widgets.map(w => w.id)));
+
+  useEffect(() => {
+    const currentIds = new Set(artboard.widgets.map(w => w.id));
+    const previousIds = previousWidgetIdsRef.current;
+
+    // Find newly added widgets
+    const newWidgetIds = [...currentIds].filter(id => !previousIds.has(id));
+
+    if (newWidgetIds.length > 0 && gridInstanceRef.current) {
+      // Register new widgets with GridStack after a brief delay for React to render them
+      setTimeout(() => {
+        if (!gridInstanceRef.current) return;
+
+        newWidgetIds.forEach(widgetId => {
+          const element = document.getElementById(widgetId);
+          if (element && !element.classList.contains('ui-draggable')) {
+            try {
+              gridInstanceRef.current!.makeWidget(element);
+              gridInstanceRef.current!.update(element, {
+                minW: 20,
+                minH: 15,
+                maxW: gridSettings.columns,
+              });
+            } catch (e) {
+              console.debug('Widget already registered:', widgetId);
+            }
+          }
+        });
+      }, 20);
+    }
+
+    // Update the ref for next comparison
+    previousWidgetIdsRef.current = currentIds;
+  }, [artboard.widgets, gridSettings.columns]);
 
   // ============================================================================
   // Drag & Drop (Component from Sidebar)
@@ -639,6 +745,16 @@ function ArtboardContainer({
                           onWidgetZOrderChange={(operation) =>
                             updateWidgetZOrder(widget.id, operation)
                           }
+                          onLockChange={(locked) =>
+                            updateWidgetLock(widget.id, locked)
+                          }
+                          onCopy={() => {
+                            // Copy widget data to clipboard
+                            navigator.clipboard.writeText(JSON.stringify(widget));
+                          }}
+                          onDuplicate={(count, options) =>
+                            duplicateWidget(widget.id, count, options)
+                          }
                           onSelectComponent={(component) => {
                             setSelectedWidgetId(null); // Clear widget selection when component is selected
                             onSelectComponent(artboard.id, widget.id, component);
@@ -661,6 +777,12 @@ function ArtboardContainer({
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent className="w-64">
+          <ContextMenuItem onClick={handlePaste}>
+            <Clipboard className="mr-2 h-4 w-4" />
+            Paste
+            <ContextMenuShortcut>⌘V</ContextMenuShortcut>
+          </ContextMenuItem>
+          <ContextMenuSeparator />
           <ContextMenuItem onClick={addWidget}>
             Add Widget
           </ContextMenuItem>

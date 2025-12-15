@@ -220,6 +220,41 @@ export function calculateArtboardGridConfig(dimensions: ArtboardDimensions) {
 }
 
 /**
+ * Artboard container padding (from Tailwind p-4 class)
+ * This padding reduces the actual available space for GridStack
+ */
+export const ARTBOARD_CONTAINER_PADDING = 16; // px (p-4 = 16px)
+
+/**
+ * Calculate effective grid configuration accounting for container padding
+ * 
+ * The GridStack container has padding which reduces available space.
+ * This function calculates the true dimensions GridStack can use.
+ */
+export function calculateEffectiveGridConfig(dimensions: ArtboardDimensions) {
+  // Account for container padding on both sides
+  const paddingTotal = ARTBOARD_CONTAINER_PADDING * 2;
+
+  const effectiveDimensions: ArtboardDimensions = {
+    ...dimensions,
+    widthPx: dimensions.widthPx - paddingTotal,
+    heightPx: dimensions.heightPx - paddingTotal,
+  };
+
+  const gridConfig = calculateArtboardGridConfig(effectiveDimensions);
+
+  // Calculate maximum rows based on effective height
+  const maxRows = Math.ceil(effectiveDimensions.heightPx / gridConfig.cellHeight);
+
+  return {
+    ...gridConfig,
+    maxRows,
+    effectiveWidth: effectiveDimensions.widthPx,
+    effectiveHeight: effectiveDimensions.heightPx,
+  };
+}
+
+/**
  * Scale dimensions while maintaining aspect ratio
  * Used for zoom/preview functionality
  */

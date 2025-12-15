@@ -36,6 +36,8 @@ export interface WidgetSchema {
   h: number;
   // Stacking order (higher = on top)
   zIndex?: number;
+  // Lock widget position/size
+  locked?: boolean;
   // Canvas-space position (only for archived widgets on canvas)
   canvasX?: number;
   canvasY?: number;

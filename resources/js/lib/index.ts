@@ -18,6 +18,8 @@ export {
     findArtboardAtPosition,
     validateArtboardPosition,
     calculateArtboardGridConfig,
+    calculateEffectiveGridConfig,
+    ARTBOARD_CONTAINER_PADDING,
     scaleDimensions,
     canvasToArtboardCoords,
     artboardToCanvasCoords,
