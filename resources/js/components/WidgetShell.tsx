@@ -436,15 +436,48 @@ export default function WidgetShell({
 
   if (isEmpty) {
     return (
-      <EmptyWidgetState
-        ref={containerRef}
-        isDragOver={isDragOver}
-        onDelete={onDelete}
-        onDragOver={handleExternalDragOver}
-        onDragLeave={handleExternalDragLeave}
-        onDrop={handleExternalDrop}
-        showDragHandle={showDragHandle}
-      />
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <EmptyWidgetState
+            ref={containerRef}
+            isDragOver={isDragOver}
+            onDelete={onDelete}
+            onDragOver={handleExternalDragOver}
+            onDragLeave={handleExternalDragLeave}
+            onDrop={handleExternalDrop}
+            showDragHandle={showDragHandle}
+            isSelected={isSelected}
+            onSelectWidget={onSelectWidget}
+          />
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-48">
+          {onWidgetZOrderChange && (
+            <>
+              <ContextMenuItem onClick={() => onWidgetZOrderChange('bringToFront')}>
+                <ChevronsUp className="h-4 w-4 mr-2" />
+                Bring to Front
+              </ContextMenuItem>
+              <ContextMenuItem onClick={() => onWidgetZOrderChange('bringForward')}>
+                <ArrowUp className="h-4 w-4 mr-2" />
+                Bring Forward
+              </ContextMenuItem>
+              <ContextMenuItem onClick={() => onWidgetZOrderChange('sendBackward')}>
+                <ArrowDown className="h-4 w-4 mr-2" />
+                Send Backward
+              </ContextMenuItem>
+              <ContextMenuItem onClick={() => onWidgetZOrderChange('sendToBack')}>
+                <ChevronsDown className="h-4 w-4 mr-2" />
+                Send to Back
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+            </>
+          )}
+          <ContextMenuItem variant="destructive" onClick={onDelete}>
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete Widget
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
     );
   }
 

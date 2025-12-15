@@ -6,7 +6,7 @@ import { Plus, GripVertical, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { forwardRef } from 'react';
 
-interface EmptyWidgetStateProps {
+interface EmptyWidgetStateProps extends React.HTMLAttributes<HTMLDivElement> {
     isDragOver: boolean;
     onDelete?: () => void;
     onDragOver: (e: React.DragEvent) => void;
@@ -14,20 +14,31 @@ interface EmptyWidgetStateProps {
     onDrop: (e: React.DragEvent) => void;
     /** Whether to show the drag handle (default: true). Set to false when handle is rendered externally. */
     showDragHandle?: boolean;
+    /** Whether the widget is selected */
+    isSelected?: boolean;
+    /** Callback when widget is clicked/selected */
+    onSelectWidget?: () => void;
 }
 
 const EmptyWidgetState = forwardRef<HTMLDivElement, EmptyWidgetStateProps>(
-    ({ isDragOver, onDelete, onDragOver, onDragLeave, onDrop, showDragHandle = true }, ref) => {
+    ({ isDragOver, onDelete, onDragOver, onDragLeave, onDrop, showDragHandle = true, isSelected, onSelectWidget, className, ...props }, ref) => {
         return (
             <div
                 ref={ref}
                 className={`group relative h-full w-full rounded-lg border-2 border-dashed bg-card text-card-foreground shadow-sm transition-all duration-200 ease-out hover:shadow-md ${isDragOver
                     ? 'border-primary bg-primary/5 shadow-lg scale-[1.01]'
-                    : 'hover:border-primary/50'
-                    }`}
+                    : isSelected
+                        ? 'border-primary/60 ring-1 ring-primary/20'
+                        : 'hover:border-primary/50'
+                    } ${className || ''}`}
                 onDragOver={onDragOver}
                 onDragLeave={onDragLeave}
                 onDrop={onDrop}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectWidget?.();
+                }}
+                {...props}
             >
                 {/* Toolbar */}
                 <div className="absolute bottom-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
@@ -71,3 +82,4 @@ const EmptyWidgetState = forwardRef<HTMLDivElement, EmptyWidgetStateProps>(
 EmptyWidgetState.displayName = 'EmptyWidgetState';
 
 export default EmptyWidgetState;
+
