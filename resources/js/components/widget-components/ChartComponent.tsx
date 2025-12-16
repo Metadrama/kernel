@@ -1,4 +1,5 @@
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ResponsivePie } from '@nivo/pie';
 import { ResponsiveBar } from '@nivo/bar';
 import { ResponsiveLine } from '@nivo/line';
@@ -73,6 +74,59 @@ function getChartColors(count: number, palette: keyof typeof COLOR_PALETTES = 'v
     }
     return result;
 }
+
+const PortalTooltip = ({ children }: { children: React.ReactNode }) => {
+    const [pos, setPos] = useState({ x: 0, y: 0 });
+    useEffect(() => {
+        const update = (e: MouseEvent) => setPos({ x: e.clientX, y: e.clientY });
+        window.addEventListener('mousemove', update);
+        return () => window.removeEventListener('mousemove', update);
+    }, []);
+
+    if (pos.x === 0 && pos.y === 0) return null;
+
+    return createPortal(
+        <div style={{
+            position: 'fixed',
+            left: pos.x + 12,
+            top: pos.y + 12,
+            zIndex: 9999,
+            pointerEvents: 'none'
+        }}>
+            {children}
+        </div>,
+        document.body
+    );
+};
+
+const ChartTooltip = ({ color, title, subtitle }: { color: string; title: React.ReactNode; subtitle?: React.ReactNode }) => {
+    return (
+        <PortalTooltip>
+            <div
+                style={{
+                    padding: '8px 12px',
+                    background: 'var(--card)',
+                    color: 'var(--card-foreground)',
+                    borderRadius: 6,
+                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+                    border: '1px solid var(--border)',
+                }}
+            >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: subtitle ? 4 : 0 }}>
+                    <div style={{ width: 12, height: 12, borderRadius: 2, background: color }} />
+                    <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--foreground)' }}>
+                        {title}
+                    </span>
+                </div>
+                {subtitle && (
+                    <div style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>
+                        {subtitle}
+                    </div>
+                )}
+            </div>
+        </PortalTooltip>
+    );
+};
 
 export interface ChartComponentConfigProps {
     config?: Partial<ChartConfig> & {
@@ -189,28 +243,27 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
         // Premium modern theme with better typography and spacing
         const theme = {
             text: {
-                fill: 'hsl(var(--foreground) / 0.7)',
+                fill: 'var(--foreground)',
                 fontSize: 11,
                 fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
                 fontWeight: 500
             },
             tooltip: {
                 container: {
-                    background: 'hsl(var(--popover))',
-                    color: 'hsl(var(--popover-foreground))',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    borderRadius: 8,
-                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1), 0 0 0 1px hsl(var(--border))',
-                    padding: '10px 14px',
-                    border: 'none',
-                    backdropFilter: 'blur(8px)',
+                    background: 'var(--card)',
+                    color: 'var(--card-foreground)',
+                    fontSize: 12,
+                    fontWeight: 500,
+                    borderRadius: 6,
+                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+                    padding: '8px 12px',
+                    border: '1px solid var(--border)',
                 }
             },
             axis: {
                 ticks: {
                     text: {
-                        fill: 'hsl(var(--muted-foreground) / 0.6)',
+                        fill: 'var(--muted-foreground)',
                         fontSize: 10,
                         fontWeight: 500
                     },
@@ -218,17 +271,17 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                 },
                 legend: {
                     text: {
-                        fill: 'hsl(var(--foreground) / 0.8)',
+                        fill: 'var(--foreground)',
                         fontSize: 12,
                         fontWeight: 600
                     }
                 },
                 domain: {
-                    line: { stroke: 'hsl(var(--border) / 0.3)', strokeWidth: 1 }
+                    line: { stroke: 'var(--border)', strokeWidth: 1, strokeOpacity: 0.5 }
                 }
             },
             grid: {
-                line: { stroke: 'hsl(var(--border) / 0.15)', strokeWidth: 1 }
+                line: { stroke: 'var(--border)', strokeWidth: 1, strokeOpacity: 0.2 }
             }
         };
 
@@ -258,7 +311,7 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                     itemsSpacing: 0,
                     itemWidth: isVertical ? 100 : 80,
                     itemHeight: 20,
-                    itemTextColor: 'hsl(var(--muted-foreground))',
+                    itemTextColor: 'var(--muted-foreground)',
                     itemDirection: 'left-to-right',
                     itemOpacity: 1,
                     symbolSize: 10,
@@ -267,7 +320,7 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                         {
                             on: 'hover',
                             style: {
-                                itemTextColor: 'hsl(var(--foreground))'
+                                itemTextColor: 'var(--foreground)'
                             }
                         }
                     ]
@@ -307,7 +360,7 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                     // Spider Labels
                     enableArcLinkLabels={isSpider}
                     arcLinkLabelsSkipAngle={8}
-                    arcLinkLabelsTextColor="hsl(var(--foreground) / 0.8)"
+                    arcLinkLabelsTextColor="var(--foreground)"
                     arcLinkLabelsThickness={2}
                     arcLinkLabelsColor={{ from: 'color', modifiers: [['opacity', 0.5]] }}
 
@@ -324,7 +377,9 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                     motionConfig="wobbly"
                     transitionMode="middleAngle"
                     legends={getLegends('circle') as any}
-                    tooltip={showTooltip ? undefined : () => null}
+                    tooltip={showTooltip ? ({ datum: d }) => (
+                        <ChartTooltip color={d.color} title={`${d.label}: ${d.value}`} />
+                    ) : undefined}
                     layers={['arcs', 'arcLabels', 'arcLinkLabels', 'legends']}
                     defs={[
                         {
@@ -390,22 +445,7 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                     animate={true}
                     motionConfig="gentle"
                     tooltip={showTooltip ? ({ id, value, color, indexValue }) => (
-                        <div
-                            style={{
-                                padding: '10px 14px',
-                                background: 'hsl(var(--popover))',
-                                borderRadius: 8,
-                                boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
-                                border: '1px solid hsl(var(--border))',
-                            }}
-                        >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <div style={{ width: 12, height: 12, borderRadius: 3, background: color }} />
-                                <span style={{ fontWeight: 600, fontSize: 13, color: 'hsl(var(--foreground))' }}>
-                                    {indexValue}: {value}
-                                </span>
-                            </div>
-                        </div>
+                        <ChartTooltip color={color} title={`${indexValue}: ${value}`} />
                     ) : () => null}
 
                     defs={[
@@ -484,25 +524,13 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                 crosshairType="cross"
 
                 tooltip={showTooltip ? ({ point }) => (
-                    <div
-                        style={{
-                            padding: '10px 14px',
-                            background: 'hsl(var(--popover))',
-                            borderRadius: 8,
-                            boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
-                            border: '1px solid hsl(var(--border))',
-                        }}
-                    >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                            <div style={{ width: 12, height: 12, borderRadius: '50%', background: point.color }} />
-                            <span style={{ fontWeight: 600, fontSize: 13, color: 'hsl(var(--foreground))' }}>
-                                {point.id}
-                            </span>
-                        </div>
-                        <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
-                            {point.data.xFormatted}: <strong style={{ color: 'hsl(var(--foreground))' }}>{point.data.yFormatted}</strong>
-                        </div>
-                    </div>
+                    <ChartTooltip
+                        color={point.color}
+                        title={point.id}
+                        subtitle={
+                            <>{point.data.xFormatted}: <strong style={{ color: 'var(--foreground)' }}>{point.data.yFormatted}</strong></>
+                        }
+                    />
                 ) : () => null}
 
                 defs={[
