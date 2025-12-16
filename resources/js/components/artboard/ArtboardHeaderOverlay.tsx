@@ -5,7 +5,7 @@
  * positioned absolutely in screen space regardless of canvas zoom.
  */
 
-import { Lock, Unlock, EyeOff, Trash2, Copy, MoreVertical, Plus } from 'lucide-react';
+import { Lock, Unlock, EyeOff, Trash2, Copy, MoreVertical, Plus, FileJson, FileType } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
@@ -15,6 +15,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { ArtboardSchema } from '@/types/artboard';
+import { exportArtboardToJson, exportArtboardToPdf } from '@/lib/artboard-utils';
 
 interface ArtboardHeaderOverlayProps {
     artboards: ArtboardSchema[];
@@ -122,6 +123,15 @@ export default function ArtboardHeaderOverlay({
                                             <DropdownMenuItem onClick={() => console.log('Duplicate artboard')}>
                                                 <Copy className="mr-2 h-4 w-4" />
                                                 Duplicate
+                                            </DropdownMenuItem>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem onClick={() => exportArtboardToJson(artboard)}>
+                                                <FileJson className="mr-2 h-4 w-4" />
+                                                Export JSON
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => exportArtboardToPdf(artboard)}>
+                                                <FileType className="mr-2 h-4 w-4" />
+                                                Export PDF
                                             </DropdownMenuItem>
                                             <DropdownMenuSeparator />
                                             <DropdownMenuItem

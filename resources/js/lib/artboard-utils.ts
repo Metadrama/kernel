@@ -383,3 +383,72 @@ export function findNextAvailablePosition(
     // Fallback: Just return offset (should catch above unless full)
     return { x: x + 2, y: y + 2 };
 }
+
+/**
+ * Export artboard to JSON file
+ */
+export function exportArtboardToJson(artboard: ArtboardSchema): void {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(artboard, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", `${artboard.name || 'artboard'}.json`);
+    document.body.appendChild(downloadAnchorNode); // required for firefox
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+}
+
+/**
+ * Export artboard to PDF
+ * Requires html2canvas and jspdf
+ */
+export async function exportArtboardToPdf(artboard: ArtboardSchema): Promise<void> {
+    try {
+        const html2canvas = (await import('html2canvas')).default;
+        const { jsPDF } = await import('jspdf');
+
+        const element = document.querySelector(`[data-artboard-id="${artboard.id}"]`) as HTMLElement;
+        if (!element) {
+            console.error('Artboard element not found');
+            alert('Could not find artboard element to export.');
+            return;
+        }
+
+        // Show a loading indicator
+        const originalCursor = document.body.style.cursor;
+        document.body.style.cursor = 'wait';
+
+        try {
+            const canvas = await html2canvas(element, {
+                scale: 2, // Higher quality
+                useCORS: true,
+                logging: false,
+                backgroundColor: artboard.backgroundColor || '#ffffff',
+                ignoreElements: (element) => {
+                    // Ignore elements that shouldn't be in the PDF if necessary
+                    return false;
+                }
+            });
+
+            const imgData = canvas.toDataURL('image/png');
+
+            // Calculate PDF dimensions (px)
+            const orientation = artboard.dimensions.widthPx > artboard.dimensions.heightPx ? 'l' : 'p';
+
+            const pdf = new jsPDF({
+                orientation,
+                unit: 'px',
+                format: [artboard.dimensions.widthPx, artboard.dimensions.heightPx]
+            });
+
+            pdf.addImage(imgData, 'PNG', 0, 0, artboard.dimensions.widthPx, artboard.dimensions.heightPx);
+            pdf.save(`${artboard.name || 'artboard'}.pdf`);
+
+        } finally {
+            document.body.style.cursor = originalCursor;
+        }
+
+    } catch (error) {
+        console.error('Failed to export PDF:', error);
+        alert('Failed to export PDF. Please ensure html2canvas and jspdf are installed.');
+    }
+}

@@ -10,7 +10,7 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
 import { GridStack, GridStackNode } from 'gridstack';
-import { Trash2, Lock, Unlock, Eye, EyeOff, MoreVertical, Copy, Settings, Clipboard } from 'lucide-react';
+import { Trash2, Lock, Unlock, Eye, EyeOff, MoreVertical, Copy, Settings, Clipboard, FileJson, FileType } from 'lucide-react';
 import 'gridstack/dist/gridstack.min.css';
 import WidgetShell from '@/components/WidgetShell';
 import { Button } from '@/components/ui/button';
@@ -35,7 +35,7 @@ import { useArtboardContext } from '@/context/ArtboardContext';
 import { useWidgetOperations, useArtboardDrag, useKeyboardShortcuts } from '@/hooks';
 import type { ArtboardSchema } from '@/types/artboard';
 import type { WidgetSchema, WidgetComponent, ComponentCard } from '@/types/dashboard';
-import { calculateArtboardGridConfig, calculateEffectiveGridConfig } from '@/lib/artboard-utils';
+import { calculateArtboardGridConfig, calculateEffectiveGridConfig, exportArtboardToJson, exportArtboardToPdf } from '@/lib/artboard-utils';
 import type { SnapLine } from '@/lib/snap-utils';
 
 /**
@@ -607,6 +607,15 @@ function ArtboardContainer({
                 Duplicate
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => exportArtboardToJson(artboard)}>
+                <FileJson className="mr-2 h-4 w-4" />
+                Export JSON
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportArtboardToPdf(artboard)}>
+                <FileType className="mr-2 h-4 w-4" />
+                Export PDF
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setShowSettings(true)}>
                 <Settings className="mr-2 h-4 w-4" />
                 Settings
@@ -651,6 +660,7 @@ function ArtboardContainer({
         <ContextMenuTrigger>
           <div
             ref={containerRef}
+            data-artboard-id={artboard.id}
             className={`absolute transition-all ${isDragging ? 'cursor-grabbing' : ''}`}
             style={{
               left: displayPosition.x,
