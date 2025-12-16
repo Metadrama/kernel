@@ -60,17 +60,6 @@ const COMMON_DISPLAY_FIELDS: ConfigFieldSchema[] = [
     defaultValue: true,
     group: 'Display',
   },
-  {
-    key: 'chartScale',
-    label: 'Chart Scale',
-    type: 'range',
-    defaultValue: 1,
-    min: 0.1,
-    max: 1,
-    step: 0.05,
-    group: 'Display',
-    description: 'Adjust content size',
-  },
 ];
 
 const COLOR_FIELDS: ConfigFieldSchema[] = [

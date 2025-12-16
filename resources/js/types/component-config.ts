@@ -88,9 +88,6 @@ export interface BaseChartConfig {
 
   // Colors
   colors?: ChartColorsConfig;
-
-  // Sizing
-  chartScale?: number;
 }
 
 export interface LineChartConfig extends BaseChartConfig {

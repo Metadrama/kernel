@@ -75,6 +75,69 @@ function getChartColors(count: number, palette: keyof typeof COLOR_PALETTES = 'v
     return result;
 }
 
+/**
+ * Format number with thousands separators and optional abbreviation
+ */
+function formatNumber(value: number, options?: { compact?: boolean; decimals?: number }): string {
+    const { compact = false, decimals = 0 } = options || {};
+
+    if (compact) {
+        // Abbreviate large numbers (K, M, B)
+        const absValue = Math.abs(value);
+        if (absValue >= 1e9) {
+            return (value / 1e9).toFixed(1) + 'B';
+        }
+        if (absValue >= 1e6) {
+            return (value / 1e6).toFixed(1) + 'M';
+        }
+        if (absValue >= 1e3) {
+            return (value / 1e3).toFixed(1) + 'K';
+        }
+    }
+
+    // Format with thousands separators
+    return new Intl.NumberFormat('en-US', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+    }).format(value);
+}
+
+/**
+ * Format currency with symbol and thousands separators
+ */
+function formatCurrency(value: number, currencyCode: string = 'MYR', options?: { compact?: boolean }): string {
+    const { compact = false } = options || {};
+
+    const currencySymbols: Record<string, string> = {
+        'MYR': 'RM',
+        'USD': '$',
+        'EUR': '€',
+        'GBP': '£',
+    };
+
+    const symbol = currencySymbols[currencyCode] || currencyCode;
+
+    if (compact) {
+        // Abbreviate large numbers
+        const absValue = Math.abs(value);
+        if (absValue >= 1e9) {
+            return symbol + (value / 1e9).toFixed(1) + 'B';
+        }
+        if (absValue >= 1e6) {
+            return symbol + (value / 1e6).toFixed(1) + 'M';
+        }
+        if (absValue >= 1e3) {
+            return symbol + (value / 1e3).toFixed(1) + 'K';
+        }
+    }
+
+    // Format with thousands separators
+    return symbol + ' ' + new Intl.NumberFormat('en-US', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+    }).format(value);
+}
+
 const PortalTooltip = ({ children }: { children: React.ReactNode }) => {
     const [pos, setPos] = useState({ x: 0, y: 0 });
     useEffect(() => {
@@ -378,7 +441,10 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                     transitionMode="middleAngle"
                     legends={getLegends('circle') as any}
                     tooltip={showTooltip ? ({ datum: d }) => (
-                        <ChartTooltip color={d.color} title={`${d.label}: ${d.value}`} />
+                        <ChartTooltip
+                            color={d.color}
+                            title={`${d.label}: ${formatNumber(d.value, { decimals: 0 })}`}
+                        />
                     ) : undefined}
                     layers={['arcs', 'arcLabels', 'arcLinkLabels', 'legends']}
                     defs={[
@@ -401,11 +467,35 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
             const isHorizontal = bConfig?.horizontal ?? false;
             const isStacked = bConfig?.stacked ?? false;
 
+            // Determine formatting based on axis config
+            const formatType = bConfig?.yAxis?.formatType || 'number';
+            const currencyCode = bConfig?.yAxis?.currencyCode || 'MYR';
+
+            // Value formatter for axes - use compact for large numbers
+            const valueFormatter = (value: number) => {
+                if (formatType === 'currency') {
+                    return formatCurrency(value, currencyCode, { compact: true });
+                } else if (formatType === 'percent') {
+                    return formatNumber(value, { compact: true }) + '%';
+                }
+                return formatNumber(value, { compact: true });
+            };
+
+            // Tooltip formatter - full precision with separators
+            const tooltipFormatter = (value: number) => {
+                if (formatType === 'currency') {
+                    return formatCurrency(value, currencyCode);
+                } else if (formatType === 'percent') {
+                    return formatNumber(value, { decimals: 2 }) + '%';
+                }
+                return formatNumber(value, { decimals: 0 });
+            };
+
             const margin = {
                 top: 20 + (legendPosition === 'top' && showLegend ? 40 : 0),
                 right: 20 + (legendPosition === 'right' && showLegend ? 80 : 0),
                 bottom: 40 + (legendPosition === 'bottom' && showLegend ? 40 : 0),
-                left: 50 + (legendPosition === 'left' && showLegend ? 80 : 0),
+                left: 60 + (legendPosition === 'left' && showLegend ? 80 : 0), // Increased for currency symbols
             };
 
             return (
@@ -421,7 +511,7 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                     theme={theme}
                     borderRadius={bConfig?.borderRadius ?? 6}
 
-                    // Axes
+                    // Axes with formatting
                     axisBottom={{
                         tickSize: 0,
                         tickPadding: 12,
@@ -429,6 +519,7 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                         legend: bConfig?.xAxis?.label,
                         legendPosition: 'middle',
                         legendOffset: 32,
+                        format: isHorizontal ? valueFormatter : undefined,
                     }}
                     axisLeft={{
                         tickSize: 0,
@@ -436,7 +527,8 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                         tickRotation: 0,
                         legend: bConfig?.yAxis?.label,
                         legendPosition: 'middle',
-                        legendOffset: -40,
+                        legendOffset: -50,
+                        format: isHorizontal ? undefined : valueFormatter,
                     }}
                     enableGridX={bConfig?.xAxis?.showGridLines ?? false}
                     enableGridY={bConfig?.yAxis?.showGridLines ?? true}
@@ -445,7 +537,10 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                     animate={true}
                     motionConfig="gentle"
                     tooltip={showTooltip ? ({ id, value, color, indexValue }) => (
-                        <ChartTooltip color={color} title={`${indexValue}: ${value}`} />
+                        <ChartTooltip
+                            color={color}
+                            title={`${indexValue}: ${tooltipFormatter(value)}`}
+                        />
                     ) : () => null}
 
                     defs={[
@@ -470,11 +565,17 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
         const pointSize = (lConfig?.pointRadius ?? 4) * 2;
         const enableArea = lConfig?.fill ?? true;
 
+        // Compact formatter for axis
+        const axisFormatter = (value: number) => formatNumber(value, { compact: true });
+
+        // Full formatter for tooltip
+        const tooltipValueFormatter = (value: number) => formatNumber(value, { decimals: 2 });
+
         const margin = {
             top: 20 + (legendPosition === 'top' && showLegend ? 40 : 0),
             right: 20 + (legendPosition === 'right' && showLegend ? 80 : 0),
             bottom: 40 + (legendPosition === 'bottom' && showLegend ? 40 : 0),
-            left: 50 + (legendPosition === 'left' && showLegend ? 80 : 0),
+            left: 60 + (legendPosition === 'left' && showLegend ? 80 : 0),
         };
 
         return (
@@ -509,8 +610,9 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                     tickPadding: 12,
                     tickRotation: 0,
                     legend: lConfig?.yAxis?.label,
-                    legendOffset: -40,
-                    legendPosition: 'middle'
+                    legendOffset: -50,
+                    legendPosition: 'middle',
+                    format: axisFormatter,
                 }}
 
                 // Area
@@ -528,7 +630,7 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                         color={point.color}
                         title={point.id}
                         subtitle={
-                            <>{point.data.xFormatted}: <strong style={{ color: 'var(--foreground)' }}>{point.data.yFormatted}</strong></>
+                            <>{point.data.xFormatted}: <strong style={{ color: 'var(--foreground)' }}>{tooltipValueFormatter(point.data.y as number)}</strong></>
                         }
                     />
                 ) : () => null}
@@ -555,8 +657,6 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
     }[chartType];
 
     const bg = config?.colors?.backgroundColor || 'transparent';
-    const chartScale = config?.chartScale ?? 1;
-    const padding = `${((1 - chartScale) * 100) / 2}%`;
 
     return (
         <div
@@ -571,10 +671,7 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                     <h3 className="text-sm font-semibold text-foreground tracking-tight">{displayTitle}</h3>
                 </div>
             )}
-            <div
-                className="flex-1 relative min-h-0 min-w-0"
-                style={{ padding }}
-            >
+            <div className="flex-1 relative min-h-0 min-w-0">
                 {renderChart()}
             </div>
         </div>
