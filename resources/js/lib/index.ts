@@ -42,32 +42,7 @@ export {
 } from './collision-utils';
 export type { Bounds, ComponentWithBounds } from './collision-utils';
 
-// Component layout
-export {
-    getComponentIntrinsicSize,
-    calculateComponentDimensions,
-    findNextAvailablePosition,
-    calculateWidgetLayout,
-    gridPositionToPixels,
-    calculateTotalHeight,
-    resizeComponent,
-    DEFAULT_WIDGET_GRID,
-    COMPONENT_INTRINSIC_SIZES,
-    GRID_FINE_GRAIN,
-    GRID_BASE_COLUMNS,
-    GRID_MAX_COLUMNS,
-    upscaleGridUnits,
-    downscaleGridUnits,
-} from './component-layout';
-export type {
-    ComponentSizeMode,
-    ComponentIntrinsicSize,
-    GridPosition,
-    ComponentLayout,
-    WidgetGridConfig,
-    LayoutResult,
-    ComponentInput,
-} from './component-layout';
+
 
 // Google Sheets hook
 export { useGoogleSheetsData, MOCK_CHART_DATA } from './use-google-sheets';

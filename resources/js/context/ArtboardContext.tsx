@@ -1,12 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ArtboardSchema } from '@/types/artboard';
-import type { WidgetSchema } from '@/types/dashboard';
 
 interface ArtboardContextValue {
   artboards: ArtboardSchema[];
   setArtboards: React.Dispatch<React.SetStateAction<ArtboardSchema[]>>;
-  archivedWidgets: WidgetSchema[];
-  setArchivedWidgets: React.Dispatch<React.SetStateAction<WidgetSchema[]>>;
   selectedArtboardId: string | null;
   setSelectedArtboardId: React.Dispatch<React.SetStateAction<string | null>>;
   artboardStackOrder: string[];
@@ -21,7 +18,6 @@ interface InitialData {
   dashboardId?: string;
   dashboardName?: string;
   artboards?: ArtboardSchema[];
-  archivedWidgets?: WidgetSchema[];
 }
 
 interface ArtboardProviderProps {
@@ -49,29 +45,8 @@ const loadArtboards = (initialData?: InitialData): ArtboardSchema[] => {
   }
 };
 
-const loadArchivedWidgets = (initialData?: InitialData): WidgetSchema[] => {
-  // Prefer server data if provided
-  if (initialData?.archivedWidgets && initialData.archivedWidgets.length > 0) {
-    return initialData.archivedWidgets;
-  }
-
-  // Fallback to localStorage
-  if (typeof window === 'undefined') {
-    return [];
-  }
-
-  try {
-    const saved = window.localStorage.getItem('archivedWidgets');
-    return saved ? JSON.parse(saved) : [];
-  } catch (error) {
-    console.error('Failed to load archived widgets:', error);
-    return [];
-  }
-};
-
 export function ArtboardProvider({ children, initialData }: ArtboardProviderProps) {
   const [artboards, setArtboards] = useState<ArtboardSchema[]>(() => loadArtboards(initialData));
-  const [archivedWidgets, setArchivedWidgets] = useState<WidgetSchema[]>(() => loadArchivedWidgets(initialData));
   const [selectedArtboardId, setSelectedArtboardId] = useState<string | null>(null);
   const [artboardStackOrder, setArtboardStackOrder] = useState<string[]>([]);
 
@@ -107,18 +82,7 @@ export function ArtboardProvider({ children, initialData }: ArtboardProviderProp
     }
   }, [artboards]);
 
-  // Persist archived widgets
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
 
-    try {
-      window.localStorage.setItem('archivedWidgets', JSON.stringify(archivedWidgets));
-    } catch (error) {
-      console.error('Failed to save archived widgets:', error);
-    }
-  }, [archivedWidgets]);
 
   const bringArtboardToFront = useCallback((artboardId: string) => {
     setArtboardStackOrder((prev) => {
@@ -168,10 +132,10 @@ export function ArtboardProvider({ children, initialData }: ArtboardProviderProp
       let startX = maxX + 100;
 
       for (let i = 0; i < count; i++) {
-        // Deep clone widgets
-        const newWidgets = source.widgets.map((w) => ({
-          ...w,
-          id: `widget-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        // Deep clone components
+        const newComponents = source.components.map((c) => ({
+          ...c,
+          instanceId: `component-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         }));
 
         const newArtboard: ArtboardSchema = {
@@ -182,7 +146,7 @@ export function ArtboardProvider({ children, initialData }: ArtboardProviderProp
             x: startX,
             y: source.position.y,
           },
-          widgets: newWidgets,
+          components: newComponents,
           createdAt: now,
           updatedAt: now,
           // Reset interaction states
@@ -200,15 +164,13 @@ export function ArtboardProvider({ children, initialData }: ArtboardProviderProp
   const value = useMemo<ArtboardContextValue>(() => ({
     artboards,
     setArtboards,
-    archivedWidgets,
-    setArchivedWidgets,
     selectedArtboardId,
     setSelectedArtboardId,
     artboardStackOrder,
     bringArtboardToFront,
     moveArtboardLayer,
     duplicateArtboard,
-  }), [artboards, archivedWidgets, selectedArtboardId, artboardStackOrder, bringArtboardToFront, moveArtboardLayer, duplicateArtboard]);
+  }), [artboards, selectedArtboardId, artboardStackOrder, bringArtboardToFront, moveArtboardLayer, duplicateArtboard]);
 
   return (
     <ArtboardContext.Provider value={value}>

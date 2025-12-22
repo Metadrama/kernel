@@ -58,7 +58,6 @@ class DashboardService
             'id' => $id,
             'name' => $data['name'] ?? 'Untitled Dashboard',
             'artboards' => $data['content']['artboards'] ?? [],
-            'archivedWidgets' => $data['content']['archivedWidgets'] ?? [],
             'updatedAt' => now()->toIso8601String(),
         ];
 
@@ -103,6 +102,50 @@ class DashboardService
         $dashboard = $this->load($id);
 
         if ($dashboard) {
+            // Migrate old widget structure to new component structure
+            $dashboard['artboards'] = array_map(function ($artboard) {
+                // If artboard has widgets but no components, migrate
+                if (isset($artboard['widgets']) && !isset($artboard['components'])) {
+                    $components = [];
+                    
+                    // Flatten all components from all widgets into a single array
+                    foreach ($artboard['widgets'] as $widget) {
+                        if (isset($widget['components']) && is_array($widget['components'])) {
+                            foreach ($widget['components'] as $component) {
+                                // Components now use absolute positioning on the artboard
+                                // Add widget position offset to component position
+                                $components[] = [
+                                    'instanceId' => $component['instanceId'] ?? uniqid('component-'),
+                                    'componentType' => $component['componentType'] ?? 'unknown',
+                                    'position' => [
+                                        'x' => ($component['x'] ?? 0),
+                                        'y' => ($component['y'] ?? 0),
+                                        'width' => $component['width'] ?? 200,
+                                        'height' => $component['height'] ?? 200,
+                                        'zIndex' => $component['zIndex'] ?? 0,
+                                    ],
+                                    'config' => $component['config'] ?? (object)[],
+                                    'locked' => $component['locked'] ?? false,
+                                ];
+                            }
+                        }
+                    }
+                    
+                    $artboard['components'] = $components;
+                    unset($artboard['widgets']);
+                }
+                
+                // Ensure components array exists
+                if (!isset($artboard['components'])) {
+                    $artboard['components'] = [];
+                }
+                
+                return $artboard;
+            }, $dashboard['artboards'] ?? []);
+            
+            // Remove archivedWidgets from response
+            unset($dashboard['archivedWidgets']);
+            
             return $dashboard;
         }
 
@@ -110,7 +153,6 @@ class DashboardService
             'id' => $id,
             'name' => 'Untitled Dashboard',
             'artboards' => [],
-            'archivedWidgets' => [],
             'createdAt' => now()->toIso8601String(),
             'updatedAt' => now()->toIso8601String(),
         ];

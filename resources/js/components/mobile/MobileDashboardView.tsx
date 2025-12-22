@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useArtboardContext } from '@/context/ArtboardContext';
-import MobileWidgetShell from './MobileWidgetShell';
+import { DirectComponent } from '@/components/DirectComponent';
 
 export default function MobileDashboardView() {
     const {
@@ -16,17 +16,17 @@ export default function MobileDashboardView() {
         return artboards[0];
     }, [artboards, selectedArtboardId]);
 
-    // Sort widgets for reading flow (Top -> Bottom, Left -> Right)
-    const sortedWidgets = useMemo(() => {
+    // Sort components for reading flow (Top -> Bottom, Left -> Right)
+    const sortedComponents = useMemo(() => {
         if (!activeArtboard) return [];
 
-        return [...activeArtboard.widgets].sort((a, b) => {
+        return [...activeArtboard.components].sort((a, b) => {
             // Threshold for "same row" to avoid jumping
-            const yDiff = a.y - b.y;
-            if (Math.abs(yDiff) > 5) { // 5 grid units tolerance
+            const yDiff = a.position.y - b.position.y;
+            if (Math.abs(yDiff) > 20) { // 20px tolerance
                 return yDiff;
             }
-            return a.x - b.x;
+            return a.position.x - b.position.x;
         });
     }, [activeArtboard]);
 
@@ -45,13 +45,22 @@ export default function MobileDashboardView() {
                 <h1 className="text-xl font-bold tracking-tight text-primary">
                     {activeArtboard.name}
                 </h1>
-                {/* We can add a simple artboard switcher here later if needed */}
             </div>
 
-            {/* Widget Stack */}
+            {/* Component Stack */}
             <div className="flex flex-col gap-4">
-                {sortedWidgets.map(widget => (
-                    <MobileWidgetShell key={widget.id} widget={widget} />
+                {sortedComponents.map(component => (
+                    <div key={component.instanceId} className="w-full">
+                        <DirectComponent
+                            component={component}
+                            isSelected={false}
+                            scale={1}
+                            onSelect={() => { }}
+                            onPositionChange={() => { }}
+                            onDelete={() => { }}
+                            onZOrderChange={() => { }}
+                        />
+                    </div>
                 ))}
             </div>
 

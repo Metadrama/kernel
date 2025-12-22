@@ -1,5 +1,15 @@
+/**
+ * Dashboard Data Types
+ * 
+ * Figma-style direct manipulation architecture.
+ * Components are placed directly on artboards with absolute pixel positioning.
+ */
+
 import type { ArtboardSchema } from './artboard';
 
+/**
+ * Component card in sidebar (catalog of available components)
+ */
 export interface ComponentCard {
   id: string;
   name: string;
@@ -10,60 +20,45 @@ export interface ComponentCard {
   isFavorite?: boolean;
 }
 
-// Instance of a component placed inside a widget
-export interface WidgetComponent {
+/**
+ * Absolute position and size in pixels
+ */
+export interface ComponentPosition {
+  x: number;           // Absolute X coordinate in pixels (relative to artboard)
+  y: number;           // Absolute Y coordinate in pixels (relative to artboard)
+  width: number;       // Width in pixels
+  height: number;      // Height in pixels
+  zIndex: number;      // Stacking order (higher = on top)
+  rotation?: number;   // Rotation in degrees (0-360) - reserved for future
+}
+
+/**
+ * Component instance placed on an artboard
+ */
+export interface ArtboardComponent {
   instanceId: string;
   componentType: string;
-  // Freeform pixel positioning (relative to widget container)
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  // Stacking order (higher = on top)
-  zIndex?: number;
-  // Optional: prevent auto-repositioning
-  locked?: boolean;
-  // Component-specific configuration
-  config?: Record<string, unknown>;
+  position: ComponentPosition;
+  config: Record<string, unknown>;
+  locked?: boolean;    // If true, prevents drag/resize
 }
 
-
-export interface WidgetSchema {
-  id: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  // Stacking order (higher = on top)
-  zIndex?: number;
-  // Lock widget position/size
-  locked?: boolean;
-  // Canvas-space position (only for archived widgets on canvas)
-  canvasX?: number;
-  canvasY?: number;
-  // Source artboard ID (for undo/restore from archive)
-  sourceArtboardId?: string;
-  // Support multiple components per widget
-  components: WidgetComponent[];
-  // Legacy single component support (deprecated)
-  componentType?: string;
-  config?: Record<string, unknown>;
-}
-
+/**
+ * Dashboard layout containing artboards
+ */
 export interface DashboardLayout {
   id: string;
   name: string;
-  // Artboards contain widgets (new architecture)
   artboards: ArtboardSchema[];
-  // Archived widgets (stored for restoration)
-  archivedWidgets?: WidgetSchema[];
-  // Legacy: Direct widgets on canvas (deprecated, kept for backward compatibility)
-  widgets?: WidgetSchema[];
   createdAt: string;
   updatedAt: string;
 }
 
+/**
+ * Sidebar state
+ */
 export interface SidebarState {
   isCollapsed: boolean;
   expandedSections: string[];
 }
+

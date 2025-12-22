@@ -10,7 +10,7 @@
  * - Act as true format containers (A4, 16:9, etc.)
  */
 
-import type { WidgetSchema } from './dashboard';
+import type { ArtboardComponent } from './dashboard';
 
 /**
  * Supported artboard format presets
@@ -102,8 +102,8 @@ export interface ArtboardSchema {
   backgroundColor: string;
   /** Background image URL (optional) */
   backgroundImage?: string;
-  /** Widgets contained within this artboard */
-  widgets: WidgetSchema[];
+  /** Components placed on this artboard */
+  components: ArtboardComponent[];
   /** Whether artboard position is locked */
   locked: boolean;
   /** Whether artboard is visible */

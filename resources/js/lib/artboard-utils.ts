@@ -92,7 +92,7 @@ export function createArtboard(
         position,
         zoom: 1,
         backgroundColor: options.backgroundColor || '#ffffff',
-        widgets: [],
+        components: [],
         locked: false,
         visible: true,
         showGrid: true,

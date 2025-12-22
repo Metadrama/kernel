@@ -18,9 +18,9 @@ import FloatingToolbar, { ToolType } from '@/components/FloatingToolbar';
 import CanvasTopBar from './CanvasTopBar';
 import CanvasScrollbars, { Universe } from './CanvasScrollbars';
 import CanvasEmptyState from './CanvasEmptyState';
-import { useCanvasZoom, useCanvasPan, useWidgetTransfer } from '@/hooks';
+import { useCanvasZoom, useCanvasPan } from '@/hooks';
 import type { ArtboardSchema } from '@/types/artboard';
-import type { WidgetComponent, WidgetSchema } from '@/types/dashboard';
+import type { ArtboardComponent } from '@/types/dashboard';
 import { createArtboard } from '@/lib/artboard-utils';
 import { useArtboardContext } from '@/context/ArtboardContext';
 
@@ -36,15 +36,8 @@ export default function ArtboardCanvas() {
     bringArtboardToFront,
   } = useArtboardContext();
 
-  // Widget transfer hooks prepared for future custom implementation
-  // NOTE: GridStack acceptWidgets between independent grids conflicts with React
-  // These hooks are ready for a custom drag-out-of-bounds approach
-  const { transferWidget, archiveWidget, unarchiveWidget } = useWidgetTransfer({
-    artboards,
-    setArtboards,
-    archivedWidgets,
-    setArchivedWidgets,
-  });
+  // Component transfer - simplified without widget archiving
+  // Components are now placed directly on artboards
 
   // Canvas zoom/pan from extracted hook
   const { scale, pan, setPan, viewportSize, adjustScale, canvasRef } = useCanvasZoom();
@@ -64,8 +57,7 @@ export default function ArtboardCanvas() {
   // Component selection state
   const [selectedComponent, setSelectedComponent] = useState<{
     artboardId: string;
-    widgetId: string;
-    component: WidgetComponent;
+    component: ArtboardComponent;
   } | null>(null);
 
   const selectedArtboard = artboards.find(a => a.id === selectedArtboardId) || null;
@@ -149,36 +141,27 @@ export default function ArtboardCanvas() {
     if (selectedArtboardId === id) setSelectedArtboardId(null);
   }, [selectedArtboardId, setArtboards, setSelectedArtboardId]);
 
+  // Remove add card - no longer used with direct component placement
   const handleAddCard = useCallback(() => {
-    const targetId = selectedArtboardId || artboards[0]?.id;
-    if (!targetId) return;
-
-    const newWidget: WidgetSchema = {
-      id: `widget-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      x: 0, y: 0,
-      w: 60, // 60 * 8px = 480px width
-      h: 50, // 50 * 8px = 400px height
-      components: [],
-    };
-
-    setArtboards((prev) =>
-      prev.map((a) => a.id === targetId
-        ? { ...a, widgets: [...a.widgets, newWidget], updatedAt: new Date().toISOString() }
-        : a
-      )
-    );
-    if (!selectedArtboardId) setSelectedArtboardId(targetId);
-  }, [selectedArtboardId, artboards, setArtboards, setSelectedArtboardId]);
+    // No-op - components are added by dropping directly onto artboards
+  }, []);
 
   // NOTE: Cross-artboard transfer handlers removed
   // GridStack's acceptWidgets between independent grids causes React/DOM conflicts
   // TODO: Implement custom drag-out-of-bounds detection for seamless transfer
 
   // Component selection
-  const handleSelectComponent = useCallback((artboardId: string, widgetId: string, component: WidgetComponent) => {
-    setSelectedComponent({ artboardId, widgetId, component });
-    setShowInspector(true);
-  }, []);
+  const handleSelectComponent = useCallback((componentId: string) => {
+    // Find the component across all artboards
+    for (const artboard of artboards) {
+      const component = artboard.components.find(c => c.instanceId === componentId);
+      if (component) {
+        setSelectedComponent({ artboardId: artboard.id, component });
+        setShowInspector(true);
+        return;
+      }
+    }
+  }, [artboards]);
 
   const handleComponentConfigChange = useCallback((instanceId: string, config: Record<string, unknown>) => {
     if (!selectedComponent) return;
@@ -187,13 +170,9 @@ export default function ArtboardCanvas() {
         if (a.id !== selectedComponent.artboardId) return a;
         return {
           ...a,
-          widgets: a.widgets.map((w) => {
-            if (w.id !== selectedComponent.widgetId) return w;
-            return {
-              ...w,
-              components: w.components.map((c) => c.instanceId === instanceId ? { ...c, config } : c),
-            };
-          }),
+          components: a.components.map((c) =>
+            c.instanceId === instanceId ? { ...c, config } : c
+          ),
           updatedAt: new Date().toISOString(),
         };
       })
@@ -236,7 +215,6 @@ export default function ArtboardCanvas() {
           id: 'default',
           name: 'Untitled Dashboard',
           artboards: artboards,
-          archivedWidgets: archivedWidgets,
         }),
       });
       if (response.ok) {
@@ -255,7 +233,7 @@ export default function ArtboardCanvas() {
     } finally {
       setIsSaving(false);
     }
-  }, [artboards, archivedWidgets]);
+  }, [artboards]);
 
   return (
     <div className="flex h-screen flex-1 overflow-hidden">
