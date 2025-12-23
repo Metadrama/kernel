@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo, useState } from 'react';
+import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { ResponsivePie } from '@nivo/pie';
 import { ResponsiveBar } from '@nivo/bar';
@@ -211,6 +211,49 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
     const legendPosition = config?.legendPosition || 'bottom';
     const showTooltip = config?.showTooltip ?? true;
     const containerRef = useRef<HTMLDivElement>(null);
+    const [containerSize, setContainerSize] = useState({ width: 300, height: 200 });
+
+    // Measure container size for responsive margins
+    useEffect(() => {
+        if (!containerRef.current) return;
+        const resizeObserver = new ResizeObserver(entries => {
+            const { width, height } = entries[0].contentRect;
+            if (width > 0 && height > 0) {
+                setContainerSize({ width, height });
+            }
+        });
+        resizeObserver.observe(containerRef.current);
+        return () => resizeObserver.disconnect();
+    }, []);
+
+    // Calculate responsive margins based on container size
+    const calculateMargin = useCallback((options: {
+        hasAxisLabels?: boolean;
+        isSpider?: boolean;
+    } = {}) => {
+        const { width, height } = containerSize;
+        const { hasAxisLabels = true, isSpider = false } = options;
+
+        // Base margins as percentage of container (with min/max bounds)
+        const baseTop = Math.max(8, Math.min(20, height * 0.04));
+        const baseRight = Math.max(8, Math.min(20, width * 0.04));
+        const baseBottom = hasAxisLabels ? Math.max(24, Math.min(50, height * 0.08)) : Math.max(8, Math.min(20, height * 0.04));
+        const baseLeft = hasAxisLabels ? Math.max(35, Math.min(70, width * 0.12)) : Math.max(8, Math.min(20, width * 0.04));
+
+        // Legend adds proportional space
+        const legendAddY = showLegend ? Math.max(20, Math.min(40, height * 0.08)) : 0;
+        const legendAddX = showLegend ? Math.max(40, Math.min(80, width * 0.12)) : 0;
+
+        // Spider labels need extra horizontal space
+        const spiderAdd = isSpider ? Math.max(30, Math.min(60, width * 0.1)) : 0;
+
+        return {
+            top: Math.round(baseTop + (legendPosition === 'top' ? legendAddY : 0)),
+            right: Math.round(baseRight + spiderAdd + (legendPosition === 'right' ? legendAddX : 0)),
+            bottom: Math.round(baseBottom + (legendPosition === 'bottom' ? legendAddY : 0)),
+            left: Math.round(baseLeft + spiderAdd + (legendPosition === 'left' ? legendAddX : 0)),
+        };
+    }, [containerSize, showLegend, legendPosition]);
 
     // Check if we should use Google Sheets data
     const dataSource = config?.dataSource;
@@ -399,14 +442,7 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
             const isSpider = showLabels && pos === 'outside';
 
             // Calculate margins based on features
-            const baseMargin = 20;
-
-            const margin = {
-                top: baseMargin + (legendPosition === 'top' && showLegend ? 40 : 0),
-                right: baseMargin + (isSpider ? 60 : 0) + (legendPosition === 'right' && showLegend ? 80 : 0),
-                bottom: baseMargin + (legendPosition === 'bottom' && showLegend ? 40 : 0),
-                left: baseMargin + (isSpider ? 60 : 0) + (legendPosition === 'left' && showLegend ? 80 : 0),
-            };
+            const margin = calculateMargin({ hasAxisLabels: false, isSpider });
 
             return (
                 <ResponsivePie
@@ -491,12 +527,7 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                 return formatNumber(value, { decimals: 0 });
             };
 
-            const margin = {
-                top: 20 + (legendPosition === 'top' && showLegend ? 40 : 0),
-                right: 20 + (legendPosition === 'right' && showLegend ? 80 : 0),
-                bottom: 40 + (legendPosition === 'bottom' && showLegend ? 40 : 0),
-                left: 60 + (legendPosition === 'left' && showLegend ? 80 : 0), // Increased for currency symbols
-            };
+            const margin = calculateMargin({ hasAxisLabels: true });
 
             return (
                 <ResponsiveBar
@@ -571,12 +602,7 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
         // Full formatter for tooltip
         const tooltipValueFormatter = (value: number) => formatNumber(value, { decimals: 2 });
 
-        const margin = {
-            top: 20 + (legendPosition === 'top' && showLegend ? 40 : 0),
-            right: 20 + (legendPosition === 'right' && showLegend ? 80 : 0),
-            bottom: 40 + (legendPosition === 'bottom' && showLegend ? 40 : 0),
-            left: 60 + (legendPosition === 'left' && showLegend ? 80 : 0),
-        };
+        const margin = calculateMargin({ hasAxisLabels: true });
 
         return (
             <ResponsiveLine
