@@ -7,7 +7,6 @@ import { ArrowUp, ArrowDown, Eye, EyeOff, Lock, Unlock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { ArtboardSchema } from '@/types/artboard';
-import type { WidgetSchema } from '@/types/dashboard';
 import { AVAILABLE_COMPONENTS } from '@/constants/components';
 
 interface LayersPanelProps {
@@ -48,17 +47,6 @@ export default function LayersPanel({
             .reverse();
     }, [artboards, artboardOrder]);
 
-    const getWidgetLabel = (widget: WidgetSchema, index: number) => {
-        if (widget.components.length > 0) {
-            const primary = widget.components[0];
-            return componentNameMap[primary.componentType] || primary.componentType;
-        }
-        if (widget.componentType) {
-            return componentNameMap[widget.componentType] || widget.componentType;
-        }
-        return `Layer ${index + 1}`;
-    };
-
     return (
         <>
             <div className="border-b bg-card/95 px-4 py-2.5 text-xs text-muted-foreground flex items-center justify-between">
@@ -75,8 +63,11 @@ export default function LayersPanel({
                             const layerIndex = artboardOrder.indexOf(artboard.id);
                             const isTopLayer = layerIndex === artboardOrder.length - 1;
                             const isBottomLayer = layerIndex === 0;
-                            const topWidget = artboard.widgets[artboard.widgets.length - 1];
-                            const topComponentCount = topWidget ? topWidget.components.length : 0;
+
+                            // Sort components by z-index to show proper layer order
+                            const sortedComponents = [...artboard.components].sort((a, b) =>
+                                (b.position.zIndex || 0) - (a.position.zIndex || 0)
+                            );
 
                             return (
                                 <div
@@ -136,34 +127,26 @@ export default function LayersPanel({
                                     </div>
                                     <div className="mt-3 space-y-2">
                                         <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
-                                            <span>{artboard.widgets.length} {artboard.widgets.length === 1 ? 'widget' : 'widgets'}</span>
-                                            <span>Top layer: {topComponentCount} components</span>
+                                            <span>{artboard.components.length} {artboard.components.length === 1 ? 'component' : 'components'}</span>
+                                            {sortedComponents.length > 0 && (
+                                                <span>Top: {componentNameMap[sortedComponents[0].componentType] || sortedComponents[0].componentType}</span>
+                                            )}
                                         </div>
-                                        {artboard.widgets.length === 0 ? (
+                                        {artboard.components.length === 0 ? (
                                             <p className="text-xs text-muted-foreground px-1">No components yet.</p>
                                         ) : (
-                                            artboard.widgets.slice().reverse().map((widget, widgetIndex) => (
-                                                <div key={widget.id} className="rounded-lg px-3 py-2 transition hover:bg-muted/30">
-                                                    <div className="flex items-center justify-between text-xs font-medium text-foreground">
-                                                        <span>{getWidgetLabel(widget, widgetIndex)}</span>
-                                                        <span className="text-[11px] text-muted-foreground">
-                                                            Layer {artboard.widgets.length - widgetIndex}
-                                                        </span>
-                                                    </div>
-                                                    {widget.components.length > 0 && (
-                                                        <div className="mt-2 flex flex-wrap gap-1">
-                                                            {widget.components.map((component) => (
-                                                                <span
-                                                                    key={component.instanceId}
-                                                                    className="rounded-full bg-muted/60 px-2 py-0.5 text-[11px] text-muted-foreground"
-                                                                >
-                                                                    {componentNameMap[component.componentType] || component.componentType}
-                                                                </span>
-                                                            ))}
+                                            <div className="space-y-1">
+                                                {sortedComponents.map((component, index) => (
+                                                    <div key={component.instanceId} className="rounded-lg px-3 py-2 transition hover:bg-muted/30">
+                                                        <div className="flex items-center justify-between text-xs font-medium text-foreground">
+                                                            <span>{componentNameMap[component.componentType] || component.componentType}</span>
+                                                            <span className="text-[11px] text-muted-foreground">
+                                                                Layer {sortedComponents.length - index}
+                                                            </span>
                                                         </div>
-                                                    )}
-                                                </div>
-                                            ))
+                                                    </div>
+                                                ))}
+                                            </div>
                                         )}
                                     </div>
                                 </div>

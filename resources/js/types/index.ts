@@ -5,9 +5,8 @@
 // Dashboard types
 export type {
     DashboardLayout,
-    WidgetSchema,
-    WidgetComponent,
     ComponentCard,
+    ArtboardComponent,
     SidebarState,
 } from './dashboard';
 

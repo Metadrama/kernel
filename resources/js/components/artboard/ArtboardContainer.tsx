@@ -118,37 +118,46 @@ export default function ArtboardContainer({
     }, [artboard.components, artboard.id, onUpdate]);
 
     const updateComponentZOrder = useCallback((instanceId: string, operation: 'front' | 'forward' | 'back' | 'backward') => {
-        const component = artboard.components.find((c) => c.instanceId === instanceId);
-        if (!component) return;
+        const currentComponents = [...artboard.components];
+        const componentIndex = currentComponents.findIndex((c) => c.instanceId === instanceId);
 
-        const currentZ = component.position.zIndex;
-        const maxZ = Math.max(...artboard.components.map((c) => c.position.zIndex));
+        if (componentIndex === -1) return;
 
-        let newZ = currentZ;
+        // Sort by current z-index to get proper order
+        const sortedComponents = [...currentComponents].sort((a, b) => a.position.zIndex - b.position.zIndex);
+        const currentZIndex = sortedComponents.findIndex((c) => c.instanceId === instanceId);
+
+        let newZIndex = currentZIndex;
+
         switch (operation) {
             case 'front':
-                newZ = maxZ + 1;
+                newZIndex = sortedComponents.length - 1;
                 break;
             case 'forward':
-                newZ = currentZ + 1;
+                newZIndex = Math.min(currentZIndex + 1, sortedComponents.length - 1);
                 break;
             case 'back':
-                newZ = 0;
+                newZIndex = 0;
                 break;
             case 'backward':
-                newZ = Math.max(0, currentZ - 1);
+                newZIndex = Math.max(currentZIndex - 1, 0);
                 break;
         }
 
-        const updatedComponents = artboard.components.map((c) => {
-            if (c.instanceId === instanceId) {
-                return { ...c, position: { ...c.position, zIndex: newZ } };
-            }
-            // Shift others if needed
-            if (operation === 'back' && c.position.zIndex >= 0) {
-                return { ...c, position: { ...c.position, zIndex: c.position.zIndex + 1 } };
-            }
-            return c;
+        // No change needed
+        if (newZIndex === currentZIndex) return;
+
+        // Reorder in sorted array
+        const [movedComponent] = sortedComponents.splice(currentZIndex, 1);
+        sortedComponents.splice(newZIndex, 0, movedComponent);
+
+        // Renormalize z-indices to [0, n-1]
+        const updatedComponents = currentComponents.map((c) => {
+            const newIndex = sortedComponents.findIndex((sc) => sc.instanceId === c.instanceId);
+            return {
+                ...c,
+                position: { ...c.position, zIndex: newIndex },
+            };
         });
 
         onUpdate(artboard.id, { components: updatedComponents });

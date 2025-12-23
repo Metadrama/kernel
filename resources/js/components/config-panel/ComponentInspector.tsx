@@ -24,10 +24,10 @@ import type {
   ConfigFieldSchema,
   DataSource
 } from '@/types/component-config';
-import type { WidgetComponent } from '@/types/dashboard';
+import type { ArtboardComponent } from '@/types/dashboard';
 
 interface ComponentInspectorProps {
-  component: WidgetComponent | null;
+  component: ArtboardComponent | null;
   onConfigChange: (instanceId: string, config: Record<string, unknown>) => void;
   onClose: () => void;
 }
@@ -226,16 +226,14 @@ export function ComponentInspector({
                       if (field.key === 'linkedChartId') {
                         const charts: { value: string; label: string }[] = [];
                         artboards.forEach((a) => {
-                          a.widgets.forEach((w) => {
-                            w.components.forEach((c) => {
-                              if (c.componentType.startsWith('chart-') && c.componentType !== 'chart-legend') {
-                                const name = (c.config?.name as string) || c.componentType;
-                                charts.push({
-                                  value: c.instanceId,
-                                  label: `${name} (${a.name})`
-                                });
-                              }
-                            });
+                          a.components.forEach((c) => {
+                            if (c.componentType.startsWith('chart-') && c.componentType !== 'chart-legend') {
+                              const name = (c.config?.name as string) || c.componentType;
+                              charts.push({
+                                value: c.instanceId,
+                                label: `${name} (${a.name})`
+                              });
+                            }
                           });
                         });
                         // Use a shallow copy to avoid mutating strict schema if reused, though here we just pass prop

@@ -105,8 +105,8 @@ export function DirectComponent({
 
         const handleMouseMove = (e: MouseEvent) => {
             if (isDragging && dragStartRef.current) {
-                const dx = (e.clientX - dragStartRef.current.x) / scale;
-                const dy = (e.clientY - dragStartRef.current.y) / scale;
+                const dx = e.clientX - dragStartRef.current.x;
+                const dy = e.clientY - dragStartRef.current.y;
 
                 onPositionChange({
                     x: dragStartRef.current.compX + dx,
@@ -115,8 +115,8 @@ export function DirectComponent({
                     height: position.height,
                 });
             } else if (isResizing && resizeStartRef.current && resizeHandle) {
-                const dx = (e.clientX - resizeStartRef.current.x) / scale;
-                const dy = (e.clientY - resizeStartRef.current.y) / scale;
+                const dx = e.clientX - resizeStartRef.current.x;
+                const dy = e.clientY - resizeStartRef.current.y;
 
                 let newX = resizeStartRef.current.compX;
                 let newY = resizeStartRef.current.compY;

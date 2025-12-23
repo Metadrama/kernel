@@ -23,7 +23,6 @@ export default function Dashboard({ savedDashboards, currentDashboard }: Dashboa
     dashboardId: currentDashboard.id,
     dashboardName: currentDashboard.name,
     artboards: currentDashboard.artboards ?? [],
-    archivedWidgets: currentDashboard.archivedWidgets ?? [],
   } : undefined;
 
   return (

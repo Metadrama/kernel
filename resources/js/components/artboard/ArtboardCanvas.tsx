@@ -3,9 +3,6 @@
  * 
  * Refactored to use extracted hooks and sub-components.
  * Now focuses on orchestrating canvas state and rendering artboards.
- * 
- * Cross-artboard widget transfer is enabled via GridStack acceptWidgets.
- * State updates are deferred during drag to prevent React/DOM conflicts.
  */
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
@@ -28,8 +25,6 @@ export default function ArtboardCanvas() {
   const {
     artboards,
     setArtboards,
-    archivedWidgets,
-    setArchivedWidgets,
     selectedArtboardId,
     setSelectedArtboardId,
     artboardStackOrder,
@@ -145,10 +140,6 @@ export default function ArtboardCanvas() {
   const handleAddCard = useCallback(() => {
     // No-op - components are added by dropping directly onto artboards
   }, []);
-
-  // NOTE: Cross-artboard transfer handlers removed
-  // GridStack's acceptWidgets between independent grids causes React/DOM conflicts
-  // TODO: Implement custom drag-out-of-bounds detection for seamless transfer
 
   // Component selection
   const handleSelectComponent = useCallback((componentId: string) => {
