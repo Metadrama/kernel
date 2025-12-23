@@ -19,6 +19,13 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+    ContextMenu,
+    ContextMenuTrigger,
+    ContextMenuContent,
+    ContextMenuItem,
+    ContextMenuSeparator,
+} from '@/components/ui/context-menu';
 import { useArtboardDrag } from '@/hooks';
 import type { ArtboardSchema } from '@/types/artboard';
 import type { ArtboardComponent, ComponentCard } from '@/types/dashboard';
@@ -257,74 +264,98 @@ export default function ArtboardContainer({
             </div>
 
             {/* Artboard Container */}
-            <div
-                ref={containerRef}
-                data-artboard-id={artboard.id}
-                className={`absolute ${isDragging ? 'cursor-grabbing' : ''}`}
-                style={{
-                    left: displayPosition.x,
-                    top: displayPosition.y,
-                    width: artboard.dimensions.widthPx,
-                    height: artboard.dimensions.heightPx,
-                    zIndex: zIndex,
-                    transition: isDragging ? 'none' : undefined,
-                }}
-                onClick={handleArtboardClick}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-            >
-                {/* Background */}
-                <div
-                    className={`absolute inset-0 shadow-2xl ${isSelected ? 'ring-2 ring-primary/30' : 'ring-1 ring-border'
-                        }`}
-                    style={{
-                        backgroundColor: artboard.backgroundColor,
-                    }}
-                />
-
-                {/* Grid guides (optional) */}
-                {artboard.showGrid && (
+            <ContextMenu>
+                <ContextMenuTrigger asChild>
                     <div
-                        className="absolute inset-0 pointer-events-none opacity-[0.03]"
+                        ref={containerRef}
+                        data-artboard-id={artboard.id}
+                        className={`absolute ${isDragging ? 'cursor-grabbing' : ''}`}
                         style={{
-                            backgroundImage: `
+                            left: displayPosition.x,
+                            top: displayPosition.y,
+                            width: artboard.dimensions.widthPx,
+                            height: artboard.dimensions.heightPx,
+                            zIndex: zIndex,
+                            transition: isDragging ? 'none' : undefined,
+                        }}
+                        onClick={handleArtboardClick}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                    >
+                        {/* Background */}
+                        <div
+                            className={`absolute inset-0 shadow-2xl ${isSelected ? 'ring-2 ring-primary/30' : 'ring-1 ring-border'
+                                }`}
+                            style={{
+                                backgroundColor: artboard.backgroundColor,
+                            }}
+                        />
+
+                        {/* Grid guides (optional) */}
+                        {artboard.showGrid && (
+                            <div
+                                className="absolute inset-0 pointer-events-none opacity-[0.03]"
+                                style={{
+                                    backgroundImage: `
                 linear-gradient(to right, hsl(var(--foreground)) 1px, transparent 1px),
                 linear-gradient(to bottom, hsl(var(--foreground)) 1px, transparent 1px)
               `,
-                            backgroundSize: '24px 24px',
-                        }}
-                    />
-                )}
+                                    backgroundSize: '24px 24px',
+                                }}
+                            />
+                        )}
 
-                {/* Drop zone indicator */}
-                {isDragOver && (
-                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-primary/5 backdrop-blur-sm pointer-events-none">
-                        <div className="rounded-lg border-2 border-dashed border-primary bg-background/90 px-6 py-4">
-                            <p className="text-sm font-semibold text-primary">Drop to add component</p>
+                        {/* Drop zone indicator */}
+                        {isDragOver && (
+                            <div className="absolute inset-0 z-50 flex items-center justify-center bg-primary/5 backdrop-blur-sm pointer-events-none">
+                                <div className="rounded-lg border-2 border-dashed border-primary bg-background/90 px-6 py-4">
+                                    <p className="text-sm font-semibold text-primary">Drop to add component</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Components Layer */}
+                        <div className="absolute inset-0" style={{ pointerEvents: 'auto' }}>
+                            {artboard.components.map((component) => (
+                                <DirectComponent
+                                    key={component.instanceId}
+                                    component={component}
+                                    isSelected={selectedComponentId === component.instanceId}
+                                    scale={canvasScale}
+                                    onSelect={() => {
+                                        onSelectComponent?.(component.instanceId);
+                                        onSelect();
+                                    }}
+                                    onPositionChange={(pos) => updateComponentPosition(component.instanceId, pos)}
+                                    onDelete={() => deleteComponent(component.instanceId)}
+                                    onZOrderChange={(op) => updateComponentZOrder(component.instanceId, op)}
+                                />
+                            ))}
                         </div>
                     </div>
-                )}
-
-                {/* Components Layer */}
-                <div className="absolute inset-0" style={{ pointerEvents: 'auto' }}>
-                    {artboard.components.map((component) => (
-                        <DirectComponent
-                            key={component.instanceId}
-                            component={component}
-                            isSelected={selectedComponentId === component.instanceId}
-                            scale={canvasScale}
-                            onSelect={() => {
-                                onSelectComponent?.(component.instanceId);
-                                onSelect();
-                            }}
-                            onPositionChange={(pos) => updateComponentPosition(component.instanceId, pos)}
-                            onDelete={() => deleteComponent(component.instanceId)}
-                            onZOrderChange={(op) => updateComponentZOrder(component.instanceId, op)}
-                        />
-                    ))}
-                </div>
-            </div>
+                </ContextMenuTrigger>
+                <ContextMenuContent className="w-48">
+                    <ContextMenuItem onClick={() => onUpdate(artboard.id, { locked: !artboard.locked })}>
+                        {artboard.locked ? (
+                            <>
+                                <Unlock className="mr-2 h-4 w-4" />
+                                Unlock Artboard
+                            </>
+                        ) : (
+                            <>
+                                <Lock className="mr-2 h-4 w-4" />
+                                Lock Artboard
+                            </>
+                        )}
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem variant="destructive" onClick={() => onDelete(artboard.id)}>
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete Artboard
+                    </ContextMenuItem>
+                </ContextMenuContent>
+            </ContextMenu>
         </>
     );
 }

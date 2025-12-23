@@ -10,10 +10,21 @@
  */
 
 import { useRef, useState, useCallback, useEffect } from 'react';
+import { Trash2, Layers } from 'lucide-react';
 import type { ArtboardComponent } from '@/types/dashboard';
 import { getMinSize, getMaxSize, getAspectRatio } from '@/lib/component-sizes';
 import ChartComponent from '@/components/widget-components/ChartComponent';
 import { cn } from '@/lib/utils';
+import {
+    ContextMenu,
+    ContextMenuTrigger,
+    ContextMenuContent,
+    ContextMenuItem,
+    ContextMenuSeparator,
+    ContextMenuSub,
+    ContextMenuSubTrigger,
+    ContextMenuSubContent,
+} from '@/components/ui/context-menu';
 
 interface DirectComponentProps {
     component: ArtboardComponent;
@@ -203,77 +214,109 @@ export function DirectComponent({
     };
 
     return (
-        <div
-            ref={componentRef}
-            className={cn(
-                'absolute select-none',
-                isDragging && 'cursor-grabbing',
-                !isDragging && !locked && 'cursor-grab',
-                locked && 'cursor-not-allowed opacity-60'
-            )}
-            style={{
-                left: position.x,
-                top: position.y,
-                width: position.width,
-                height: position.height,
-                zIndex: position.zIndex,
-            }}
-            onMouseDown={handleMouseDown}
-            onClick={(e) => {
-                e.stopPropagation();
-                onSelect();
-            }}
-        >
-            {/* Selection border */}
-            {isSelected && (
-                <div className="pointer-events-none absolute inset-0 border-2 border-blue-500" />
-            )}
+        <ContextMenu>
+            <ContextMenuTrigger asChild disabled={locked}>
+                <div
+                    ref={componentRef}
+                    className={cn(
+                        'absolute select-none',
+                        isDragging && 'cursor-grabbing',
+                        !isDragging && !locked && 'cursor-grab',
+                        locked && 'cursor-not-allowed opacity-60'
+                    )}
+                    style={{
+                        left: position.x,
+                        top: position.y,
+                        width: position.width,
+                        height: position.height,
+                        zIndex: position.zIndex,
+                    }}
+                    onMouseDown={handleMouseDown}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onSelect();
+                    }}
+                >
+                    {/* Selection border */}
+                    {isSelected && (
+                        <div className="pointer-events-none absolute inset-0 border-2 border-blue-500" />
+                    )}
 
-            {/* Component content */}
-            <div className="h-full w-full overflow-hidden">
-                {renderComponent()}
-            </div>
+                    {/* Component content */}
+                    <div className="h-full w-full overflow-hidden">
+                        {renderComponent()}
+                    </div>
 
-            {/* Resize handles (only when selected and not locked) */}
-            {isSelected && !locked && (
-                <>
-                    {/* Corner handles */}
-                    <div
-                        className="resize-handle absolute -left-1 -top-1 h-3 w-3 cursor-nwse-resize border border-blue-500 bg-white"
-                        onMouseDown={(e) => handleResizeStart(e, 'nw')}
-                    />
-                    <div
-                        className="resize-handle absolute -right-1 -top-1 h-3 w-3 cursor-nesw-resize border border-blue-500 bg-white"
-                        onMouseDown={(e) => handleResizeStart(e, 'ne')}
-                    />
-                    <div
-                        className="resize-handle absolute -bottom-1 -left-1 h-3 w-3 cursor-nesw-resize border border-blue-500 bg-white"
-                        onMouseDown={(e) => handleResizeStart(e, 'sw')}
-                    />
-                    <div
-                        className="resize-handle absolute -bottom-1 -right-1 h-3 w-3 cursor-nwse-resize border border-blue-500 bg-white"
-                        onMouseDown={(e) => handleResizeStart(e, 'se')}
-                    />
+                    {/* Resize handles (only when selected and not locked) */}
+                    {isSelected && !locked && (
+                        <>
+                            {/* Corner handles */}
+                            <div
+                                className="resize-handle absolute -left-1 -top-1 h-3 w-3 cursor-nwse-resize border border-blue-500 bg-white"
+                                onMouseDown={(e) => handleResizeStart(e, 'nw')}
+                            />
+                            <div
+                                className="resize-handle absolute -right-1 -top-1 h-3 w-3 cursor-nesw-resize border border-blue-500 bg-white"
+                                onMouseDown={(e) => handleResizeStart(e, 'ne')}
+                            />
+                            <div
+                                className="resize-handle absolute -bottom-1 -left-1 h-3 w-3 cursor-nesw-resize border border-blue-500 bg-white"
+                                onMouseDown={(e) => handleResizeStart(e, 'sw')}
+                            />
+                            <div
+                                className="resize-handle absolute -bottom-1 -right-1 h-3 w-3 cursor-nwse-resize border border-blue-500 bg-white"
+                                onMouseDown={(e) => handleResizeStart(e, 'se')}
+                            />
 
-                    {/* Edge handles */}
-                    <div
-                        className="resize-handle absolute -top-1 left-1/2 h-3 w-3 -translate-x-1/2 cursor-ns-resize border border-blue-500 bg-white"
-                        onMouseDown={(e) => handleResizeStart(e, 'n')}
-                    />
-                    <div
-                        className="resize-handle absolute -bottom-1 left-1/2 h-3 w-3 -translate-x-1/2 cursor-ns-resize border border-blue-500 bg-white"
-                        onMouseDown={(e) => handleResizeStart(e, 's')}
-                    />
-                    <div
-                        className="resize-handle absolute -left-1 top-1/2 h-3 w-3 -translate-y-1/2 cursor-ew-resize border border-blue-500 bg-white"
-                        onMouseDown={(e) => handleResizeStart(e, 'w')}
-                    />
-                    <div
-                        className="resize-handle absolute -right-1 top-1/2 h-3 w-3 -translate-y-1/2 cursor-ew-resize border border-blue-500 bg-white"
-                        onMouseDown={(e) => handleResizeStart(e, 'e')}
-                    />
-                </>
-            )}
-        </div>
+                            {/* Edge handles */}
+                            <div
+                                className="resize-handle absolute -top-1 left-1/2 h-3 w-3 -translate-x-1/2 cursor-ns-resize border border-blue-500 bg-white"
+                                onMouseDown={(e) => handleResizeStart(e, 'n')}
+                            />
+                            <div
+                                className="resize-handle absolute -bottom-1 left-1/2 h-3 w-3 -translate-x-1/2 cursor-ns-resize border border-blue-500 bg-white"
+                                onMouseDown={(e) => handleResizeStart(e, 's')}
+                            />
+                            <div
+                                className="resize-handle absolute -left-1 top-1/2 h-3 w-3 -translate-y-1/2 cursor-ew-resize border border-blue-500 bg-white"
+                                onMouseDown={(e) => handleResizeStart(e, 'w')}
+                            />
+                            <div
+                                className="resize-handle absolute -right-1 top-1/2 h-3 w-3 -translate-y-1/2 cursor-ew-resize border border-blue-500 bg-white"
+                                onMouseDown={(e) => handleResizeStart(e, 'e')}
+                            />
+                        </>
+                    )}
+                </div>
+            </ContextMenuTrigger>
+            <ContextMenuContent className="w-48">
+                <ContextMenuSub>
+                    <ContextMenuSubTrigger>
+                        <Layers className="mr-2 h-4 w-4" />
+                        Z-Order
+                    </ContextMenuSubTrigger>
+                    <ContextMenuSubContent className="w-40">
+                        <ContextMenuItem onClick={() => onZOrderChange?.('front')}>
+                            Bring to Front
+                        </ContextMenuItem>
+                        <ContextMenuItem onClick={() => onZOrderChange?.('forward')}>
+                            Bring Forward
+                        </ContextMenuItem>
+                        <ContextMenuSeparator />
+                        <ContextMenuItem onClick={() => onZOrderChange?.('backward')}>
+                            Send Backward
+                        </ContextMenuItem>
+                        <ContextMenuItem onClick={() => onZOrderChange?.('back')}>
+                            Send to Back
+                        </ContextMenuItem>
+                    </ContextMenuSubContent>
+                </ContextMenuSub>
+                <ContextMenuSeparator />
+                <ContextMenuItem variant="destructive" onClick={onDelete}>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                </ContextMenuItem>
+            </ContextMenuContent>
+        </ContextMenu>
     );
 }
