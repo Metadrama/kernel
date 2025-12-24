@@ -51,13 +51,18 @@ export function DirectComponent({
     const [isDragging, setIsDragging] = useState(false);
     const [isResizing, setIsResizing] = useState(false);
     const [resizeHandle, setResizeHandle] = useState<ResizeHandle | null>(null);
-    const dragStartRef = useRef<{ x: number; y: number; compX: number; compY: number } | null>(null);
+    const [localRect, setLocalRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+    const localRectRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
+    const interactionStartRectRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
+    const dragStartRef = useRef<{ x: number; y: number; compX: number; compY: number; width: number; height: number } | null>(null);
     const resizeStartRef = useRef<{ x: number; y: number; width: number; height: number; compX: number; compY: number } | null>(null);
 
     const { position, componentType, locked } = component;
     const minSize = getMinSize(componentType);
     const maxSize = getMaxSize(componentType);
     const aspectRatio = getAspectRatio(componentType);
+
+    const displayRect = (isDragging || isResizing) && localRect ? localRect : position;
 
     // Mouse down on component (start drag)
     const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -72,13 +77,25 @@ export function DirectComponent({
         onSelect();
         setIsDragging(true);
 
+        const startRect = {
+            x: position.x,
+            y: position.y,
+            width: position.width,
+            height: position.height,
+        };
+        interactionStartRectRef.current = startRect;
+        localRectRef.current = startRect;
+        setLocalRect(startRect);
+
         dragStartRef.current = {
             x: e.clientX,
             y: e.clientY,
             compX: position.x,
             compY: position.y,
+            width: position.width,
+            height: position.height,
         };
-    }, [locked, isResizing, onSelect, position.x, position.y]);
+    }, [locked, isResizing, onSelect, position.x, position.y, position.width, position.height]);
 
     // Mouse down on resize handle
     const handleResizeStart = useCallback((e: React.MouseEvent, handle: ResizeHandle) => {
@@ -88,6 +105,16 @@ export function DirectComponent({
         onSelect();
         setIsResizing(true);
         setResizeHandle(handle);
+
+        const startRect = {
+            x: position.x,
+            y: position.y,
+            width: position.width,
+            height: position.height,
+        };
+        interactionStartRectRef.current = startRect;
+        localRectRef.current = startRect;
+        setLocalRect(startRect);
 
         resizeStartRef.current = {
             x: e.clientX,
@@ -105,18 +132,20 @@ export function DirectComponent({
 
         const handleMouseMove = (e: MouseEvent) => {
             if (isDragging && dragStartRef.current) {
-                const dx = e.clientX - dragStartRef.current.x;
-                const dy = e.clientY - dragStartRef.current.y;
+                const dx = (e.clientX - dragStartRef.current.x) / scale;
+                const dy = (e.clientY - dragStartRef.current.y) / scale;
 
-                onPositionChange({
+                const nextRect = {
                     x: dragStartRef.current.compX + dx,
                     y: dragStartRef.current.compY + dy,
-                    width: position.width,
-                    height: position.height,
-                });
+                    width: dragStartRef.current.width,
+                    height: dragStartRef.current.height,
+                };
+                localRectRef.current = nextRect;
+                setLocalRect(nextRect);
             } else if (isResizing && resizeStartRef.current && resizeHandle) {
-                const dx = e.clientX - resizeStartRef.current.x;
-                const dy = e.clientY - resizeStartRef.current.y;
+                const dx = (e.clientX - resizeStartRef.current.x) / scale;
+                const dy = (e.clientY - resizeStartRef.current.y) / scale;
 
                 let newX = resizeStartRef.current.compX;
                 let newY = resizeStartRef.current.compY;
@@ -170,21 +199,40 @@ export function DirectComponent({
                     newY = resizeStartRef.current.compY + (resizeStartRef.current.height - newHeight);
                 }
 
-                onPositionChange({
+                const nextRect = {
                     x: newX,
                     y: newY,
                     width: newWidth,
                     height: newHeight,
-                });
+                };
+                localRectRef.current = nextRect;
+                setLocalRect(nextRect);
             }
         };
 
         const handleMouseUp = () => {
+            const startRect = interactionStartRectRef.current;
+            const endRect = localRectRef.current;
+
+            if (
+                endRect &&
+                startRect &&
+                (endRect.x !== startRect.x ||
+                    endRect.y !== startRect.y ||
+                    endRect.width !== startRect.width ||
+                    endRect.height !== startRect.height)
+            ) {
+                onPositionChange(endRect);
+            }
+
             setIsDragging(false);
             setIsResizing(false);
             setResizeHandle(null);
             dragStartRef.current = null;
             resizeStartRef.current = null;
+            interactionStartRectRef.current = null;
+            localRectRef.current = null;
+            setLocalRect(null);
         };
 
         document.addEventListener('mousemove', handleMouseMove);
@@ -194,7 +242,7 @@ export function DirectComponent({
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', handleMouseUp);
         };
-    }, [isDragging, isResizing, resizeHandle, scale, position, minSize, maxSize, aspectRatio, onPositionChange]);
+    }, [isDragging, isResizing, resizeHandle, scale, minSize, maxSize, aspectRatio, onPositionChange]);
 
     // Render the actual component content
     const renderComponent = () => {
@@ -225,10 +273,10 @@ export function DirectComponent({
                         locked && 'cursor-not-allowed opacity-60'
                     )}
                     style={{
-                        left: position.x,
-                        top: position.y,
-                        width: position.width,
-                        height: position.height,
+                        left: displayRect.x,
+                        top: displayRect.y,
+                        width: displayRect.width,
+                        height: displayRect.height,
                         zIndex: position.zIndex,
                     }}
                     onMouseDown={handleMouseDown}

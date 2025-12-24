@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { z } from 'zod';
 import type { ArtboardSchema } from '@/types/artboard';
 
 interface ArtboardContextValue {
@@ -25,6 +26,98 @@ interface ArtboardProviderProps {
   initialData?: InitialData;
 }
 
+const STORAGE_KEY = 'artboards';
+const STORAGE_VERSION = 1;
+
+type PersistedArtboardsPayloadV1 = {
+  version: 1;
+  artboards: ArtboardSchema[];
+};
+
+const ARTBOARD_FORMATS = [
+  'a4-portrait',
+  'a4-landscape',
+  'a3-portrait',
+  'a3-landscape',
+  'a2-portrait',
+  'a2-landscape',
+  'slide-16-9',
+  'slide-4-3',
+  'web-1440',
+  'web-responsive',
+  'display-fhd',
+  'display-4k',
+  'mobile-portrait',
+  'mobile-landscape',
+  'custom',
+] as const;
+
+const zComponentPosition = z
+  .object({
+    x: z.number(),
+    y: z.number(),
+    width: z.number(),
+    height: z.number(),
+    zIndex: z.number(),
+    rotation: z.number().optional(),
+  })
+  .passthrough();
+
+const zArtboardComponent = z
+  .object({
+    instanceId: z.string(),
+    componentType: z.string(),
+    position: zComponentPosition,
+    config: z.record(z.string(), z.unknown()),
+    locked: z.boolean().optional(),
+  })
+  .passthrough();
+
+const zArtboardDimensions = z
+  .object({
+    widthMm: z.number().optional(),
+    heightMm: z.number().optional(),
+    widthPx: z.number(),
+    heightPx: z.number(),
+    aspectRatio: z.number(),
+    dpi: z.number(),
+    label: z.string(),
+  })
+  .passthrough();
+
+const zCanvasPosition = z
+  .object({
+    x: z.number(),
+    y: z.number(),
+  })
+  .passthrough();
+
+const zArtboardSchema: z.ZodType<ArtboardSchema> = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    format: z.enum(ARTBOARD_FORMATS),
+    dimensions: zArtboardDimensions,
+    position: zCanvasPosition,
+    zoom: z.number(),
+    backgroundColor: z.string(),
+    backgroundImage: z.string().optional(),
+    components: z.array(zArtboardComponent),
+    locked: z.boolean(),
+    visible: z.boolean(),
+    showGrid: z.boolean(),
+    showRulers: z.boolean(),
+    gridPadding: z.number(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+  })
+  .passthrough();
+
+const zPersistedPayloadV1 = z.object({
+  version: z.literal(1),
+  artboards: z.array(zArtboardSchema),
+});
+
 const loadArtboards = (initialData?: InitialData): ArtboardSchema[] => {
   // Prefer server data if provided
   if (initialData?.artboards && initialData.artboards.length > 0) {
@@ -37,8 +130,27 @@ const loadArtboards = (initialData?: InitialData): ArtboardSchema[] => {
   }
 
   try {
-    const saved = window.localStorage.getItem('artboards');
-    return saved ? JSON.parse(saved) : [];
+    const saved = window.localStorage.getItem(STORAGE_KEY);
+    if (!saved) return [];
+
+    const parsed: unknown = JSON.parse(saved);
+
+    // Backward-compatible: old format was just ArtboardSchema[]
+    if (Array.isArray(parsed)) {
+      const result = z.array(zArtboardSchema).safeParse(parsed);
+      if (result.success) return result.data;
+      console.warn('Invalid persisted artboards (legacy array format). Resetting to empty.', result.error);
+      return [];
+    }
+
+    // New versioned format
+    const payloadResult = zPersistedPayloadV1.safeParse(parsed);
+    if (payloadResult.success) {
+      return payloadResult.data.artboards;
+    }
+
+    console.warn('Invalid persisted artboards (versioned format). Resetting to empty.', payloadResult.error);
+    return [];
   } catch (error) {
     console.error('Failed to load artboards:', error);
     return [];
@@ -75,11 +187,21 @@ export function ArtboardProvider({ children, initialData }: ArtboardProviderProp
       return;
     }
 
-    try {
-      window.localStorage.setItem('artboards', JSON.stringify(artboards));
-    } catch (error) {
-      console.error('Failed to save artboards:', error);
-    }
+    const timeoutId = window.setTimeout(() => {
+      try {
+        const payload: PersistedArtboardsPayloadV1 = {
+          version: STORAGE_VERSION,
+          artboards,
+        };
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      } catch (error) {
+        console.error('Failed to save artboards:', error);
+      }
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [artboards]);
 
 

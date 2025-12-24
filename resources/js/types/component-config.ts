@@ -284,6 +284,9 @@ export interface ConfigFieldSchema {
   max?: number;
   step?: number;
 
+  // Component type filtering - only show field for these component types
+  appliesTo?: string[];
+
   // Conditional visibility
   showWhen?: {
     field: string;

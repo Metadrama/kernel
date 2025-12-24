@@ -62,11 +62,18 @@ function setNestedValue(obj: Record<string, unknown>, path: string, value: unkno
   return result;
 }
 
-// Check if field should be visible based on showWhen condition
+// Check if field should be visible based on showWhen condition and appliesTo constraint
 function isFieldVisible(
   field: ConfigFieldSchema,
-  config: Record<string, unknown>
+  config: Record<string, unknown>,
+  componentType: string
 ): boolean {
+  // Check appliesTo constraint first
+  if (field.appliesTo && !field.appliesTo.includes(componentType)) {
+    return false;
+  }
+
+  // Check showWhen condition
   if (!field.showWhen) return true;
 
   const { field: targetField, operator, value: targetValue } = field.showWhen;
@@ -204,7 +211,7 @@ export function ComponentInspector({
             if (!groupInfo) return null;
 
             const IconComponent = getIcon(groupInfo.icon);
-            const visibleFields = fields.filter(f => isFieldVisible(f, config));
+            const visibleFields = fields.filter(f => isFieldVisible(f, config, component.componentType));
 
             if (visibleFields.length === 0) return null;
 

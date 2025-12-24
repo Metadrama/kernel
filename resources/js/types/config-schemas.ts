@@ -83,6 +83,7 @@ const COLOR_FIELDS: ConfigFieldSchema[] = [
     defaultValue: '#3b82f6',
     group: 'Style',
     description: 'Override primary color (for line charts)',
+    appliesTo: ['chart-line'],
   },
   {
     key: 'colors.backgroundColor',
@@ -125,6 +126,7 @@ export const LINE_CHART_SCHEMA: ComponentConfigSchema = {
       step: 0.1,
       group: 'Style',
       description: '0 = straight lines, 1 = very curved',
+      appliesTo: ['chart-line'],
     },
     {
       key: 'fill',
@@ -132,6 +134,7 @@ export const LINE_CHART_SCHEMA: ComponentConfigSchema = {
       type: 'boolean',
       defaultValue: true,
       group: 'Style',
+      appliesTo: ['chart-line'],
     },
     {
       key: 'showPoints',
@@ -139,6 +142,7 @@ export const LINE_CHART_SCHEMA: ComponentConfigSchema = {
       type: 'boolean',
       defaultValue: true,
       group: 'Style',
+      appliesTo: ['chart-line'],
     },
     {
       key: 'pointRadius',
@@ -150,6 +154,7 @@ export const LINE_CHART_SCHEMA: ComponentConfigSchema = {
       step: 1,
       group: 'Style',
       showWhen: { field: 'showPoints', operator: 'equals', value: true },
+      appliesTo: ['chart-line'],
     },
     ...COLOR_FIELDS,
     {
@@ -225,6 +230,7 @@ export const BAR_CHART_SCHEMA: ComponentConfigSchema = {
       type: 'boolean',
       defaultValue: false,
       group: 'Style',
+      appliesTo: ['chart-bar'],
     },
     {
       key: 'stacked',
@@ -232,6 +238,7 @@ export const BAR_CHART_SCHEMA: ComponentConfigSchema = {
       type: 'boolean',
       defaultValue: false,
       group: 'Style',
+      appliesTo: ['chart-bar'],
     },
     {
       key: 'borderRadius',
@@ -242,6 +249,7 @@ export const BAR_CHART_SCHEMA: ComponentConfigSchema = {
       max: 20,
       step: 1,
       group: 'Style',
+      appliesTo: ['chart-bar'],
     },
     ...COLOR_FIELDS,
     {
@@ -317,6 +325,7 @@ export const BAR_CHART_SCHEMA: ComponentConfigSchema = {
         { value: 'currency', label: 'Currency' },
         { value: 'percent', label: 'Percentage' },
       ],
+      appliesTo: ['chart-bar'],
     },
     {
       key: 'yAxis.currencyCode',
@@ -331,6 +340,7 @@ export const BAR_CHART_SCHEMA: ComponentConfigSchema = {
         { value: 'GBP', label: 'GBP (£)' },
       ],
       showWhen: { field: 'yAxis.formatType', operator: 'equals', value: 'currency' },
+      appliesTo: ['chart-bar'],
     },
   ],
 };
@@ -433,6 +443,7 @@ export const DOUGHNUT_CHART_SCHEMA: ComponentConfigSchema = {
       group: 'Transform',
       description: 'Combine remaining items into "Other" segment',
       showWhen: { field: 'limit', operator: 'exists' },
+      appliesTo: ['chart-doughnut'],
     },
     {
       key: 'showDataLabels',
@@ -440,6 +451,7 @@ export const DOUGHNUT_CHART_SCHEMA: ComponentConfigSchema = {
       type: 'boolean',
       defaultValue: false,
       group: 'Display',
+      appliesTo: ['chart-doughnut'],
     },
     {
       key: 'dataLabelPosition',
@@ -452,6 +464,7 @@ export const DOUGHNUT_CHART_SCHEMA: ComponentConfigSchema = {
         { value: 'outside', label: 'Outside' },
       ],
       showWhen: { field: 'showDataLabels', operator: 'equals', value: true },
+      appliesTo: ['chart-doughnut'],
     },
     {
       key: 'dataLabelType',
@@ -466,6 +479,7 @@ export const DOUGHNUT_CHART_SCHEMA: ComponentConfigSchema = {
         { label: 'All', value: 'all' },
       ],
       showWhen: { field: 'showDataLabels', operator: 'equals', value: true },
+      appliesTo: ['chart-doughnut'],
     },
     {
       key: 'innerRadius',
@@ -476,6 +490,7 @@ export const DOUGHNUT_CHART_SCHEMA: ComponentConfigSchema = {
       max: 0.95,
       step: 0.05,
       group: 'Style',
+      appliesTo: ['chart-doughnut'],
     },
     {
       key: 'padAngle',
@@ -486,6 +501,7 @@ export const DOUGHNUT_CHART_SCHEMA: ComponentConfigSchema = {
       max: 45,
       step: 0.1,
       group: 'Style',
+      appliesTo: ['chart-doughnut'],
     },
     {
       key: 'cornerRadius',
@@ -496,6 +512,7 @@ export const DOUGHNUT_CHART_SCHEMA: ComponentConfigSchema = {
       max: 45,
       step: 1,
       group: 'Style',
+      appliesTo: ['chart-doughnut'],
     },
   ],
 };
