@@ -6,20 +6,27 @@
  * - Uses DirectComponent for drag/resize
  * - Supports component drops from sidebar
  * - Artboard drag with header
+ *
+ * Drag-and-drop UX:
+ * - Shows a live "ghost" preview while dragging a component card over the artboard
+ * - Preview is snapped using the same centralized snap resolver as dragging
+ * - Shows alignment guides during preview
  */
 
 import { DirectComponent } from '@/components/DirectComponent';
 import { Button } from '@/components/ui/button';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useDraggedComponentRef } from '@/context/DragDropContext';
 import { useArtboardDrag } from '@/hooks';
 import type { AlignmentGuide } from '@/lib/alignment-helpers';
 import { exportArtboardToJson, exportArtboardToPdf } from '@/lib/artboard-utils';
 import { getDefaultSize } from '@/lib/component-sizes';
+import { resolveSnap } from '@/lib/snap-resolver';
 import type { ArtboardSchema } from '@/types/artboard';
 import type { ArtboardComponent, ComponentCard } from '@/types/dashboard';
 import { FileJson, FileType, Lock, MoreVertical, Trash2, Unlock } from 'lucide-react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import AlignmentGuidesOverlay from './AlignmentGuidesOverlay';
 
 interface ArtboardContainerProps {
@@ -55,6 +62,27 @@ export default function ArtboardContainer({
     const [isDragOver, setIsDragOver] = useState(false);
     const [contextMenuOpen, setContextMenuOpen] = useState(false);
     const [activeGuides, setActiveGuides] = useState<AlignmentGuide[]>([]);
+
+    const [dropPreview, setDropPreview] = useState<{
+        componentType: string;
+        position: { x: number; y: number };
+        size: { width: number; height: number };
+        bypassSnap: boolean;
+    } | null>(null);
+
+    const getDragged = useDraggedComponentRef();
+
+    const siblingBounds = useMemo(
+        () =>
+            artboard.components.map((c) => ({
+                id: c.instanceId,
+                x: c.position.x,
+                y: c.position.y,
+                width: c.position.width,
+                height: c.position.height,
+            })),
+        [artboard.components],
+    );
 
     // Artboard dragging
     const {
@@ -177,12 +205,68 @@ export default function ArtboardContainer({
         e.stopPropagation();
         e.dataTransfer.dropEffect = 'copy';
         setIsDragOver(true);
+
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (!rect) return;
+
+        // Prefer in-memory drag payload (reliable), fall back to DataTransfer when available.
+        let componentData: ComponentCard | null = null;
+
+        const dragged = getDragged?.();
+        if (dragged?.component?.id) {
+            componentData = dragged.component;
+        } else {
+            const payload = e.dataTransfer.getData('application/json');
+            if (payload) {
+                try {
+                    componentData = JSON.parse(payload) as ComponentCard;
+                } catch {
+                    componentData = null;
+                }
+            }
+        }
+
+        if (!componentData?.id) {
+            // No payload available during dragover in some browsers; just clear preview/guides.
+            setDropPreview(null);
+            setActiveGuides([]);
+            return;
+        }
+
+        const defaultSize = getDefaultSize(componentData.id);
+
+        const rawX = (e.clientX - rect.left) / canvasScale;
+        const rawY = (e.clientY - rect.top) / canvasScale;
+
+        const bypassSnap = e.altKey;
+
+        const snap = resolveSnap({
+            rawPosition: { x: rawX, y: rawY },
+            moving: {
+                id: '__drop-preview__',
+                width: defaultSize.width,
+                height: defaultSize.height,
+            },
+            siblings: siblingBounds,
+            modifiers: { bypassAllSnapping: bypassSnap },
+        });
+
+        setDropPreview({
+            componentType: componentData.id,
+            position: snap.position,
+            size: { width: defaultSize.width, height: defaultSize.height },
+            bypassSnap,
+        });
+
+        setActiveGuides(snap.guides);
     };
 
     const handleDragLeave = (e: React.DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
         setIsDragOver(false);
+        setDropPreview(null);
+        setActiveGuides([]);
     };
 
     const handleDrop = (e: React.DragEvent) => {
@@ -191,19 +275,48 @@ export default function ArtboardContainer({
         setIsDragOver(false);
 
         try {
-            const componentData = JSON.parse(e.dataTransfer.getData('application/json')) as ComponentCard;
+            // Prefer in-memory drag payload, fall back to DataTransfer for safety.
+            let componentData: ComponentCard | null = null;
+
+            const dragged = getDragged?.();
+            if (dragged?.component?.id) {
+                componentData = dragged.component;
+            } else {
+                const payload = e.dataTransfer.getData('application/json');
+                if (payload) {
+                    componentData = JSON.parse(payload) as ComponentCard;
+                }
+            }
+
             if (!componentData?.id) return;
 
             // Calculate drop position relative to artboard
             const rect = containerRef.current?.getBoundingClientRect();
             if (!rect) return;
 
-            const x = (e.clientX - rect.left) / canvasScale;
-            const y = (e.clientY - rect.top) / canvasScale;
+            const rawX = (e.clientX - rect.left) / canvasScale;
+            const rawY = (e.clientY - rect.top) / canvasScale;
 
-            addComponent(componentData.id, { x, y });
+            // Snap dropped component using the centralized resolver (alignment-first, grid fallback).
+            const defaultSize = getDefaultSize(componentData.id);
+
+            const snap = resolveSnap({
+                rawPosition: { x: rawX, y: rawY },
+                moving: {
+                    id: '__drop-preview__',
+                    width: defaultSize.width,
+                    height: defaultSize.height,
+                },
+                siblings: siblingBounds,
+                modifiers: { bypassAllSnapping: e.altKey },
+            });
+
+            addComponent(componentData.id, { x: snap.position.x, y: snap.position.y });
         } catch (error) {
             console.error('Failed to parse dropped component:', error);
+        } finally {
+            setDropPreview(null);
+            setActiveGuides([]);
         }
     };
 
@@ -320,50 +433,54 @@ export default function ArtboardContainer({
                             />
                         )}
 
-                        {/* Drop zone indicator */}
-                        {isDragOver && (
-                            <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center bg-primary/5 backdrop-blur-sm">
-                                <div className="rounded-lg border-2 border-dashed border-primary bg-background/90 px-6 py-4">
-                                    <p className="text-sm font-semibold text-primary">Drop to add component</p>
-                                </div>
-                            </div>
-                        )}
+                        {/* Drop zone indicator removed (ghost preview provides sufficient feedback) */}
 
                         {/* Components Layer */}
-                        <div className="absolute inset-0" style={{ pointerEvents: 'auto' }}>
-                            {(() => {
-                                const siblingBounds = artboard.components.map((c) => ({
-                                    id: c.instanceId,
-                                    x: c.position.x,
-                                    y: c.position.y,
-                                    width: c.position.width,
-                                    height: c.position.height,
-                                }));
+                        <div
+                            className="absolute inset-0"
+                            style={{
+                                pointerEvents: 'auto',
+                                overflow: artboard.clipContent ? 'hidden' : 'visible',
+                            }}
+                        >
+                            <AlignmentGuidesOverlay guides={activeGuides} components={siblingBounds} />
 
-                                return (
-                                    <>
-                                        <AlignmentGuidesOverlay guides={activeGuides} components={siblingBounds} />
+                            {/* Live drop preview (ghost) */}
+                            {dropPreview && (
+                                <div
+                                    className="pointer-events-none absolute border-2 border-dashed border-primary/60 bg-primary/10"
+                                    style={{
+                                        left: dropPreview.position.x,
+                                        top: dropPreview.position.y,
+                                        width: dropPreview.size.width,
+                                        height: dropPreview.size.height,
+                                        zIndex: 9999,
+                                    }}
+                                >
+                                    <div className="absolute top-1 left-1 rounded bg-background/80 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                        {dropPreview.componentType}
+                                        {dropPreview.bypassSnap ? ' (no snap)' : ''}
+                                    </div>
+                                </div>
+                            )}
 
-                                        {artboard.components.map((component) => (
-                                            <DirectComponent
-                                                key={component.instanceId}
-                                                component={component}
-                                                isSelected={selectedComponentId === component.instanceId}
-                                                scale={canvasScale}
-                                                siblingBounds={siblingBounds}
-                                                onGuidesChange={setActiveGuides}
-                                                onSelect={() => {
-                                                    onSelectComponent?.(component.instanceId);
-                                                    onSelect();
-                                                }}
-                                                onPositionChange={(pos) => updateComponentPosition(component.instanceId, pos)}
-                                                onDelete={() => deleteComponent(component.instanceId)}
-                                                onZOrderChange={(op) => updateComponentZOrder(component.instanceId, op)}
-                                            />
-                                        ))}
-                                    </>
-                                );
-                            })()}
+                            {artboard.components.map((component) => (
+                                <DirectComponent
+                                    key={component.instanceId}
+                                    component={component}
+                                    isSelected={selectedComponentId === component.instanceId}
+                                    scale={canvasScale}
+                                    siblingBounds={siblingBounds}
+                                    onGuidesChange={setActiveGuides}
+                                    onSelect={() => {
+                                        onSelectComponent?.(component.instanceId);
+                                        onSelect();
+                                    }}
+                                    onPositionChange={(pos) => updateComponentPosition(component.instanceId, pos)}
+                                    onDelete={() => deleteComponent(component.instanceId)}
+                                    onZOrderChange={(op) => updateComponentZOrder(component.instanceId, op)}
+                                />
+                            ))}
                         </div>
                     </div>
                 </ContextMenuTrigger>

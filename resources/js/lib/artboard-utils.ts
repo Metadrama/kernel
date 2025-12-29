@@ -1,6 +1,6 @@
 /**
  * Artboard Utility Functions
- * 
+ *
  * Helper functions for artboard operations:
  * - Creation with defaults
  * - Dimension calculations
@@ -8,14 +8,8 @@
  * - Validation
  */
 
-import type {
-    ArtboardSchema,
-    ArtboardFormat,
-    CreateArtboardOptions,
-    CanvasPosition,
-    ArtboardDimensions,
-} from '@/types/artboard';
 import { getArtboardPreset } from '@/constants/artboard-presets';
+import type { ArtboardDimensions, ArtboardFormat, ArtboardSchema, CanvasPosition, CreateArtboardOptions } from '@/types/artboard';
 
 /**
  * Generate unique artboard ID
@@ -46,10 +40,7 @@ export function getDefaultArtboardName(format: ArtboardFormat): string {
  * Calculate default position for new artboard
  * Places artboards in a horizontal flow layout (like Figma)
  */
-export function calculateDefaultPosition(
-    existingArtboards: ArtboardSchema[],
-    dimensions: ArtboardDimensions
-): CanvasPosition {
+export function calculateDefaultPosition(existingArtboards: ArtboardSchema[], dimensions: ArtboardDimensions): CanvasPosition {
     if (existingArtboards.length === 0) {
         // First artboard: start at top-left with padding
         return { x: 100, y: 100 };
@@ -68,10 +59,7 @@ export function calculateDefaultPosition(
 /**
  * Create a new artboard with defaults
  */
-export function createArtboard(
-    options: CreateArtboardOptions,
-    existingArtboards: ArtboardSchema[] = []
-): ArtboardSchema {
+export function createArtboard(options: CreateArtboardOptions, existingArtboards: ArtboardSchema[] = []): ArtboardSchema {
     const preset = getArtboardPreset(options.format);
 
     if (!preset) {
@@ -97,6 +85,7 @@ export function createArtboard(
         visible: true,
         showGrid: true,
         showRulers: false,
+        clipContent: true,
         gridPadding: 16, // container padding in pixels
         createdAt: now,
         updatedAt: now,
@@ -131,46 +120,27 @@ export function getArtboardBounds(artboard: ArtboardSchema): ArtboardBounds {
 /**
  * Check if a point is within artboard bounds
  */
-export function isPointInArtboard(
-    point: CanvasPosition,
-    artboard: ArtboardSchema
-): boolean {
+export function isPointInArtboard(point: CanvasPosition, artboard: ArtboardSchema): boolean {
     const bounds = getArtboardBounds(artboard);
 
-    return (
-        point.x >= bounds.left &&
-        point.x <= bounds.right &&
-        point.y >= bounds.top &&
-        point.y <= bounds.bottom
-    );
+    return point.x >= bounds.left && point.x <= bounds.right && point.y >= bounds.top && point.y <= bounds.bottom;
 }
 
 /**
  * Check if two artboards overlap
  */
-export function doArtboardsOverlap(
-    artboard1: ArtboardSchema,
-    artboard2: ArtboardSchema
-): boolean {
+export function doArtboardsOverlap(artboard1: ArtboardSchema, artboard2: ArtboardSchema): boolean {
     const bounds1 = getArtboardBounds(artboard1);
     const bounds2 = getArtboardBounds(artboard2);
 
-    return !(
-        bounds1.right < bounds2.left ||
-        bounds1.left > bounds2.right ||
-        bounds1.bottom < bounds2.top ||
-        bounds1.top > bounds2.bottom
-    );
+    return !(bounds1.right < bounds2.left || bounds1.left > bounds2.right || bounds1.bottom < bounds2.top || bounds1.top > bounds2.bottom);
 }
 
 /**
  * Find artboard at canvas position
  * Returns topmost artboard if multiple overlap
  */
-export function findArtboardAtPosition(
-    position: CanvasPosition,
-    artboards: ArtboardSchema[]
-): ArtboardSchema | null {
+export function findArtboardAtPosition(position: CanvasPosition, artboards: ArtboardSchema[]): ArtboardSchema | null {
     // Check in reverse order (topmost first)
     for (let i = artboards.length - 1; i >= 0; i--) {
         const artboard = artboards[i];
@@ -185,10 +155,7 @@ export function findArtboardAtPosition(
 /**
  * Validate artboard position (ensure it's not too far off canvas)
  */
-export function validateArtboardPosition(
-    position: CanvasPosition,
-    canvasSize: { width: number; height: number }
-): CanvasPosition {
+export function validateArtboardPosition(position: CanvasPosition, canvasSize: { width: number; height: number }): CanvasPosition {
     const maxOffset = 10000; // Maximum pixels off-canvas
 
     return {
@@ -201,10 +168,10 @@ export function validateArtboardPosition(
  * Export artboard to JSON file
  */
 export function exportArtboardToJson(artboard: ArtboardSchema): void {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(artboard, null, 2));
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(artboard, null, 2));
     const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", `${artboard.name || 'artboard'}.json`);
+    downloadAnchorNode.setAttribute('href', dataStr);
+    downloadAnchorNode.setAttribute('download', `${artboard.name || 'artboard'}.json`);
     document.body.appendChild(downloadAnchorNode); // required for firefox
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
@@ -239,7 +206,7 @@ export async function exportArtboardToPdf(artboard: ArtboardSchema): Promise<voi
                 ignoreElements: (element) => {
                     // Ignore elements that shouldn't be in the PDF if necessary
                     return false;
-                }
+                },
             });
 
             const imgData = canvas.toDataURL('image/png');
@@ -250,16 +217,14 @@ export async function exportArtboardToPdf(artboard: ArtboardSchema): Promise<voi
             const pdf = new jsPDF({
                 orientation,
                 unit: 'px',
-                format: [artboard.dimensions.widthPx, artboard.dimensions.heightPx]
+                format: [artboard.dimensions.widthPx, artboard.dimensions.heightPx],
             });
 
             pdf.addImage(imgData, 'PNG', 0, 0, artboard.dimensions.widthPx, artboard.dimensions.heightPx);
             pdf.save(`${artboard.name || 'artboard'}.pdf`);
-
         } finally {
             document.body.style.cursor = originalCursor;
         }
-
     } catch (error) {
         console.error('Failed to export PDF:', error);
         alert('Failed to export PDF. Please ensure html2canvas and jspdf are installed.');

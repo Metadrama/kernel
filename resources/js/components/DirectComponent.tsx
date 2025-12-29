@@ -2,7 +2,7 @@
  * DirectComponent - Figma-style component wrapper with drag and resize
  *
  * Wraps individual components with:
- * - Absolute pixel positioning
+ * - Absolute pixel positioning (in artboard space)
  * - 8-handle resize (4 corners + 4 edges)
  * - Selection UI with blue border
  * - Drag-to-move functionality
@@ -11,7 +11,13 @@
  * Snapping:
  * - Snap to 8px grid by default
  * - Smart alignment snapping to sibling components during drag
+ * - Alignment snapping during resize (via centralized resolver)
  * - Hold Alt/Option to temporarily bypass snapping
+ *
+ * Zoom correctness:
+ * - `scale` represents the canvas zoom factor.
+ * - The component wrapper is counter-scaled so the DOM content is not double-scaled,
+ *   preventing "fit-to-size only at 100%" behavior.
  */
 
 import {
@@ -28,7 +34,7 @@ import ChartComponent from '@/components/widget-components/ChartComponent';
 import { type AlignmentGuide, type ComponentBounds } from '@/lib/alignment-helpers';
 import { GRID_SIZE_PX, snapToGrid } from '@/lib/canvas-constants';
 import { getAspectRatio, getMaxSize, getMinSize } from '@/lib/component-sizes';
-import { resolveSnap } from '@/lib/snap-resolver';
+import { resolveResizeSnap, resolveSnap } from '@/lib/snap-resolver';
 import { cn } from '@/lib/utils';
 import type { ArtboardComponent } from '@/types/dashboard';
 import { Layers, Trash2 } from 'lucide-react';
@@ -86,6 +92,10 @@ export function DirectComponent({
     const aspectRatio = getAspectRatio(componentType);
 
     const displayRect = (isDragging || isResizing) && localRect ? localRect : position;
+
+    // Counter-scale the component wrapper so the component content stays at "true" pixel size
+    // in artboard space even when the canvas is zoomed.
+    const inverseScale = scale === 0 ? 1 : 1 / scale;
 
     // Mouse down on component (start drag)
     const handleMouseDown = useCallback(
@@ -241,8 +251,34 @@ export function DirectComponent({
                     }
                 }
 
-                // Snap (unless bypassed). Snap the "moving" edges so resizing feels anchored.
-                if (!bypassSnap) {
+                // Centralized resize snapping (alignment-first, grid fallback). Alt bypasses.
+                if (!bypassSnap && siblingBounds && siblingBounds.length > 0) {
+                    const startRect = {
+                        x: resizeStartRef.current.compX,
+                        y: resizeStartRef.current.compY,
+                        width: resizeStartRef.current.width,
+                        height: resizeStartRef.current.height,
+                    };
+
+                    const rawRect = { x: newX, y: newY, width: newWidth, height: newHeight };
+
+                    const snap = resolveResizeSnap({
+                        rawRect,
+                        startRect,
+                        handle: resizeHandle,
+                        siblings: siblingBounds,
+                        modifiers: { bypassAllSnapping: bypassSnap },
+                    });
+
+                    setActiveGuides(snap.guides);
+                    onGuidesChange?.(snap.guides);
+
+                    newX = snap.rect.x;
+                    newY = snap.rect.y;
+                    newWidth = snap.rect.width;
+                    newHeight = snap.rect.height;
+                } else if (!bypassSnap) {
+                    // Fallback: grid snapping only (keeps existing behavior even if no siblings are available)
                     const start = resizeStartRef.current;
 
                     const rawRight = newX + newWidth;
@@ -271,15 +307,15 @@ export function DirectComponent({
                         newY = snappedTop;
                         newHeight = startBottom - newY;
                     }
+                }
 
-                    // Re-apply constraints after snapping
-                    newWidth = Math.max(minSize.width, newWidth);
-                    newHeight = Math.max(minSize.height, newHeight);
+                // Re-apply constraints after snapping
+                newWidth = Math.max(minSize.width, newWidth);
+                newHeight = Math.max(minSize.height, newHeight);
 
-                    if (maxSize) {
-                        newWidth = Math.min(maxSize.width, newWidth);
-                        newHeight = Math.min(maxSize.height, newHeight);
-                    }
+                if (maxSize) {
+                    newWidth = Math.min(maxSize.width, newWidth);
+                    newHeight = Math.min(maxSize.height, newHeight);
                 }
 
                 // Adjust position if resizing from top or left (final)
@@ -361,8 +397,10 @@ export function DirectComponent({
                     style={{
                         left: displayRect.x,
                         top: displayRect.y,
-                        width: displayRect.width,
-                        height: displayRect.height,
+                        width: displayRect.width * scale,
+                        height: displayRect.height * scale,
+                        transform: `scale(${inverseScale})`,
+                        transformOrigin: 'top left',
                         zIndex: position.zIndex,
                     }}
                     onMouseDown={handleMouseDown}
