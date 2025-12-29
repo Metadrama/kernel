@@ -1,35 +1,47 @@
 /**
  * DirectComponent - Figma-style component wrapper with drag and resize
- * 
+ *
  * Wraps individual components with:
  * - Absolute pixel positioning
  * - 8-handle resize (4 corners + 4 edges)
  * - Selection UI with blue border
  * - Drag-to-move functionality
  * - Context menu for operations
+ *
+ * Snapping:
+ * - Snap to 8px grid by default
+ * - Smart alignment snapping to sibling components during drag
+ * - Hold Alt/Option to temporarily bypass snapping
  */
 
-import { useRef, useState, useCallback, useEffect } from 'react';
-import { Trash2, Layers } from 'lucide-react';
-import type { ArtboardComponent } from '@/types/dashboard';
-import { getMinSize, getMaxSize, getAspectRatio } from '@/lib/component-sizes';
-import ChartComponent from '@/components/widget-components/ChartComponent';
-import { cn } from '@/lib/utils';
 import {
     ContextMenu,
-    ContextMenuTrigger,
     ContextMenuContent,
     ContextMenuItem,
     ContextMenuSeparator,
     ContextMenuSub,
-    ContextMenuSubTrigger,
     ContextMenuSubContent,
+    ContextMenuSubTrigger,
+    ContextMenuTrigger,
 } from '@/components/ui/context-menu';
+import ChartComponent from '@/components/widget-components/ChartComponent';
+import { findAlignmentGuides, getGuideBounds, snapToGuides, type AlignmentGuide, type ComponentBounds } from '@/lib/alignment-helpers';
+import { GRID_SIZE_PX, snapToGrid } from '@/lib/canvas-constants';
+import { getAspectRatio, getMaxSize, getMinSize } from '@/lib/component-sizes';
+import { cn } from '@/lib/utils';
+import type { ArtboardComponent } from '@/types/dashboard';
+import { Layers, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface DirectComponentProps {
     component: ArtboardComponent;
     isSelected: boolean;
     scale: number;
+    /**
+     * Bounds for all components on the same artboard (including this component).
+     * Used for smart alignment guides/snapping during drag.
+     */
+    siblingBounds?: ComponentBounds[];
     onSelect: () => void;
     onPositionChange: (position: { x: number; y: number; width: number; height: number }) => void;
     onDelete: () => void;
@@ -42,6 +54,7 @@ export function DirectComponent({
     component,
     isSelected,
     scale,
+    siblingBounds,
     onSelect,
     onPositionChange,
     onDelete,
@@ -57,6 +70,8 @@ export function DirectComponent({
     const dragStartRef = useRef<{ x: number; y: number; compX: number; compY: number; width: number; height: number } | null>(null);
     const resizeStartRef = useRef<{ x: number; y: number; width: number; height: number; compX: number; compY: number } | null>(null);
 
+    const [activeGuides, setActiveGuides] = useState<AlignmentGuide[]>([]);
+
     const { position, componentType, locked } = component;
     const minSize = getMinSize(componentType);
     const maxSize = getMaxSize(componentType);
@@ -65,79 +80,117 @@ export function DirectComponent({
     const displayRect = (isDragging || isResizing) && localRect ? localRect : position;
 
     // Mouse down on component (start drag)
-    const handleMouseDown = useCallback((e: React.MouseEvent) => {
-        if (locked || isResizing) return;
+    const handleMouseDown = useCallback(
+        (e: React.MouseEvent) => {
+            if (locked || isResizing) return;
 
-        // Ignore if clicking on a resize handle
-        if ((e.target as HTMLElement).classList.contains('resize-handle')) {
-            return;
-        }
+            // Ignore if clicking on a resize handle
+            if ((e.target as HTMLElement).classList.contains('resize-handle')) {
+                return;
+            }
 
-        e.stopPropagation();
-        onSelect();
-        setIsDragging(true);
+            e.stopPropagation();
+            onSelect();
+            setIsDragging(true);
 
-        const startRect = {
-            x: position.x,
-            y: position.y,
-            width: position.width,
-            height: position.height,
-        };
-        interactionStartRectRef.current = startRect;
-        localRectRef.current = startRect;
-        setLocalRect(startRect);
+            const startRect = {
+                x: position.x,
+                y: position.y,
+                width: position.width,
+                height: position.height,
+            };
+            interactionStartRectRef.current = startRect;
+            localRectRef.current = startRect;
+            setLocalRect(startRect);
 
-        dragStartRef.current = {
-            x: e.clientX,
-            y: e.clientY,
-            compX: position.x,
-            compY: position.y,
-            width: position.width,
-            height: position.height,
-        };
-    }, [locked, isResizing, onSelect, position.x, position.y, position.width, position.height]);
+            dragStartRef.current = {
+                x: e.clientX,
+                y: e.clientY,
+                compX: position.x,
+                compY: position.y,
+                width: position.width,
+                height: position.height,
+            };
+        },
+        [locked, isResizing, onSelect, position.x, position.y, position.width, position.height],
+    );
 
     // Mouse down on resize handle
-    const handleResizeStart = useCallback((e: React.MouseEvent, handle: ResizeHandle) => {
-        if (locked) return;
+    const handleResizeStart = useCallback(
+        (e: React.MouseEvent, handle: ResizeHandle) => {
+            if (locked) return;
 
-        e.stopPropagation();
-        onSelect();
-        setIsResizing(true);
-        setResizeHandle(handle);
+            e.stopPropagation();
+            onSelect();
+            setIsResizing(true);
+            setResizeHandle(handle);
 
-        const startRect = {
-            x: position.x,
-            y: position.y,
-            width: position.width,
-            height: position.height,
-        };
-        interactionStartRectRef.current = startRect;
-        localRectRef.current = startRect;
-        setLocalRect(startRect);
+            const startRect = {
+                x: position.x,
+                y: position.y,
+                width: position.width,
+                height: position.height,
+            };
+            interactionStartRectRef.current = startRect;
+            localRectRef.current = startRect;
+            setLocalRect(startRect);
 
-        resizeStartRef.current = {
-            x: e.clientX,
-            y: e.clientY,
-            width: position.width,
-            height: position.height,
-            compX: position.x,
-            compY: position.y,
-        };
-    }, [locked, onSelect, position]);
+            resizeStartRef.current = {
+                x: e.clientX,
+                y: e.clientY,
+                width: position.width,
+                height: position.height,
+                compX: position.x,
+                compY: position.y,
+            };
+        },
+        [locked, onSelect, position],
+    );
 
     // Global mouse move
     useEffect(() => {
         if (!isDragging && !isResizing) return;
 
         const handleMouseMove = (e: MouseEvent) => {
+            const bypassSnap = e.altKey; // Alt/Option bypasses snapping
+
             if (isDragging && dragStartRef.current) {
                 const dx = (e.clientX - dragStartRef.current.x) / scale;
                 const dy = (e.clientY - dragStartRef.current.y) / scale;
 
+                let nextX = dragStartRef.current.compX + dx;
+                let nextY = dragStartRef.current.compY + dy;
+
+                if (!bypassSnap) {
+                    // 1) Snap to grid
+                    nextX = snapToGrid(nextX, GRID_SIZE_PX);
+                    nextY = snapToGrid(nextY, GRID_SIZE_PX);
+
+                    // 2) Smart alignment snap (relative to other components)
+                    const moving: ComponentBounds = {
+                        id: component.instanceId,
+                        x: nextX,
+                        y: nextY,
+                        width: dragStartRef.current.width,
+                        height: dragStartRef.current.height,
+                    };
+
+                    const others = (siblingBounds ?? []).filter((b) => b.id !== component.instanceId);
+                    const guides = findAlignmentGuides(moving, others);
+                    const snapped = snapToGuides({ x: nextX, y: nextY }, moving, guides);
+
+                    nextX = snapped.x;
+                    nextY = snapped.y;
+
+                    // Update guide state for rendering
+                    setActiveGuides(guides);
+                } else {
+                    setActiveGuides([]);
+                }
+
                 const nextRect = {
-                    x: dragStartRef.current.compX + dx,
-                    y: dragStartRef.current.compY + dy,
+                    x: nextX,
+                    y: nextY,
                     width: dragStartRef.current.width,
                     height: dragStartRef.current.height,
                 };
@@ -152,7 +205,7 @@ export function DirectComponent({
                 let newWidth = resizeStartRef.current.width;
                 let newHeight = resizeStartRef.current.height;
 
-                // Calculate new dimensions based on handle
+                // Calculate new dimensions based on handle (raw, unsnapped)
                 if (resizeHandle.includes('e')) {
                     newWidth += dx;
                 }
@@ -191,7 +244,48 @@ export function DirectComponent({
                     }
                 }
 
-                // Adjust position if resizing from top or left
+                // Snap (unless bypassed). Snap the "moving" edges so resizing feels anchored.
+                if (!bypassSnap) {
+                    const start = resizeStartRef.current;
+
+                    const rawRight = newX + newWidth;
+                    const rawBottom = newY + newHeight;
+
+                    // Horizontal snapping
+                    if (resizeHandle.includes('e')) {
+                        const snappedRight = snapToGrid(rawRight, GRID_SIZE_PX);
+                        newWidth = snappedRight - newX;
+                    }
+                    if (resizeHandle.includes('w')) {
+                        const snappedLeft = snapToGrid(newX, GRID_SIZE_PX);
+                        const startRight = start.compX + start.width; // keep right edge anchored to start
+                        newX = snappedLeft;
+                        newWidth = startRight - newX;
+                    }
+
+                    // Vertical snapping
+                    if (resizeHandle.includes('s')) {
+                        const snappedBottom = snapToGrid(rawBottom, GRID_SIZE_PX);
+                        newHeight = snappedBottom - newY;
+                    }
+                    if (resizeHandle.includes('n')) {
+                        const snappedTop = snapToGrid(newY, GRID_SIZE_PX);
+                        const startBottom = start.compY + start.height; // keep bottom edge anchored to start
+                        newY = snappedTop;
+                        newHeight = startBottom - newY;
+                    }
+
+                    // Re-apply constraints after snapping
+                    newWidth = Math.max(minSize.width, newWidth);
+                    newHeight = Math.max(minSize.height, newHeight);
+
+                    if (maxSize) {
+                        newWidth = Math.min(maxSize.width, newWidth);
+                        newHeight = Math.min(maxSize.height, newHeight);
+                    }
+                }
+
+                // Adjust position if resizing from top or left (final)
                 if (resizeHandle.includes('w')) {
                     newX = resizeStartRef.current.compX + (resizeStartRef.current.width - newWidth);
                 }
@@ -217,10 +311,7 @@ export function DirectComponent({
             if (
                 endRect &&
                 startRect &&
-                (endRect.x !== startRect.x ||
-                    endRect.y !== startRect.y ||
-                    endRect.width !== startRect.width ||
-                    endRect.height !== startRect.height)
+                (endRect.x !== startRect.x || endRect.y !== startRect.y || endRect.width !== startRect.width || endRect.height !== startRect.height)
             ) {
                 onPositionChange(endRect);
             }
@@ -228,6 +319,7 @@ export function DirectComponent({
             setIsDragging(false);
             setIsResizing(false);
             setResizeHandle(null);
+            setActiveGuides([]);
             dragStartRef.current = null;
             resizeStartRef.current = null;
             interactionStartRectRef.current = null;
@@ -253,11 +345,7 @@ export function DirectComponent({
             case 'chart':
                 return <ChartComponent config={component.config} />;
             default:
-                return (
-                    <div className="flex h-full w-full items-center justify-center bg-gray-100 text-gray-500">
-                        {componentType}
-                    </div>
-                );
+                return <div className="flex h-full w-full items-center justify-center bg-gray-100 text-gray-500">{componentType}</div>;
         }
     };
 
@@ -270,7 +358,7 @@ export function DirectComponent({
                         'absolute select-none',
                         isDragging && 'cursor-grabbing',
                         !isDragging && !locked && 'cursor-grab',
-                        locked && 'cursor-not-allowed opacity-60'
+                        locked && 'cursor-not-allowed opacity-60',
                     )}
                     style={{
                         left: displayRect.x,
@@ -285,26 +373,57 @@ export function DirectComponent({
                         onSelect();
                     }}
                 >
-                    {/* Selection border */}
-                    {isSelected && (
-                        <div className="pointer-events-none absolute inset-0 border-2 border-blue-500" />
+                    {/* Alignment guides (only while dragging) */}
+                    {isDragging && activeGuides.length > 0 && (
+                        <div className="pointer-events-none absolute inset-0">
+                            {activeGuides.map((guide) => {
+                                const all = siblingBounds ?? [];
+                                const { start, end } = getGuideBounds(guide, all);
+                                if (guide.type === 'vertical') {
+                                    return (
+                                        <div
+                                            key={`v-${guide.position}`}
+                                            className="absolute bg-blue-500/70"
+                                            style={{
+                                                left: guide.position - displayRect.x,
+                                                top: start - displayRect.y,
+                                                width: 1,
+                                                height: end - start,
+                                            }}
+                                        />
+                                    );
+                                }
+                                return (
+                                    <div
+                                        key={`h-${guide.position}`}
+                                        className="absolute bg-blue-500/70"
+                                        style={{
+                                            top: guide.position - displayRect.y,
+                                            left: start - displayRect.x,
+                                            height: 1,
+                                            width: end - start,
+                                        }}
+                                    />
+                                );
+                            })}
+                        </div>
                     )}
+                    {/* Selection border */}
+                    {isSelected && <div className="pointer-events-none absolute inset-0 border-2 border-blue-500" />}
 
                     {/* Component content */}
-                    <div className="h-full w-full overflow-hidden">
-                        {renderComponent()}
-                    </div>
+                    <div className="h-full w-full overflow-hidden">{renderComponent()}</div>
 
                     {/* Resize handles (only when selected and not locked) */}
                     {isSelected && !locked && (
                         <>
                             {/* Corner handles */}
                             <div
-                                className="resize-handle absolute -left-1 -top-1 h-3 w-3 cursor-nwse-resize border border-blue-500 bg-white"
+                                className="resize-handle absolute -top-1 -left-1 h-3 w-3 cursor-nwse-resize border border-blue-500 bg-white"
                                 onMouseDown={(e) => handleResizeStart(e, 'nw')}
                             />
                             <div
-                                className="resize-handle absolute -right-1 -top-1 h-3 w-3 cursor-nesw-resize border border-blue-500 bg-white"
+                                className="resize-handle absolute -top-1 -right-1 h-3 w-3 cursor-nesw-resize border border-blue-500 bg-white"
                                 onMouseDown={(e) => handleResizeStart(e, 'ne')}
                             />
                             <div
@@ -312,7 +431,7 @@ export function DirectComponent({
                                 onMouseDown={(e) => handleResizeStart(e, 'sw')}
                             />
                             <div
-                                className="resize-handle absolute -bottom-1 -right-1 h-3 w-3 cursor-nwse-resize border border-blue-500 bg-white"
+                                className="resize-handle absolute -right-1 -bottom-1 h-3 w-3 cursor-nwse-resize border border-blue-500 bg-white"
                                 onMouseDown={(e) => handleResizeStart(e, 'se')}
                             />
 
@@ -326,11 +445,11 @@ export function DirectComponent({
                                 onMouseDown={(e) => handleResizeStart(e, 's')}
                             />
                             <div
-                                className="resize-handle absolute -left-1 top-1/2 h-3 w-3 -translate-y-1/2 cursor-ew-resize border border-blue-500 bg-white"
+                                className="resize-handle absolute top-1/2 -left-1 h-3 w-3 -translate-y-1/2 cursor-ew-resize border border-blue-500 bg-white"
                                 onMouseDown={(e) => handleResizeStart(e, 'w')}
                             />
                             <div
-                                className="resize-handle absolute -right-1 top-1/2 h-3 w-3 -translate-y-1/2 cursor-ew-resize border border-blue-500 bg-white"
+                                className="resize-handle absolute top-1/2 -right-1 h-3 w-3 -translate-y-1/2 cursor-ew-resize border border-blue-500 bg-white"
                                 onMouseDown={(e) => handleResizeStart(e, 'e')}
                             />
                         </>
@@ -344,19 +463,11 @@ export function DirectComponent({
                         Z-Order
                     </ContextMenuSubTrigger>
                     <ContextMenuSubContent className="w-40">
-                        <ContextMenuItem onClick={() => onZOrderChange?.('front')}>
-                            Bring to Front
-                        </ContextMenuItem>
-                        <ContextMenuItem onClick={() => onZOrderChange?.('forward')}>
-                            Bring Forward
-                        </ContextMenuItem>
+                        <ContextMenuItem onClick={() => onZOrderChange?.('front')}>Bring to Front</ContextMenuItem>
+                        <ContextMenuItem onClick={() => onZOrderChange?.('forward')}>Bring Forward</ContextMenuItem>
                         <ContextMenuSeparator />
-                        <ContextMenuItem onClick={() => onZOrderChange?.('backward')}>
-                            Send Backward
-                        </ContextMenuItem>
-                        <ContextMenuItem onClick={() => onZOrderChange?.('back')}>
-                            Send to Back
-                        </ContextMenuItem>
+                        <ContextMenuItem onClick={() => onZOrderChange?.('backward')}>Send Backward</ContextMenuItem>
+                        <ContextMenuItem onClick={() => onZOrderChange?.('back')}>Send to Back</ContextMenuItem>
                     </ContextMenuSubContent>
                 </ContextMenuSub>
                 <ContextMenuSeparator />

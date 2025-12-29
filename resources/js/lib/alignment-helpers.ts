@@ -1,6 +1,6 @@
 /**
  * Alignment Helper Utilities
- * 
+ *
  * Figma-style smart alignment guides for component positioning.
  * Detects alignment with nearby components and shows visual guides.
  */
@@ -59,7 +59,7 @@ function isNearby(a: number, b: number, threshold: number = SNAP_THRESHOLD): boo
 
 /**
  * Find alignment guides for a component being moved
- * 
+ *
  * @param movingComponent - The component being moved
  * @param otherComponents - Other components to align with
  * @param threshold - Snap distance threshold
@@ -68,7 +68,7 @@ function isNearby(a: number, b: number, threshold: number = SNAP_THRESHOLD): boo
 export function findAlignmentGuides(
     movingComponent: ComponentBounds,
     otherComponents: ComponentBounds[],
-    threshold: number = SNAP_THRESHOLD
+    threshold: number = SNAP_THRESHOLD,
 ): AlignmentGuide[] {
     const guides: AlignmentGuide[] = [];
     const movingEdges = getEdges(movingComponent);
@@ -127,9 +127,7 @@ export function findAlignmentGuides(
 
     // Deduplicate guides at same position
     const uniqueGuides = guides.reduce((acc, guide) => {
-        const existing = acc.find(
-            (g) => g.type === guide.type && Math.abs(g.position - guide.position) < 1
-        );
+        const existing = acc.find((g) => g.type === guide.type && Math.abs(g.position - guide.position) < 1);
         if (!existing) {
             acc.push(guide);
         } else {
@@ -144,7 +142,7 @@ export function findAlignmentGuides(
 
 /**
  * Snap a component position to nearby alignment guides
- * 
+ *
  * @param position - Current position to snap
  * @param movingComponent - Component bounds being moved
  * @param guides - Active alignment guides
@@ -153,7 +151,7 @@ export function findAlignmentGuides(
 export function snapToGuides(
     position: { x: number; y: number },
     movingComponent: ComponentBounds,
-    guides: AlignmentGuide[]
+    guides: AlignmentGuide[],
 ): { x: number; y: number } {
     let snappedX = position.x;
     let snappedY = position.y;
@@ -197,10 +195,7 @@ export function snapToGuides(
  * Get the visible bounds for displaying a guide line
  * Extends the line to cover all aligned components
  */
-export function getGuideBounds(
-    guide: AlignmentGuide,
-    components: ComponentBounds[]
-): { start: number; end: number } {
+export function getGuideBounds(guide: AlignmentGuide, components: ComponentBounds[]): { start: number; end: number } {
     const alignedComponents = components.filter((c) => guide.components.includes(c.id));
 
     if (guide.type === 'vertical') {
