@@ -13,12 +13,14 @@ import { Button } from '@/components/ui/button';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useArtboardDrag } from '@/hooks';
+import type { AlignmentGuide } from '@/lib/alignment-helpers';
 import { exportArtboardToJson, exportArtboardToPdf } from '@/lib/artboard-utils';
 import { getDefaultSize } from '@/lib/component-sizes';
 import type { ArtboardSchema } from '@/types/artboard';
 import type { ArtboardComponent, ComponentCard } from '@/types/dashboard';
 import { FileJson, FileType, Lock, MoreVertical, Trash2, Unlock } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
+import AlignmentGuidesOverlay from './AlignmentGuidesOverlay';
 
 interface ArtboardContainerProps {
     artboard: ArtboardSchema;
@@ -52,6 +54,7 @@ export default function ArtboardContainer({
     const containerRef = useRef<HTMLDivElement>(null);
     const [isDragOver, setIsDragOver] = useState(false);
     const [contextMenuOpen, setContextMenuOpen] = useState(false);
+    const [activeGuides, setActiveGuides] = useState<AlignmentGuide[]>([]);
 
     // Artboard dragging
     const {
@@ -337,22 +340,29 @@ export default function ArtboardContainer({
                                     height: c.position.height,
                                 }));
 
-                                return artboard.components.map((component) => (
-                                    <DirectComponent
-                                        key={component.instanceId}
-                                        component={component}
-                                        isSelected={selectedComponentId === component.instanceId}
-                                        scale={canvasScale}
-                                        siblingBounds={siblingBounds}
-                                        onSelect={() => {
-                                            onSelectComponent?.(component.instanceId);
-                                            onSelect();
-                                        }}
-                                        onPositionChange={(pos) => updateComponentPosition(component.instanceId, pos)}
-                                        onDelete={() => deleteComponent(component.instanceId)}
-                                        onZOrderChange={(op) => updateComponentZOrder(component.instanceId, op)}
-                                    />
-                                ));
+                                return (
+                                    <>
+                                        <AlignmentGuidesOverlay guides={activeGuides} components={siblingBounds} />
+
+                                        {artboard.components.map((component) => (
+                                            <DirectComponent
+                                                key={component.instanceId}
+                                                component={component}
+                                                isSelected={selectedComponentId === component.instanceId}
+                                                scale={canvasScale}
+                                                siblingBounds={siblingBounds}
+                                                onGuidesChange={setActiveGuides}
+                                                onSelect={() => {
+                                                    onSelectComponent?.(component.instanceId);
+                                                    onSelect();
+                                                }}
+                                                onPositionChange={(pos) => updateComponentPosition(component.instanceId, pos)}
+                                                onDelete={() => deleteComponent(component.instanceId)}
+                                                onZOrderChange={(op) => updateComponentZOrder(component.instanceId, op)}
+                                            />
+                                        ))}
+                                    </>
+                                );
                             })()}
                         </div>
                     </div>

@@ -25,9 +25,10 @@ import {
     ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import ChartComponent from '@/components/widget-components/ChartComponent';
-import { findAlignmentGuides, getGuideBounds, snapToGuides, type AlignmentGuide, type ComponentBounds } from '@/lib/alignment-helpers';
+import { type AlignmentGuide, type ComponentBounds } from '@/lib/alignment-helpers';
 import { GRID_SIZE_PX, snapToGrid } from '@/lib/canvas-constants';
 import { getAspectRatio, getMaxSize, getMinSize } from '@/lib/component-sizes';
+import { resolveSnap } from '@/lib/snap-resolver';
 import { cn } from '@/lib/utils';
 import type { ArtboardComponent } from '@/types/dashboard';
 import { Layers, Trash2 } from 'lucide-react';
@@ -42,6 +43,12 @@ interface DirectComponentProps {
      * Used for smart alignment guides/snapping during drag.
      */
     siblingBounds?: ComponentBounds[];
+
+    /**
+     * Notify parent about current alignment guides (so the parent can render a single overlay).
+     */
+    onGuidesChange?: (guides: AlignmentGuide[]) => void;
+
     onSelect: () => void;
     onPositionChange: (position: { x: number; y: number; width: number; height: number }) => void;
     onDelete: () => void;
@@ -55,6 +62,7 @@ export function DirectComponent({
     isSelected,
     scale,
     siblingBounds,
+    onGuidesChange,
     onSelect,
     onPositionChange,
     onDelete,
@@ -158,39 +166,28 @@ export function DirectComponent({
                 const dx = (e.clientX - dragStartRef.current.x) / scale;
                 const dy = (e.clientY - dragStartRef.current.y) / scale;
 
-                let nextX = dragStartRef.current.compX + dx;
-                let nextY = dragStartRef.current.compY + dy;
+                const rawPosition = {
+                    x: dragStartRef.current.compX + dx,
+                    y: dragStartRef.current.compY + dy,
+                };
 
-                if (!bypassSnap) {
-                    // 1) Snap to grid
-                    nextX = snapToGrid(nextX, GRID_SIZE_PX);
-                    nextY = snapToGrid(nextY, GRID_SIZE_PX);
-
-                    // 2) Smart alignment snap (relative to other components)
-                    const moving: ComponentBounds = {
+                const snap = resolveSnap({
+                    rawPosition,
+                    moving: {
                         id: component.instanceId,
-                        x: nextX,
-                        y: nextY,
                         width: dragStartRef.current.width,
                         height: dragStartRef.current.height,
-                    };
+                    },
+                    siblings: siblingBounds,
+                    modifiers: { bypassAllSnapping: bypassSnap },
+                });
 
-                    const others = (siblingBounds ?? []).filter((b) => b.id !== component.instanceId);
-                    const guides = findAlignmentGuides(moving, others);
-                    const snapped = snapToGuides({ x: nextX, y: nextY }, moving, guides);
-
-                    nextX = snapped.x;
-                    nextY = snapped.y;
-
-                    // Update guide state for rendering
-                    setActiveGuides(guides);
-                } else {
-                    setActiveGuides([]);
-                }
+                setActiveGuides(snap.guides);
+                onGuidesChange?.(snap.guides);
 
                 const nextRect = {
-                    x: nextX,
-                    y: nextY,
+                    x: snap.position.x,
+                    y: snap.position.y,
                     width: dragStartRef.current.width,
                     height: dragStartRef.current.height,
                 };
@@ -320,6 +317,7 @@ export function DirectComponent({
             setIsResizing(false);
             setResizeHandle(null);
             setActiveGuides([]);
+            onGuidesChange?.([]);
             dragStartRef.current = null;
             resizeStartRef.current = null;
             interactionStartRectRef.current = null;
@@ -373,41 +371,6 @@ export function DirectComponent({
                         onSelect();
                     }}
                 >
-                    {/* Alignment guides (only while dragging) */}
-                    {isDragging && activeGuides.length > 0 && (
-                        <div className="pointer-events-none absolute inset-0">
-                            {activeGuides.map((guide) => {
-                                const all = siblingBounds ?? [];
-                                const { start, end } = getGuideBounds(guide, all);
-                                if (guide.type === 'vertical') {
-                                    return (
-                                        <div
-                                            key={`v-${guide.position}`}
-                                            className="absolute bg-blue-500/70"
-                                            style={{
-                                                left: guide.position - displayRect.x,
-                                                top: start - displayRect.y,
-                                                width: 1,
-                                                height: end - start,
-                                            }}
-                                        />
-                                    );
-                                }
-                                return (
-                                    <div
-                                        key={`h-${guide.position}`}
-                                        className="absolute bg-blue-500/70"
-                                        style={{
-                                            top: guide.position - displayRect.y,
-                                            left: start - displayRect.x,
-                                            height: 1,
-                                            width: end - start,
-                                        }}
-                                    />
-                                );
-                            })}
-                        </div>
-                    )}
                     {/* Selection border */}
                     {isSelected && <div className="pointer-events-none absolute inset-0 border-2 border-blue-500" />}
 
