@@ -134,7 +134,7 @@ export function ComponentInspector({ component, onConfigChange, onClose }: Compo
     // No component selected
     if (!component) {
         return (
-            <div className="flex h-full flex-col border-l bg-card">
+            <div className="flex h-full flex-col border-l bg-background">
                 <PanelHeader title="Inspector" />
                 <div className="flex flex-1 items-center justify-center p-4">
                     <div className="text-center text-muted-foreground">
@@ -149,7 +149,7 @@ export function ComponentInspector({ component, onConfigChange, onClose }: Compo
     // No schema for this component type
     if (!schema) {
         return (
-            <div className="flex h-full flex-col border-l bg-card">
+            <div className="flex h-full flex-col border-l bg-background">
                 <PanelHeader
                     left={
                         <div className="flex items-center gap-2">
@@ -182,7 +182,7 @@ export function ComponentInspector({ component, onConfigChange, onClose }: Compo
     const defaultOpenGroups = sortedGroups.slice(0, 2).map(([id]) => id);
 
     return (
-        <div className="flex h-full w-80 flex-col border-l bg-card">
+        <div className="flex h-full w-80 flex-col border-l bg-background">
             {/* Header */}
             <PanelHeader
                 left={
