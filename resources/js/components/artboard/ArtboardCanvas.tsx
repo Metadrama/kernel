@@ -20,7 +20,6 @@ import ArtboardInspector from './ArtboardInspector';
 import CanvasEmptyState from './CanvasEmptyState';
 import CanvasScrollbars, { Universe } from './CanvasScrollbars';
 import CanvasTopBar from './CanvasTopBar';
-import VersionControlStrip from './VersionControlStrip';
 
 export default function ArtboardCanvas() {
     const page = usePage<{ currentDashboard?: { id: string; name?: string } | null }>();
@@ -248,11 +247,9 @@ export default function ArtboardCanvas() {
                     onZoomIn={() => adjustScale((s) => s * 1.1)}
                     onZoomOut={() => adjustScale((s) => s * 0.9)}
                     onZoomReset={() => adjustScale(() => 1)}
-                    onExport={handleSave}
-                    isExporting={isSaving}
-                    exportStatus={
-                        saveStatus === 'saving' ? 'exporting' : saveStatus === 'saved' ? 'exported' : saveStatus === 'error' ? 'error' : 'idle'
-                    }
+                    onSave={handleSave}
+                    isSaving={isSaving}
+                    saveStatus={saveStatus}
                 />
 
                 <div
@@ -314,9 +311,6 @@ export default function ArtboardCanvas() {
 
                     <CanvasScrollbars universe={universe} viewportSize={viewportSize} scale={scale} pan={pan} setPan={setPan} />
                 </div>
-
-                {/* Version control (Saved States) */}
-                <VersionControlStrip />
             </div>
 
             {/* Panels */}

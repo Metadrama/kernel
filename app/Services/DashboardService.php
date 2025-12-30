@@ -74,6 +74,31 @@ class DashboardService
     }
 
     /**
+     * Delete/discard a workspace (dashboard/project) working copy.
+     *
+     * Safety:
+     * - Prevent deleting the default workspace.
+     *
+     * @param string $id Workspace ID
+     * @return bool True if deleted, false if not found
+     */
+    public function discardWorkspace(string $id): bool
+    {
+        if ($id === 'default') {
+            throw new \InvalidArgumentException('Cannot delete the default workspace.');
+        }
+
+        $path = $this->getPath($id);
+
+        if (!Storage::disk('local')->exists($path)) {
+            return false;
+        }
+
+        Storage::disk('local')->delete($path);
+        return true;
+    }
+
+    /**
      * List saved states (snapshots) for a given dashboard/project.
      *
      * @param string $dashboardId

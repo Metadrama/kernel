@@ -1,57 +1,26 @@
 /**
  * CanvasTopBar - Top toolbar for the canvas
  *
- * Displays workspace tabs (URL-based), workspace title/meta, zoom controls, and action buttons.
+ * Replaces workspace tabs with a workspace dropdown (list/create/delete).
  *
- * Note:
- * - Snapshot/versioning actions are moving to a bottom strip ("VersionControlStrip").
- * - The top-bar primary action becomes Export (instead of Save).
+ * Workspace model:
+ * - Workspace = dashboard/project (URL-based: /dashboard/{id})
+ * - Manual Save persists the current workspace working copy (POST /dashboard/save)
+ * - Delete workspace (DELETE /dashboard/{id}) (default workspace cannot be deleted)
  *
- * Tabs strategy:
- * - URL-based navigation (Inertia) for robustness and clear mental model
- * - Local persistence of open workspace tabs
+ * Notes:
+ * - This component fetches the workspace list on open (GET /dashboard/list).
+ * - Create workspace uses POST /dashboard/save with a new id and empty artboards (minimal implementation).
  */
 
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import { router, usePage } from '@inertiajs/react';
-import { Check, Loader2, Plus, X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { Check, ChevronDown, FolderOpen, Loader2, Plus, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-type WorkspaceTab = {
-    id: string;
-    name?: string;
-};
-
-const TABS_STORAGE_KEY = 'workspace-tabs:v1';
-
-function loadTabsFromStorage(): WorkspaceTab[] {
-    if (typeof window === 'undefined') return [];
-    try {
-        const raw = window.localStorage.getItem(TABS_STORAGE_KEY);
-        if (!raw) return [];
-        const parsed: unknown = JSON.parse(raw);
-        if (!Array.isArray(parsed)) return [];
-
-        return parsed
-            .filter((t): t is { id: unknown; name?: unknown } => typeof t === 'object' && t !== null && 'id' in t)
-            .filter((t): t is { id: string; name?: unknown } => typeof t.id === 'string')
-            .map((t) => ({
-                id: t.id,
-                name: typeof t.name === 'string' ? t.name : undefined,
-            }));
-    } catch {
-        return [];
-    }
-}
-
-function saveTabsToStorage(tabs: WorkspaceTab[]) {
-    if (typeof window === 'undefined') return;
-    try {
-        window.localStorage.setItem(TABS_STORAGE_KEY, JSON.stringify(tabs));
-    } catch {
-        // ignore
-    }
-}
+const SHOW_DEFAULT_WORKSPACE_IN_DROPDOWN = false;
 
 interface CanvasTopBarProps {
     artboardCount: number;
@@ -60,14 +29,39 @@ interface CanvasTopBarProps {
     onZoomOut: () => void;
     onZoomReset: () => void;
 
-    /**
-     * Export action (replaces the previous top-bar Save action).
-     * Snapshot creation/versioning is handled in the bottom strip.
-     */
-    onExport: () => void;
+    onSave: () => void;
+    isSaving?: boolean;
+    saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
+}
 
-    isExporting?: boolean;
-    exportStatus?: 'idle' | 'exporting' | 'exported' | 'error';
+type WorkspaceMeta = {
+    id: string;
+    name: string;
+    updatedAt: string | null;
+    artboardCount: number;
+};
+
+type PageProps = {
+    currentDashboard?: { id: string; name?: string } | null;
+    savedDashboards?: WorkspaceMeta[];
+};
+
+function getCookie(name: string): string {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return decodeURIComponent(parts.pop()?.split(';').shift() ?? '');
+    return '';
+}
+
+function defaultWorkspaceName(): string {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `Workspace ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function newWorkspaceId(): string {
+    // simple unique-ish id; avoids special chars
+    return `ws-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 export default function CanvasTopBar({
@@ -76,105 +70,291 @@ export default function CanvasTopBar({
     onZoomIn,
     onZoomOut,
     onZoomReset,
-    onExport,
-    isExporting = false,
-    exportStatus = 'idle',
+    onSave,
+    isSaving = false,
+    saveStatus = 'idle',
 }: CanvasTopBarProps) {
-    const page = usePage<{ currentDashboard?: { id: string; name?: string } | null }>();
+    const page = usePage<PageProps>();
     const currentWorkspaceId = page.props.currentDashboard?.id ?? 'default';
     const currentWorkspaceName = page.props.currentDashboard?.name ?? 'Untitled Workspace';
 
-    const [tabs, setTabs] = useState<WorkspaceTab[]>(() => loadTabsFromStorage());
+    const [menuOpen, setMenuOpen] = useState(false);
+    const [workspaces, setWorkspaces] = useState<WorkspaceMeta[]>(() => page.props.savedDashboards ?? []);
+    const [isLoadingList, setIsLoadingList] = useState(false);
+    const [filter, setFilter] = useState('');
+    const [busyId, setBusyId] = useState<string | null>(null);
 
-    // Ensure current workspace is in the tabs list
+    const menuRef = useRef<HTMLDivElement | null>(null);
+
+    const refreshWorkspaces = useCallback(async () => {
+        setIsLoadingList(true);
+        try {
+            const res = await fetch('/dashboard/list', {
+                method: 'GET',
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+            if (!res.ok) {
+                console.error('Failed to load workspaces (HTTP)', res.status, await res.text());
+                return;
+            }
+            const data = (await res.json()) as WorkspaceMeta[];
+            if (Array.isArray(data)) {
+                setWorkspaces(data);
+            }
+        } catch (e) {
+            console.error('Failed to load workspaces (network)', e);
+        } finally {
+            setIsLoadingList(false);
+        }
+    }, []);
+
     useEffect(() => {
-        setTabs((prev) => {
-            const exists = prev.some((t) => t.id === currentWorkspaceId);
-            const next = exists
-                ? prev.map((t) => (t.id === currentWorkspaceId ? { ...t, name: currentWorkspaceName } : t))
-                : [{ id: currentWorkspaceId, name: currentWorkspaceName }, ...prev];
-            saveTabsToStorage(next);
-            return next;
+        // keep initial props in sync (Inertia reloads)
+        if (Array.isArray(page.props.savedDashboards)) {
+            setWorkspaces(page.props.savedDashboards);
+        }
+    }, [page.props.savedDashboards]);
+
+    useEffect(() => {
+        if (!menuOpen) return;
+
+        // lazy refresh on open to keep list current
+        refreshWorkspaces();
+
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setMenuOpen(false);
+        };
+        const onPointerDown = (e: PointerEvent) => {
+            const target = e.target as Node | null;
+            if (!target) return;
+            if (menuRef.current && menuRef.current.contains(target)) return;
+            setMenuOpen(false);
+        };
+
+        document.addEventListener('keydown', onKeyDown);
+        document.addEventListener('pointerdown', onPointerDown);
+
+        return () => {
+            document.removeEventListener('keydown', onKeyDown);
+            document.removeEventListener('pointerdown', onPointerDown);
+        };
+    }, [menuOpen, refreshWorkspaces]);
+
+    const filteredWorkspaces = useMemo(() => {
+        const q = filter.trim().toLowerCase();
+        const base = SHOW_DEFAULT_WORKSPACE_IN_DROPDOWN ? workspaces : workspaces.filter((w) => w.id !== 'default');
+
+        if (!q) return base;
+
+        return base.filter((w) => {
+            return w.name.toLowerCase().includes(q) || w.id.toLowerCase().includes(q);
         });
-    }, [currentWorkspaceId, currentWorkspaceName]);
+    }, [filter, workspaces]);
 
-    const orderedTabs = useMemo(() => {
-        // Keep current tab first for quick access; preserve others order
-        const current = tabs.find((t) => t.id === currentWorkspaceId);
-        const rest = tabs.filter((t) => t.id !== currentWorkspaceId);
-        return current ? [current, ...rest] : tabs;
-    }, [tabs, currentWorkspaceId]);
+    const switchWorkspace = useCallback(
+        (id: string) => {
+            if (!id || id === currentWorkspaceId) return;
+            setMenuOpen(false);
+            router.visit(`/dashboard/${id}`);
+        },
+        [currentWorkspaceId],
+    );
 
-    const switchToWorkspace = (id: string) => {
-        if (!id || id === currentWorkspaceId) return;
-        router.visit(`/dashboard/${id}`);
-    };
+    const createWorkspace = useCallback(async () => {
+        const name = window.prompt('Workspace name:', defaultWorkspaceName());
+        if (!name) return;
 
-    const closeTab = (id: string) => {
-        setTabs((prev) => {
-            const next = prev.filter((t) => t.id !== id);
-            saveTabsToStorage(next);
+        const id = newWorkspaceId();
+        setBusyId(id);
 
-            // If closing active tab, fall back to the first remaining tab; otherwise go to /dashboard (default)
-            if (id === currentWorkspaceId) {
-                const fallback = next[0]?.id;
-                if (fallback) {
-                    router.visit(`/dashboard/${fallback}`);
-                } else {
-                    router.visit('/dashboard');
-                }
+        try {
+            const csrfToken = getCookie('XSRF-TOKEN');
+            const res = await fetch('/dashboard/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-XSRF-TOKEN': csrfToken,
+                },
+                body: JSON.stringify({
+                    id,
+                    name,
+                    artboards: [],
+                }),
+            });
+
+            if (!res.ok) {
+                console.error('Create workspace failed (HTTP)', res.status, await res.text());
+                window.alert('Failed to create workspace. See console for details.');
+                return;
             }
 
-            return next;
-        });
-    };
+            // reload list & navigate
+            await refreshWorkspaces();
+            setMenuOpen(false);
+            router.visit(`/dashboard/${id}`);
+        } catch (e) {
+            console.error('Create workspace failed (network)', e);
+            window.alert('Failed to create workspace. See console for details.');
+        } finally {
+            setBusyId(null);
+        }
+    }, [refreshWorkspaces]);
+
+    const deleteWorkspace = useCallback(
+        async (id: string, name: string) => {
+            if (id === 'default') return;
+
+            const ok = window.confirm(`Delete workspace "${name}"?\n\nThis permanently deletes the workspace from the server.`);
+            if (!ok) return;
+
+            setBusyId(id);
+
+            try {
+                const csrfToken = getCookie('XSRF-TOKEN');
+                const res = await fetch(`/dashboard/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-XSRF-TOKEN': csrfToken,
+                    },
+                });
+
+                if (!res.ok) {
+                    console.error('Delete workspace failed (HTTP)', res.status, await res.text());
+                    window.alert('Failed to delete workspace. See console for details.');
+                    return;
+                }
+
+                await refreshWorkspaces();
+
+                // If deleting active workspace, navigate back to /dashboard (default)
+                if (id === currentWorkspaceId) {
+                    setMenuOpen(false);
+                    router.visit('/dashboard');
+                }
+            } catch (e) {
+                console.error('Delete workspace failed (network)', e);
+                window.alert('Failed to delete workspace. See console for details.');
+            } finally {
+                setBusyId(null);
+            }
+        },
+        [currentWorkspaceId, refreshWorkspaces],
+    );
 
     return (
         <div className="relative z-50 flex h-14 shrink-0 items-center justify-between border-b bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            {/* Left: Workspace dropdown + meta */}
             <div className="flex min-w-0 items-center gap-3">
-                {/* Workspace tabs */}
-                <div className="flex max-w-[40vw] items-center gap-1 overflow-x-auto pr-1">
-                    {orderedTabs.map((t) => {
-                        const active = t.id === currentWorkspaceId;
-                        return (
-                            <div
-                                key={t.id}
-                                className={`group flex items-center rounded-md border px-2 py-1 text-xs ${active ? 'border-foreground/20 bg-muted' : 'border-border bg-background hover:bg-muted/50'}`}
-                            >
-                                <button
-                                    type="button"
-                                    className="max-w-[160px] truncate"
-                                    onClick={() => switchToWorkspace(t.id)}
-                                    title={t.name || t.id}
+                <div className="relative" ref={menuRef}>
+                    <Button variant="ghost" size="sm" className="h-9 px-2" onClick={() => setMenuOpen((v) => !v)} title="Workspaces">
+                        <FolderOpen className="mr-2 h-4 w-4" />
+                        <span className="max-w-[220px] truncate">{currentWorkspaceName}</span>
+                        <ChevronDown className="ml-2 h-4 w-4 text-muted-foreground" />
+                    </Button>
+
+                    {menuOpen && (
+                        <div className="absolute top-full left-0 mt-2 w-[360px] rounded-lg border bg-card shadow-lg">
+                            <div className="flex items-center justify-between gap-2 border-b p-2">
+                                <div className="text-xs font-medium text-muted-foreground">WORKSPACES</div>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8"
+                                    onClick={createWorkspace}
+                                    disabled={busyId !== null}
+                                    title="Create workspace"
                                 >
-                                    {t.name || t.id}
-                                </button>
-                                <button
-                                    type="button"
-                                    className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded hover:bg-background/60"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        closeTab(t.id);
-                                    }}
-                                    title="Close tab"
-                                >
-                                    <X className="h-3 w-3 text-muted-foreground" />
-                                </button>
+                                    <Plus className="mr-1 h-4 w-4" />
+                                    New
+                                </Button>
                             </div>
-                        );
-                    })}
+
+                            <div className="p-2">
+                                <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Search workspaces…" className="h-8" />
+                            </div>
+
+                            <div className="max-h-64 overflow-y-auto p-1">
+                                {isLoadingList ? (
+                                    <div className="p-3 text-xs text-muted-foreground">Loading…</div>
+                                ) : filteredWorkspaces.length === 0 ? (
+                                    <div className="p-3 text-xs text-muted-foreground">No workspaces found.</div>
+                                ) : (
+                                    filteredWorkspaces.map((w) => {
+                                        const active = w.id === currentWorkspaceId;
+                                        const busy = busyId === w.id;
+
+                                        return (
+                                            <div
+                                                key={w.id}
+                                                className={cn(
+                                                    'flex items-center gap-1 rounded-md transition hover:bg-muted',
+                                                    active ? 'bg-muted' : '',
+                                                )}
+                                            >
+                                                <button
+                                                    type="button"
+                                                    className="flex-1 px-3 py-2 text-left"
+                                                    onClick={() => switchWorkspace(w.id)}
+                                                    disabled={busy}
+                                                    title={`Open ${w.name}`}
+                                                >
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <span className={cn('truncate text-sm', active ? 'font-medium' : '')}>{w.name}</span>
+                                                        <span className="shrink-0 text-xs text-muted-foreground">{w.artboardCount}</span>
+                                                    </div>
+                                                    <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{w.id}</div>
+                                                </button>
+
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-9 w-9"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        deleteWorkspace(w.id, w.name);
+                                                    }}
+                                                    disabled={busy || w.id === 'default'}
+                                                    title={w.id === 'default' ? 'Cannot delete default workspace' : `Delete ${w.name}`}
+                                                >
+                                                    {busy ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <Trash2 className="h-4 w-4 text-muted-foreground" />
+                                                    )}
+                                                </Button>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+
+                            <div className="border-t p-2">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-full justify-start text-xs"
+                                    onClick={refreshWorkspaces}
+                                    disabled={isLoadingList || busyId !== null}
+                                    title="Refresh workspace list"
+                                >
+                                    Refresh list
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
-                {/* Workspace title + meta */}
-                <div className="flex min-w-0 items-center gap-2">
-                    <h1 className="truncate text-sm font-semibold">{currentWorkspaceName}</h1>
-                    <span className="text-xs text-muted-foreground">•</span>
-                    <span className="text-xs text-muted-foreground">
-                        {artboardCount} {artboardCount === 1 ? 'artboard' : 'artboards'}
-                    </span>
-                </div>
+                <span className="text-xs text-muted-foreground">•</span>
+                <span className="text-xs text-muted-foreground">
+                    {artboardCount} {artboardCount === 1 ? 'artboard' : 'artboards'}
+                </span>
             </div>
 
+            {/* Right: zoom + actions */}
             <div className="flex items-center gap-2">
                 {/* Zoom Controls */}
                 <div className="mr-2 flex items-center rounded-md border bg-background shadow-sm">
@@ -203,32 +383,34 @@ export default function CanvasTopBar({
                 </div>
 
                 <Button variant="outline" size="sm">
-                    Preview
+                    Export
                 </Button>
+
                 <Button
                     size="sm"
-                    className={`min-w-[90px] transition-all ${
-                        exportStatus === 'exported'
+                    className={cn(
+                        'min-w-[90px] text-white transition-all',
+                        saveStatus === 'saved'
                             ? 'bg-green-600 hover:bg-green-700'
-                            : exportStatus === 'error'
+                            : saveStatus === 'error'
                               ? 'bg-red-600 hover:bg-red-700'
-                              : 'bg-black hover:bg-black/90'
-                    } text-white`}
-                    onClick={onExport}
-                    disabled={isExporting}
-                    title="Export Dashboard"
+                              : 'bg-black hover:bg-black/90',
+                    )}
+                    onClick={onSave}
+                    disabled={isSaving}
+                    title="Save Workspace"
                 >
-                    {isExporting ? (
+                    {isSaving ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : exportStatus === 'exported' ? (
+                    ) : saveStatus === 'saved' ? (
                         <>
                             <Check className="mr-1 h-4 w-4" />
-                            Exported
+                            Saved
                         </>
-                    ) : exportStatus === 'error' ? (
+                    ) : saveStatus === 'error' ? (
                         'Error!'
                     ) : (
-                        'Export'
+                        'Save'
                     )}
                 </Button>
             </div>

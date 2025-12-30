@@ -5,6 +5,7 @@ import { ArtboardProvider } from '@/context/ArtboardContext';
 import { DragDropProvider } from '@/context/DragDropContext';
 import type { DashboardLayout } from '@/types/dashboard';
 import { Head } from '@inertiajs/react';
+import { useEffect } from 'react';
 
 interface SavedDashboard {
     id: string;
@@ -18,7 +19,9 @@ interface DashboardProps {
     currentDashboard: DashboardLayout | null;
 }
 
-export default function Dashboard({ savedDashboards, currentDashboard }: DashboardProps) {
+const LAST_WORKSPACE_KEY = 'last-workspace-id';
+
+export default function Dashboard({ currentDashboard }: DashboardProps) {
     // Prepare initial data from server props
     const initialData = currentDashboard
         ? {
@@ -28,6 +31,33 @@ export default function Dashboard({ savedDashboards, currentDashboard }: Dashboa
           }
         : undefined;
 
+    // Client-side redirect: /dashboard should open the last workspace if available.
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const path = window.location.pathname;
+        const isBaseDashboardRoute = path === '/dashboard' || path === '/dashboard/';
+
+        if (!isBaseDashboardRoute) return;
+
+        const lastId = window.localStorage.getItem(LAST_WORKSPACE_KEY);
+        if (!lastId || lastId === 'default') return;
+
+        window.location.replace(`/dashboard/${lastId}`);
+    }, []);
+
+    // Track last opened workspace whenever a specific workspace is loaded.
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (!currentDashboard?.id) return;
+
+        try {
+            window.localStorage.setItem(LAST_WORKSPACE_KEY, currentDashboard.id);
+        } catch {
+            // ignore
+        }
+    }, [currentDashboard?.id]);
+
     return (
         <>
             <Head title="Dashboard Builder" />
@@ -35,7 +65,7 @@ export default function Dashboard({ savedDashboards, currentDashboard }: Dashboa
                 <DragDropProvider>
                     {/* Desktop View */}
                     <div className="hidden h-screen overflow-hidden bg-background md:flex">
-                        <ComponentSidebar savedDashboards={savedDashboards} currentDashboardId={currentDashboard?.id} />
+                        <ComponentSidebar />
                         <ArtboardCanvas />
                     </div>
 

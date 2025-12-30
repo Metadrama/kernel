@@ -2,6 +2,9 @@ import type { ArtboardSchema } from '@/types/artboard';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { z } from 'zod';
 
+const ENABLE_LOCALSTORAGE_FALLBACK = false;
+const ENABLE_LOCALSTORAGE_PERSIST = false;
+
 function withArtboardDefaults(a: ArtboardSchema): ArtboardSchema {
     return {
         ...a,
@@ -136,8 +139,10 @@ const loadArtboards = (initialData?: InitialData): ArtboardSchema[] => {
         return withArtboardsDefaults(initialData.artboards);
     }
 
-    // Fallback to localStorage
-    if (typeof window === 'undefined') {
+    // Fallback to localStorage (DISABLED)
+    // We do not want workspaces to "share" stale local state across different workspace IDs.
+    // The server-provided `initialData` should be the source of truth for workspace content.
+    if (!ENABLE_LOCALSTORAGE_FALLBACK || typeof window === 'undefined') {
         return [];
     }
 
@@ -195,7 +200,8 @@ export function ArtboardProvider({ children, initialData }: ArtboardProviderProp
     }, [artboards]);
 
     useEffect(() => {
-        if (typeof window === 'undefined') {
+        // Persisting to localStorage is disabled to prevent cross-workspace leakage.
+        if (!ENABLE_LOCALSTORAGE_PERSIST || typeof window === 'undefined') {
             return;
         }
 
