@@ -4,6 +4,7 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import PanelHeader from '@/components/ui/panel-header';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import type { ArtboardSchema } from '@/types/artboard';
@@ -23,12 +24,14 @@ export default function ArtboardInspector({ artboard, onUpdate, onClose }: Props
 
     return (
         <div className="flex h-full w-80 shrink-0 flex-col border-l bg-background">
-            <div className="flex items-center justify-between border-b p-3">
-                <div className="text-sm font-semibold">Artboard Inspector</div>
-                <Button variant="ghost" size="sm" onClick={onClose}>
-                    Close
-                </Button>
-            </div>
+            <PanelHeader
+                title="Artboard Inspector"
+                right={
+                    <Button variant="ghost" size="sm" className="h-8" onClick={onClose}>
+                        Close
+                    </Button>
+                }
+            />
 
             <div className="flex-1 space-y-4 overflow-y-auto p-3">
                 <div className="space-y-2">
