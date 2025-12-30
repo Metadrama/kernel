@@ -1,7 +1,11 @@
 /**
  * CanvasTopBar - Top toolbar for the canvas
  *
- * Displays workspace tabs (URL-based), dashboard title, artboard count, zoom controls, and action buttons.
+ * Displays workspace tabs (URL-based), workspace title/meta, zoom controls, and action buttons.
+ *
+ * Note:
+ * - Snapshot/versioning actions are moving to a bottom strip ("VersionControlStrip").
+ * - The top-bar primary action becomes Export (instead of Save).
  *
  * Tabs strategy:
  * - URL-based navigation (Inertia) for robustness and clear mental model
@@ -55,9 +59,15 @@ interface CanvasTopBarProps {
     onZoomIn: () => void;
     onZoomOut: () => void;
     onZoomReset: () => void;
-    onSave: () => void;
-    isSaving?: boolean;
-    saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
+
+    /**
+     * Export action (replaces the previous top-bar Save action).
+     * Snapshot creation/versioning is handled in the bottom strip.
+     */
+    onExport: () => void;
+
+    isExporting?: boolean;
+    exportStatus?: 'idle' | 'exporting' | 'exported' | 'error';
 }
 
 export default function CanvasTopBar({
@@ -66,9 +76,9 @@ export default function CanvasTopBar({
     onZoomIn,
     onZoomOut,
     onZoomReset,
-    onSave,
-    isSaving = false,
-    saveStatus = 'idle',
+    onExport,
+    isExporting = false,
+    exportStatus = 'idle',
 }: CanvasTopBarProps) {
     const page = usePage<{ currentDashboard?: { id: string; name?: string } | null }>();
     const currentWorkspaceId = page.props.currentDashboard?.id ?? 'default';
@@ -197,27 +207,28 @@ export default function CanvasTopBar({
                 </Button>
                 <Button
                     size="sm"
-                    className={`min-w-[70px] transition-all ${
-                        saveStatus === 'saved'
+                    className={`min-w-[90px] transition-all ${
+                        exportStatus === 'exported'
                             ? 'bg-green-600 hover:bg-green-700'
-                            : saveStatus === 'error'
+                            : exportStatus === 'error'
                               ? 'bg-red-600 hover:bg-red-700'
                               : 'bg-black hover:bg-black/90'
                     } text-white`}
-                    onClick={onSave}
-                    disabled={isSaving}
+                    onClick={onExport}
+                    disabled={isExporting}
+                    title="Export Dashboard"
                 >
-                    {isSaving ? (
+                    {isExporting ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : saveStatus === 'saved' ? (
+                    ) : exportStatus === 'exported' ? (
                         <>
                             <Check className="mr-1 h-4 w-4" />
-                            Saved
+                            Exported
                         </>
-                    ) : saveStatus === 'error' ? (
+                    ) : exportStatus === 'error' ? (
                         'Error!'
                     ) : (
-                        'Save'
+                        'Export'
                     )}
                 </Button>
             </div>
