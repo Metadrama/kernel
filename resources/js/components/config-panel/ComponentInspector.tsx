@@ -89,7 +89,7 @@ function getIcon(iconName: string) {
 export function ComponentInspector({ component, onConfigChange, onClose }: ComponentInspectorProps) {
     const schema = component ? getConfigSchema(component.componentType) : null;
 
-    const config = (component?.config || {}) as Record<string, unknown>;
+    const config = useMemo(() => (component?.config || {}) as Record<string, unknown>, [component?.config]);
     const { artboards } = useArtboardContext();
 
     // Group fields by their group property

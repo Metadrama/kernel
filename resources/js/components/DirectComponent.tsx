@@ -84,7 +84,23 @@ export function DirectComponent({
     const dragStartRef = useRef<{ x: number; y: number; compX: number; compY: number; width: number; height: number } | null>(null);
     const resizeStartRef = useRef<{ x: number; y: number; width: number; height: number; compX: number; compY: number } | null>(null);
 
-    // Note: guides are rendered by the parent (artboard-level) overlay.
+    // Capture changing props in refs so our global event handlers always see the latest values
+    // without forcing the effect to re-subscribe on every render.
+    const siblingBoundsRef = useRef<ComponentBounds[] | undefined>(siblingBounds);
+    const onGuidesChangeRef = useRef<((guides: AlignmentGuide[]) => void) | undefined>(onGuidesChange);
+    const componentIdRef = useRef<string>(component.instanceId);
+
+    useEffect(() => {
+        siblingBoundsRef.current = siblingBounds;
+    }, [siblingBounds]);
+
+    useEffect(() => {
+        onGuidesChangeRef.current = onGuidesChange;
+    }, [onGuidesChange]);
+
+    useEffect(() => {
+        componentIdRef.current = component.instanceId;
+    }, [component.instanceId]);
 
     const { position, componentType, locked } = component;
     const minSize = getMinSize(componentType);
@@ -184,15 +200,15 @@ export function DirectComponent({
                 const snap = resolveSnap({
                     rawPosition,
                     moving: {
-                        id: component.instanceId,
+                        id: componentIdRef.current,
                         width: dragStartRef.current.width,
                         height: dragStartRef.current.height,
                     },
-                    siblings: siblingBounds,
+                    siblings: siblingBoundsRef.current,
                     modifiers: { bypassAllSnapping: bypassSnap },
                 });
 
-                onGuidesChange?.(snap.guides);
+                onGuidesChangeRef.current?.(snap.guides);
 
                 const nextRect = {
                     x: snap.position.x,
@@ -265,11 +281,11 @@ export function DirectComponent({
                         rawRect,
                         startRect,
                         handle: resizeHandle,
-                        siblings: siblingBounds,
+                        siblings: siblingBoundsRef.current,
                         modifiers: { bypassAllSnapping: bypassSnap },
                     });
 
-                    onGuidesChange?.(snap.guides);
+                    onGuidesChangeRef.current?.(snap.guides);
 
                     newX = snap.rect.x;
                     newY = snap.rect.y;
@@ -350,7 +366,7 @@ export function DirectComponent({
             setIsDragging(false);
             setIsResizing(false);
             setResizeHandle(null);
-            onGuidesChange?.([]);
+            onGuidesChangeRef.current?.([]);
             dragStartRef.current = null;
             resizeStartRef.current = null;
             interactionStartRectRef.current = null;
@@ -365,7 +381,19 @@ export function DirectComponent({
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', handleMouseUp);
         };
-    }, [isDragging, isResizing, resizeHandle, scale, minSize, maxSize, aspectRatio, onPositionChange]);
+    }, [
+        isDragging,
+        isResizing,
+        resizeHandle,
+        scale,
+        minSize,
+        maxSize,
+        aspectRatio,
+        onPositionChange,
+        component.instanceId,
+        onGuidesChange,
+        siblingBounds,
+    ]);
 
     // Render the actual component content
     const renderComponent = () => {
