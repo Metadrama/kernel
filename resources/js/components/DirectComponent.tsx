@@ -84,7 +84,7 @@ export function DirectComponent({
     const dragStartRef = useRef<{ x: number; y: number; compX: number; compY: number; width: number; height: number } | null>(null);
     const resizeStartRef = useRef<{ x: number; y: number; width: number; height: number; compX: number; compY: number } | null>(null);
 
-    const [activeGuides, setActiveGuides] = useState<AlignmentGuide[]>([]);
+    // Note: guides are rendered by the parent (artboard-level) overlay.
 
     const { position, componentType, locked } = component;
     const minSize = getMinSize(componentType);
@@ -192,7 +192,6 @@ export function DirectComponent({
                     modifiers: { bypassAllSnapping: bypassSnap },
                 });
 
-                setActiveGuides(snap.guides);
                 onGuidesChange?.(snap.guides);
 
                 const nextRect = {
@@ -270,7 +269,6 @@ export function DirectComponent({
                         modifiers: { bypassAllSnapping: bypassSnap },
                     });
 
-                    setActiveGuides(snap.guides);
                     onGuidesChange?.(snap.guides);
 
                     newX = snap.rect.x;
@@ -352,7 +350,6 @@ export function DirectComponent({
             setIsDragging(false);
             setIsResizing(false);
             setResizeHandle(null);
-            setActiveGuides([]);
             onGuidesChange?.([]);
             dragStartRef.current = null;
             resizeStartRef.current = null;

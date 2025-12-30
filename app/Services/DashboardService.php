@@ -7,7 +7,11 @@ use Illuminate\Support\Facades\Storage;
 class DashboardService
 {
     /**
-     * Get the storage path for a dashboard.
+     * Dashboard "working copy" file path.
+     *
+     * NOTE:
+     * We keep this for loading the current dashboard (project) metadata/content.
+     * "Saved States" (snapshots) are stored separately under a scoped directory.
      */
     protected function getPath(string $id): string
     {
@@ -15,7 +19,31 @@ class DashboardService
     }
 
     /**
-     * List all saved dashboards (metadata only).
+     * Scoped directory for saved states (snapshots) for a given dashboard/project.
+     *
+     * Each snapshot is stored as:
+     * - dashboards/{dashboardId}/states/{stateId}.json
+     */
+    protected function getStatesDir(string $dashboardId): string
+    {
+        return "dashboards/{$dashboardId}/states";
+    }
+
+    protected function getStatePath(string $dashboardId, string $stateId): string
+    {
+        return $this->getStatesDir($dashboardId) . "/{$stateId}.json";
+    }
+
+    protected function newStateId(): string
+    {
+        return 'state-' . now()->format('YmdHis') . '-' . substr(bin2hex(random_bytes(6)), 0, 12);
+    }
+
+    /**
+     * List dashboards/projects (metadata only).
+     *
+     * NOTE:
+     * This is NOT the list of saved states. States are listed via listStates(...).
      *
      * @return array
      */
@@ -46,7 +74,127 @@ class DashboardService
     }
 
     /**
-     * Save a dashboard to file.
+     * List saved states (snapshots) for a given dashboard/project.
+     *
+     * @param string $dashboardId
+     * @return array
+     */
+    public function listStates(string $dashboardId): array
+    {
+        $dir = $this->getStatesDir($dashboardId);
+
+        if (!Storage::disk('local')->exists($dir)) {
+            return [];
+        }
+
+        $files = Storage::disk('local')->files($dir);
+        $states = [];
+
+        foreach ($files as $file) {
+            if (!str_ends_with($file, '.json')) continue;
+
+            $content = Storage::disk('local')->get($file);
+            $data = json_decode($content, true);
+
+            if (!$data) continue;
+
+            $states[] = [
+                'id' => $data['id'] ?? pathinfo($file, PATHINFO_FILENAME),
+                'name' => $data['name'] ?? 'Untitled State',
+                'updatedAt' => $data['updatedAt'] ?? null,
+                'createdAt' => $data['createdAt'] ?? null,
+                'artboardCount' => count($data['artboards'] ?? []),
+            ];
+        }
+
+        // Sort by updatedAt descending (fallback to createdAt)
+        usort($states, function ($a, $b) {
+            $aKey = $a['updatedAt'] ?? $a['createdAt'] ?? '';
+            $bKey = $b['updatedAt'] ?? $b['createdAt'] ?? '';
+            return $bKey <=> $aKey;
+        });
+
+        return $states;
+    }
+
+    /**
+     * Create a saved state (snapshot) for a given dashboard/project.
+     *
+     * @param string $dashboardId
+     * @param array $payload
+     *   - name?: string
+     *   - artboards?: array
+     * @return array The created state payload
+     */
+    public function createState(string $dashboardId, array $payload): array
+    {
+        $stateId = $this->newStateId();
+        $now = now()->toIso8601String();
+
+        $state = [
+            'id' => $stateId,
+            'dashboardId' => $dashboardId,
+            'name' => $payload['name'] ?? 'Untitled State',
+            'artboards' => $payload['artboards'] ?? [],
+            'createdAt' => $now,
+            'updatedAt' => $now,
+        ];
+
+        Storage::disk('local')->makeDirectory($this->getStatesDir($dashboardId));
+
+        Storage::disk('local')->put(
+            $this->getStatePath($dashboardId, $stateId),
+            json_encode($state, JSON_PRETTY_PRINT)
+        );
+
+        return $state;
+    }
+
+    /**
+     * Load a saved state (snapshot).
+     *
+     * @param string $dashboardId
+     * @param string $stateId
+     * @return array|null
+     */
+    public function loadState(string $dashboardId, string $stateId): ?array
+    {
+        $path = $this->getStatePath($dashboardId, $stateId);
+
+        if (!Storage::disk('local')->exists($path)) {
+            return null;
+        }
+
+        $content = Storage::disk('local')->get($path);
+        return json_decode($content, true);
+    }
+
+    /**
+     * Discard (delete) a saved state (snapshot).
+     *
+     * @param string $dashboardId
+     * @param string $stateId
+     * @return bool True if deleted, false if not found
+     */
+    public function discardState(string $dashboardId, string $stateId): bool
+    {
+        $path = $this->getStatePath($dashboardId, $stateId);
+
+        if (!Storage::disk('local')->exists($path)) {
+            return false;
+        }
+
+        Storage::disk('local')->delete($path);
+        return true;
+    }
+
+    /**
+     * Save a dashboard/project "working copy" to file.
+     *
+     * NOTE:
+     * In the revised model, "Save" in the UI should create a snapshot (saved state),
+     * not overwrite the working copy. We keep this method for compatibility and for
+     * explicitly saving the current dashboard if needed.
      *
      * @param array $data Dashboard data including id, name, and content
      * @return array The saved data
@@ -63,7 +211,7 @@ class DashboardService
 
         // Ensure directory exists
         Storage::disk('local')->makeDirectory('dashboards');
-        
+
         // Save as JSON file
         Storage::disk('local')->put(
             $this->getPath($id),
@@ -74,7 +222,7 @@ class DashboardService
     }
 
     /**
-     * Load a dashboard from file.
+     * Load a dashboard/project from file.
      *
      * @param string $id Dashboard ID
      * @return array|null
@@ -82,7 +230,7 @@ class DashboardService
     public function load(string $id): ?array
     {
         $path = $this->getPath($id);
-        
+
         if (!Storage::disk('local')->exists($path)) {
             return null;
         }
@@ -92,7 +240,7 @@ class DashboardService
     }
 
     /**
-     * Load a dashboard or return a default structure.
+     * Load a dashboard/project or return a default structure.
      *
      * @param string $id Dashboard ID
      * @return array Dashboard data
@@ -107,7 +255,7 @@ class DashboardService
                 // If artboard has widgets but no components, migrate
                 if (isset($artboard['widgets']) && !isset($artboard['components'])) {
                     $components = [];
-                    
+
                     // Flatten all components from all widgets into a single array
                     foreach ($artboard['widgets'] as $widget) {
                         if (isset($widget['components']) && is_array($widget['components'])) {
@@ -130,22 +278,22 @@ class DashboardService
                             }
                         }
                     }
-                    
+
                     $artboard['components'] = $components;
                     unset($artboard['widgets']);
                 }
-                
+
                 // Ensure components array exists
                 if (!isset($artboard['components'])) {
                     $artboard['components'] = [];
                 }
-                
+
                 return $artboard;
             }, $dashboard['artboards'] ?? []);
-            
+
             // Remove archivedWidgets from response
             unset($dashboard['archivedWidgets']);
-            
+
             return $dashboard;
         }
 

@@ -12,6 +12,7 @@ import { useCanvasPan, useCanvasZoom } from '@/hooks';
 import { createArtboard } from '@/lib/artboard-utils';
 import type { ArtboardSchema } from '@/types/artboard';
 import type { ArtboardComponent } from '@/types/dashboard';
+import { usePage } from '@inertiajs/react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import AddArtboardPanel from './AddArtboardPanel';
 import ArtboardContainer from './ArtboardContainer';
@@ -21,6 +22,10 @@ import CanvasScrollbars, { Universe } from './CanvasScrollbars';
 import CanvasTopBar from './CanvasTopBar';
 
 export default function ArtboardCanvas() {
+    const page = usePage<{ currentDashboard?: { id: string; name?: string } | null }>();
+    const currentDashboardId = page.props.currentDashboard?.id ?? 'default';
+    const currentDashboardName = page.props.currentDashboard?.name ?? 'Untitled Dashboard';
+
     const { artboards, setArtboards, selectedArtboardId, setSelectedArtboardId, artboardStackOrder, bringArtboardToFront } = useArtboardContext();
 
     // Component transfer - simplified without widget archiving
@@ -51,7 +56,7 @@ export default function ArtboardCanvas() {
 
     // Hand tool panning
     const isHandMode = activeTool === 'hand' || isSpacePressed;
-    const { isPanning, handleCanvasMouseDown } = useCanvasPan({
+    const { handleCanvasMouseDown } = useCanvasPan({
         isHandMode,
         pan,
         setPan,
@@ -199,6 +204,8 @@ export default function ArtboardCanvas() {
             };
             const csrfToken = getCookie('XSRF-TOKEN');
 
+            // current dashboard scope is read at component level (hooks must not run inside callbacks)
+
             const response = await fetch('/dashboard/save', {
                 method: 'POST',
                 headers: {
@@ -208,8 +215,8 @@ export default function ArtboardCanvas() {
                     'X-XSRF-TOKEN': csrfToken,
                 },
                 body: JSON.stringify({
-                    id: 'default',
-                    name: 'Untitled Dashboard',
+                    id: currentDashboardId,
+                    name: currentDashboardName,
                     artboards: artboards,
                 }),
             });
@@ -229,7 +236,7 @@ export default function ArtboardCanvas() {
         } finally {
             setIsSaving(false);
         }
-    }, [artboards]);
+    }, [artboards, currentDashboardId, currentDashboardName]);
 
     return (
         <div className="flex h-screen flex-1 overflow-hidden">

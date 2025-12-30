@@ -17,10 +17,10 @@ class DashboardController extends Controller
     public function index(): Response
     {
         $dashboard = $this->dashboardService->loadOrDefault('default');
-        $savedDashboards = $this->dashboardService->list();
 
         return Inertia::render('Dashboard', [
-            'savedDashboards' => $savedDashboards,
+            // "Saved States" (snapshots), scoped to the current dashboard/project
+            'savedDashboards' => $this->dashboardService->listStates($dashboard['id'] ?? 'default'),
             'currentDashboard' => $dashboard,
         ]);
     }
@@ -28,40 +28,81 @@ class DashboardController extends Controller
     public function show(string $id): Response
     {
         $dashboard = $this->dashboardService->loadOrDefault($id);
-        $savedDashboards = $this->dashboardService->list();
 
         return Inertia::render('Dashboard', [
-            'savedDashboards' => $savedDashboards,
+            // "Saved States" (snapshots), scoped to the current dashboard/project
+            'savedDashboards' => $this->dashboardService->listStates($id),
             'currentDashboard' => $dashboard,
         ]);
     }
 
-    public function list(): JsonResponse
+    /**
+     * List saved states (snapshots) for a dashboard/project.
+     */
+    public function states(string $id): JsonResponse
     {
-        return response()->json($this->dashboardService->list());
+        return response()->json([
+            'status' => 'ok',
+            'savedDashboards' => $this->dashboardService->listStates($id),
+        ]);
     }
 
+    /**
+     * Create a saved state (snapshot) for a dashboard/project.
+     */
     public function save(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'id' => ['required', 'string'],
+            'id' => ['required', 'string'], // dashboard/project id (scope)
             'name' => ['required', 'string'],
             'artboards' => ['array'],
         ]);
 
-        $saved = $this->dashboardService->save([
-            'id' => $data['id'],
+        $state = $this->dashboardService->createState($data['id'], [
             'name' => $data['name'],
-            'content' => [
-                'artboards' => $data['artboards'] ?? [],
-            ],
+            'artboards' => $data['artboards'] ?? [],
         ]);
 
-        // Return saved data and updated list
         return response()->json([
             'status' => 'ok',
-            'dashboard' => $saved,
-            'savedDashboards' => $this->dashboardService->list(),
+            'state' => $state,
+            // Keep prop name for now to avoid front-end churn
+            'savedDashboards' => $this->dashboardService->listStates($data['id']),
+        ]);
+    }
+
+    /**
+     * Load a saved state (snapshot).
+     */
+    public function loadState(string $id, string $stateId): JsonResponse
+    {
+        $state = $this->dashboardService->loadState($id, $stateId);
+
+        if (!$state) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'State not found.',
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => 'ok',
+            'state' => $state,
+        ]);
+    }
+
+    /**
+     * Discard (delete) a saved state (snapshot).
+     */
+    public function discardState(string $id, string $stateId): JsonResponse
+    {
+        $deleted = $this->dashboardService->discardState($id, $stateId);
+
+        return response()->json([
+            'status' => 'ok',
+            'deleted' => $deleted,
+            // Keep prop name for now to avoid front-end churn
+            'savedDashboards' => $this->dashboardService->listStates($id),
         ]);
     }
 }

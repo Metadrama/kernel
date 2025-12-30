@@ -59,7 +59,6 @@ export default function ArtboardContainer({
     const HEADER_OFFSET_PX = HEADER_HEIGHT_PX + HEADER_GAP_PX;
 
     const containerRef = useRef<HTMLDivElement>(null);
-    const [isDragOver, setIsDragOver] = useState(false);
     const [contextMenuOpen, setContextMenuOpen] = useState(false);
     const [activeGuides, setActiveGuides] = useState<AlignmentGuide[]>([]);
 
@@ -204,7 +203,6 @@ export default function ArtboardContainer({
         e.preventDefault();
         e.stopPropagation();
         e.dataTransfer.dropEffect = 'copy';
-        setIsDragOver(true);
 
         const rect = containerRef.current?.getBoundingClientRect();
         if (!rect) return;
@@ -264,7 +262,6 @@ export default function ArtboardContainer({
     const handleDragLeave = (e: React.DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        setIsDragOver(false);
         setDropPreview(null);
         setActiveGuides([]);
     };
@@ -272,7 +269,6 @@ export default function ArtboardContainer({
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        setIsDragOver(false);
 
         try {
             // Prefer in-memory drag payload, fall back to DataTransfer for safety.
