@@ -1,17 +1,12 @@
-import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
-import { createPortal } from 'react-dom';
-import { ResponsivePie } from '@nivo/pie';
+import { MOCK_CHART_DATA, useGoogleSheetsData } from '@/lib/use-google-sheets';
+import type { BarChartConfig, ChartConfig, DoughnutChartConfig, GoogleSheetsDataSource, LineChartConfig } from '@/types/component-config';
 import { ResponsiveBar } from '@nivo/bar';
+import type { LegendProps } from '@nivo/legends';
 import { ResponsiveLine } from '@nivo/line';
+import { ResponsivePie } from '@nivo/pie';
 import { Loader2 } from 'lucide-react';
-import { useGoogleSheetsData, MOCK_CHART_DATA } from '@/lib/use-google-sheets';
-import type {
-    ChartConfig,
-    LineChartConfig,
-    BarChartConfig,
-    DoughnutChartConfig,
-    GoogleSheetsDataSource
-} from '@/types/component-config';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 // Premium gradient color palettes for modern charts
 const COLOR_PALETTES = {
@@ -109,10 +104,10 @@ function formatCurrency(value: number, currencyCode: string = 'MYR', options?: {
     const { compact = false } = options || {};
 
     const currencySymbols: Record<string, string> = {
-        'MYR': 'RM',
-        'USD': '$',
-        'EUR': '€',
-        'GBP': '£',
+        MYR: 'RM',
+        USD: '$',
+        EUR: '€',
+        GBP: '£',
     };
 
     const symbol = currencySymbols[currencyCode] || currencyCode;
@@ -132,10 +127,14 @@ function formatCurrency(value: number, currencyCode: string = 'MYR', options?: {
     }
 
     // Format with thousands separators
-    return symbol + ' ' + new Intl.NumberFormat('en-US', {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 2,
-    }).format(value);
+    return (
+        symbol +
+        ' ' +
+        new Intl.NumberFormat('en-US', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2,
+        }).format(value)
+    );
 }
 
 const PortalTooltip = ({ children }: { children: React.ReactNode }) => {
@@ -149,16 +148,18 @@ const PortalTooltip = ({ children }: { children: React.ReactNode }) => {
     if (pos.x === 0 && pos.y === 0) return null;
 
     return createPortal(
-        <div style={{
-            position: 'fixed',
-            left: pos.x + 12,
-            top: pos.y + 12,
-            zIndex: 9999,
-            pointerEvents: 'none'
-        }}>
+        <div
+            style={{
+                position: 'fixed',
+                left: pos.x + 12,
+                top: pos.y + 12,
+                zIndex: 9999,
+                pointerEvents: 'none',
+            }}
+        >
             {children}
         </div>,
-        document.body
+        document.body,
     );
 };
 
@@ -177,15 +178,9 @@ const ChartTooltip = ({ color, title, subtitle }: { color: string; title: React.
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: subtitle ? 4 : 0 }}>
                     <div style={{ width: 12, height: 12, borderRadius: 2, background: color }} />
-                    <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--foreground)' }}>
-                        {title}
-                    </span>
+                    <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--foreground)' }}>{title}</span>
                 </div>
-                {subtitle && (
-                    <div style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>
-                        {subtitle}
-                    </div>
-                )}
+                {subtitle && <div style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>{subtitle}</div>}
             </div>
         </PortalTooltip>
     );
@@ -211,66 +206,63 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
     const legendPosition = config?.legendPosition || 'bottom';
     const showTooltip = config?.showTooltip ?? true;
     const containerRef = useRef<HTMLDivElement>(null);
-    const [containerSize, setContainerSize] = useState({ width: 300, height: 200 });
 
-    // Measure container size for responsive margins
-    useEffect(() => {
-        if (!containerRef.current) return;
-        const resizeObserver = new ResizeObserver(entries => {
-            const { width, height } = entries[0].contentRect;
-            if (width > 0 && height > 0) {
-                setContainerSize({ width, height });
-            }
-        });
-        resizeObserver.observe(containerRef.current);
-        return () => resizeObserver.disconnect();
-    }, []);
+    // NOTE:
+    // We intentionally do not measure container size for margin calculation.
+    // Margins are fixed/compact for consistency across all chart components.
 
-    // Calculate responsive margins based on container size
-    const calculateMargin = useCallback((options: {
-        hasAxisLabels?: boolean;
-        isSpider?: boolean;
-    } = {}) => {
-        const { width, height } = containerSize;
-        const { hasAxisLabels = true, isSpider = false } = options;
+    // Calculate compact, consistent margins regardless of container size.
+    // Goal: same "visual density" across all chart components and sizes.
+    const calculateMargin = useCallback(
+        (
+            options: {
+                hasAxisLabels?: boolean;
+                isSpider?: boolean;
+            } = {},
+        ) => {
+            const { hasAxisLabels = true, isSpider = false } = options;
 
-        // Base margins as percentage of container (with min/max bounds)
-        const baseTop = Math.max(8, Math.min(20, height * 0.04));
-        const baseRight = Math.max(8, Math.min(20, width * 0.04));
-        const baseBottom = hasAxisLabels ? Math.max(24, Math.min(50, height * 0.08)) : Math.max(8, Math.min(20, height * 0.04));
-        const baseLeft = hasAxisLabels ? Math.max(35, Math.min(70, width * 0.12)) : Math.max(8, Math.min(20, width * 0.04));
+            // Compact baseline margins (px)
+            // - keep right margin slightly larger to avoid last point/label feeling cramped
+            // - keep bottom/left larger only when axes are enabled
+            const top = 10;
+            const right = 18 + (isSpider ? 14 : 0);
+            const bottom = hasAxisLabels ? 28 : 12;
+            const left = hasAxisLabels ? 40 : 12;
 
-        // Legend adds proportional space
-        const legendAddY = showLegend ? Math.max(20, Math.min(40, height * 0.08)) : 0;
-        const legendAddX = showLegend ? Math.max(40, Math.min(80, width * 0.12)) : 0;
+            // Legend adds fixed space (not proportional) for consistency
+            const legendAddY = showLegend ? 18 : 0;
+            const legendAddX = showLegend ? 44 : 0;
 
-        // Spider labels need extra horizontal space
-        const spiderAdd = isSpider ? Math.max(30, Math.min(60, width * 0.1)) : 0;
-
-        return {
-            top: Math.round(baseTop + (legendPosition === 'top' ? legendAddY : 0)),
-            right: Math.round(baseRight + spiderAdd + (legendPosition === 'right' ? legendAddX : 0)),
-            bottom: Math.round(baseBottom + (legendPosition === 'bottom' ? legendAddY : 0)),
-            left: Math.round(baseLeft + spiderAdd + (legendPosition === 'left' ? legendAddX : 0)),
-        };
-    }, [containerSize, showLegend, legendPosition]);
+            return {
+                top: top + (legendPosition === 'top' ? legendAddY : 0),
+                right: right + (legendPosition === 'right' ? legendAddX : 0),
+                bottom: bottom + (legendPosition === 'bottom' ? legendAddY : 0),
+                left: left + (legendPosition === 'left' ? legendAddX : 0),
+            };
+        },
+        [showLegend, legendPosition],
+    );
 
     // Check if we should use Google Sheets data
     const dataSource = config?.dataSource;
-    const useGoogleSheets = dataSource?.type === 'google-sheets' &&
+    const useGoogleSheets =
+        dataSource?.type === 'google-sheets' &&
         (dataSource as GoogleSheetsDataSource).spreadsheetId &&
         (dataSource as GoogleSheetsDataSource).sheetName &&
         (dataSource as GoogleSheetsDataSource).labelColumn &&
         (dataSource as GoogleSheetsDataSource).valueColumn;
 
     // Fetch Google Sheets data if configured
-    const { data: sheetsData, loading, error } = useGoogleSheetsData({
-        dataSource: useGoogleSheets
-            ? dataSource as GoogleSheetsDataSource
-            : { type: 'google-sheets', spreadsheetId: '', sheetName: '', range: '' },
+    const {
+        data: sheetsData,
+        loading,
+        error,
+    } = useGoogleSheetsData({
+        dataSource: useGoogleSheets ? (dataSource as GoogleSheetsDataSource) : { type: 'google-sheets', spreadsheetId: '', sheetName: '', range: '' },
         aggregation: (config as BarChartConfig | DoughnutChartConfig)?.aggregation,
         sortBy: (config as BarChartConfig | DoughnutChartConfig)?.sortBy,
-        sortOrder: (config as BarChartConfig | DoughnutChartConfig)?.sortOrder as any,
+        sortOrder: (config as BarChartConfig | DoughnutChartConfig)?.sortOrder as 'asc' | 'desc' | undefined,
         limit: (config as BarChartConfig | DoughnutChartConfig)?.limit,
         showOther: (config as DoughnutChartConfig)?.showOther,
     });
@@ -293,23 +285,25 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
         const pie = labels.map((l, i) => ({
             id: l,
             label: l,
-            value: values[i] || 0
+            value: values[i] || 0,
         }));
 
         // Bar Data
         const bar = labels.map((l, i) => ({
             label: l,
-            value: values[i] || 0
+            value: values[i] || 0,
         }));
 
         // Line Data
-        const line = [{
-            id: title || 'Data',
-            data: labels.map((l, i) => ({
-                x: l,
-                y: values[i] || 0
-            }))
-        }];
+        const line = [
+            {
+                id: title || 'Data',
+                data: labels.map((l, i) => ({
+                    x: l,
+                    y: values[i] || 0,
+                })),
+            },
+        ];
 
         return { pie, bar, line, length: labels.length };
     }, [useGoogleSheets, sheetsData, chartType, title]);
@@ -331,13 +325,18 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
         if (useGoogleSheets && error) {
             return (
                 <div className="absolute inset-0 flex items-center justify-center p-6">
-                    <div className="text-center max-w-xs">
-                        <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 mb-3">
+                    <div className="max-w-xs text-center">
+                        <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
                             <svg className="h-6 w-6 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                                />
                             </svg>
                         </div>
-                        <p className="text-sm font-medium text-destructive mb-1">Failed to load data</p>
+                        <p className="mb-1 text-sm font-medium text-destructive">Failed to load data</p>
                         <p className="text-xs text-muted-foreground">{error}</p>
                     </div>
                 </div>
@@ -352,7 +351,7 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                 fill: 'var(--foreground)',
                 fontSize: 11,
                 fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-                fontWeight: 500
+                fontWeight: 500,
             },
             tooltip: {
                 container: {
@@ -364,35 +363,35 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                     boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
                     padding: '8px 12px',
                     border: '1px solid var(--border)',
-                }
+                },
             },
             axis: {
                 ticks: {
                     text: {
                         fill: 'var(--muted-foreground)',
                         fontSize: 10,
-                        fontWeight: 500
+                        fontWeight: 500,
                     },
-                    line: { stroke: 'transparent' }
+                    line: { stroke: 'transparent' },
                 },
                 legend: {
                     text: {
                         fill: 'var(--foreground)',
                         fontSize: 12,
-                        fontWeight: 600
-                    }
+                        fontWeight: 600,
+                    },
                 },
                 domain: {
-                    line: { stroke: 'var(--border)', strokeWidth: 1, strokeOpacity: 0.5 }
-                }
+                    line: { stroke: 'var(--border)', strokeWidth: 1, strokeOpacity: 0.5 },
+                },
             },
             grid: {
-                line: { stroke: 'var(--border)', strokeWidth: 1, strokeOpacity: 0.2 }
-            }
+                line: { stroke: 'var(--border)', strokeWidth: 1, strokeOpacity: 0.2 },
+            },
         };
 
         // Helper to get legend config
-        const getLegends = (fill: string) => {
+        const getLegends = (): readonly LegendProps[] => {
             if (!showLegend || legendPosition === 'none') return [];
 
             const isVertical = legendPosition === 'left' || legendPosition === 'right';
@@ -400,10 +399,10 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                 top: 'top',
                 bottom: 'bottom',
                 left: 'left',
-                right: 'right'
-            }[legendPosition] as any;
+                right: 'right',
+            }[legendPosition] as 'top' | 'bottom' | 'left' | 'right';
 
-            const direction = isVertical ? 'column' : 'row';
+            const direction = (isVertical ? 'column' : 'row') as LegendProps['direction'];
             const translateY = legendPosition === 'top' ? -30 : legendPosition === 'bottom' ? 30 : 0;
             const translateX = legendPosition === 'left' ? -30 : legendPosition === 'right' ? 30 : 0;
 
@@ -426,11 +425,11 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                         {
                             on: 'hover',
                             style: {
-                                itemTextColor: 'var(--foreground)'
-                            }
-                        }
-                    ]
-                }
+                                itemTextColor: 'var(--foreground)',
+                            },
+                        },
+                    ],
+                },
             ];
         };
 
@@ -462,26 +461,25 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                     arcLinkLabelsTextColor="var(--foreground)"
                     arcLinkLabelsThickness={2}
                     arcLinkLabelsColor={{ from: 'color', modifiers: [['opacity', 0.5]] }}
-
                     // Inner Labels
                     enableArcLabels={showLabels && pos === 'inside'}
                     arcLabelsSkipAngle={8}
                     arcLabelsTextColor="white"
-                    arcLabel={(d) => dConfig?.dataLabelType === 'percent'
-                        ? `${Math.round(d.value / nivoData.pie.reduce((a, b) => a + b.value, 0) * 100)}%`
-                        : `${d.value}`}
-
+                    arcLabel={(d) =>
+                        dConfig?.dataLabelType === 'percent'
+                            ? `${Math.round((d.value / nivoData.pie.reduce((a, b) => a + b.value, 0)) * 100)}%`
+                            : `${d.value}`
+                    }
                     theme={theme}
                     animate={true}
                     motionConfig="wobbly"
                     transitionMode="middleAngle"
-                    legends={getLegends('circle') as any}
-                    tooltip={showTooltip ? ({ datum: d }) => (
-                        <ChartTooltip
-                            color={d.color}
-                            title={`${d.label}: ${formatNumber(d.value, { decimals: 0 })}`}
-                        />
-                    ) : undefined}
+                    legends={getLegends()}
+                    tooltip={
+                        showTooltip
+                            ? ({ datum: d }) => <ChartTooltip color={d.color} title={`${d.label}: ${formatNumber(d.value, { decimals: 0 })}`} />
+                            : undefined
+                    }
                     layers={['arcs', 'arcLabels', 'arcLinkLabels', 'legends']}
                     defs={[
                         {
@@ -489,9 +487,9 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                             type: 'linearGradient',
                             colors: [
                                 { offset: 0, color: 'inherit' },
-                                { offset: 100, color: 'inherit', opacity: 0.8 }
-                            ]
-                        }
+                                { offset: 100, color: 'inherit', opacity: 0.8 },
+                            ],
+                        },
                     ]}
                 />
             );
@@ -541,7 +539,6 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                     colors={colors}
                     theme={theme}
                     borderRadius={bConfig?.borderRadius ?? 6}
-
                     // Axes with formatting
                     axisBottom={{
                         tickSize: 0,
@@ -564,25 +561,22 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                     enableGridX={bConfig?.xAxis?.showGridLines ?? false}
                     enableGridY={bConfig?.yAxis?.showGridLines ?? true}
                     enableLabel={false}
-
                     animate={true}
                     motionConfig="gentle"
-                    tooltip={showTooltip ? ({ id, value, color, indexValue }) => (
-                        <ChartTooltip
-                            color={color}
-                            title={`${indexValue}: ${tooltipFormatter(value)}`}
-                        />
-                    ) : () => null}
-
+                    tooltip={
+                        showTooltip
+                            ? ({ value, color, indexValue }) => <ChartTooltip color={color} title={`${indexValue}: ${tooltipFormatter(value)}`} />
+                            : () => null
+                    }
                     defs={[
                         {
                             id: 'gradient',
                             type: 'linearGradient',
                             colors: [
                                 { offset: 0, color: 'inherit' },
-                                { offset: 100, color: 'inherit', opacity: 0.7 }
-                            ]
-                        }
+                                { offset: 100, color: 'inherit', opacity: 0.7 },
+                            ],
+                        },
                     ]}
                     fill={[{ match: '*', id: 'gradient' }]}
                 />
@@ -611,7 +605,6 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                 colors={colors}
                 theme={theme}
                 curve={curve}
-
                 // Line styling
                 lineWidth={3}
                 pointSize={showPoints ? pointSize : 0}
@@ -619,7 +612,6 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                 pointBorderWidth={showPoints ? 2 : 0}
                 pointBorderColor={{ from: 'serieColor' }}
                 enablePointLabel={false}
-
                 // Grid & Axes
                 enableGridX={lConfig?.xAxis?.showGridLines ?? false}
                 enableGridY={lConfig?.yAxis?.showGridLines ?? true}
@@ -629,7 +621,7 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                     tickRotation: 0,
                     legend: lConfig?.xAxis?.label,
                     legendOffset: 36,
-                    legendPosition: 'middle'
+                    legendPosition: 'middle',
                 }}
                 axisLeft={{
                     tickSize: 0,
@@ -640,66 +632,69 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                     legendPosition: 'middle',
                     format: axisFormatter,
                 }}
-
                 // Area
                 enableArea={enableArea}
                 areaOpacity={0.1}
                 areaBaselineValue={0}
-
                 animate={true}
                 motionConfig="gentle"
                 enableCrosshair={true}
                 crosshairType="cross"
-
-                tooltip={showTooltip ? ({ point }) => (
-                    <ChartTooltip
-                        color={point.color}
-                        title={point.id}
-                        subtitle={
-                            <>{point.data.xFormatted}: <strong style={{ color: 'var(--foreground)' }}>{tooltipValueFormatter(point.data.y as number)}</strong></>
-                        }
-                    />
-                ) : () => null}
-
+                tooltip={
+                    showTooltip
+                        ? ({ point }) => (
+                              <ChartTooltip
+                                  color={point.color}
+                                  title={point.id}
+                                  subtitle={
+                                      <>
+                                          {point.data.xFormatted}:{' '}
+                                          <strong style={{ color: 'var(--foreground)' }}>{tooltipValueFormatter(point.data.y as number)}</strong>
+                                      </>
+                                  }
+                              />
+                          )
+                        : () => null
+                }
                 defs={[
                     {
                         id: 'gradient',
                         type: 'linearGradient',
                         colors: [
                             { offset: 0, color: 'inherit', opacity: 0.3 },
-                            { offset: 100, color: 'inherit', opacity: 0 }
-                        ]
-                    }
+                            { offset: 100, color: 'inherit', opacity: 0 },
+                        ],
+                    },
                 ]}
                 fill={[{ match: '*', id: 'gradient' }]}
             />
         );
     };
 
-    const displayTitle = title || {
-        line: 'Revenue Trend',
-        bar: 'Weekly Activity',
-        doughnut: 'Device Distribution',
-    }[chartType];
+    const displayTitle =
+        title ||
+        {
+            line: 'Revenue Trend',
+            bar: 'Weekly Activity',
+            doughnut: 'Device Distribution',
+        }[chartType];
 
     const bg = config?.colors?.backgroundColor || 'transparent';
 
     return (
         <div
             ref={containerRef}
-            className="h-full w-full flex flex-col"
+            className="flex h-full w-full flex-col"
             style={{
-                backgroundColor: bg
+                backgroundColor: bg,
             }}
         >
             {showTitle && (
-                <div className="px-4 pt-3 pb-2 shrink-0">
-                    <h3 className="text-sm font-semibold text-foreground tracking-tight">{displayTitle}</h3>
+                <div className="shrink-0 px-4 pt-3 pb-2">
+                    <h3 className="text-sm font-semibold tracking-tight text-foreground">{displayTitle}</h3>
                 </div>
             )}
-            <div className="flex-1 relative min-h-0 min-w-0">
-                {renderChart()}
-            </div>
+            <div className="relative min-h-0 min-w-0 flex-1">{renderChart()}</div>
         </div>
     );
 }
