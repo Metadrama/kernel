@@ -480,65 +480,48 @@ export function DataSourceConfig({ value, onChange, disabled }: DataSourceConfig
                 </Select>
               </div>
 
-            </div>
-
-          {/* Data Verification */}
-          <div className="flex items-center space-x-2 pt-2 border-t">
-            <div className="flex-1">
-              <Label className="text-sm font-medium">Verify Data</Label>
-              <p className="text-[10px] text-muted-foreground">Show data table instead of chart</p>
-            </div>
-            <Switch
-              checked={(value as any).showDataTable || false}
-              onCheckedChange={(checked) => onChange({ ...value, showDataTable: checked } as any)}
-            />
-          </div>
-
-          {/* Filter Configuration */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Filter (Optional)</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <Select
-                value={gsConfig?.filterColumn || '__none__'}
-                onValueChange={(v) => updateGoogleSheets({ filterColumn: v === '__none__' ? undefined : v })}
-                disabled={disabled}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Filter by column" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">No filter</SelectItem>
-                  {columns.headers.map((header, idx) => (
-                    <SelectItem key={idx} value={header || `Column ${idx + 1}`}>
-                      {header || `Column ${idx + 1}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Input
-                value={gsConfig?.filterValue || ''}
-                onChange={(e) => updateGoogleSheets({ filterValue: e.target.value || undefined })}
-                placeholder="Filter value"
-                disabled={disabled || !gsConfig?.filterColumn}
-                className="h-9 text-sm"
-              />
-            </div>
-          </div>
+              {/* Filter Configuration */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Filter (Optional)</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Select
+                    value={gsConfig?.filterColumn || '__none__'}
+                    onValueChange={(v) => updateGoogleSheets({ filterColumn: v === '__none__' ? undefined : v })}
+                    disabled={disabled}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Filter by column" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">No filter</SelectItem>
+                      {columns.headers.map((header, idx) => (
+                        <SelectItem key={idx} value={header || `Column ${idx + 1}`}>
+                          {header || `Column ${idx + 1}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    value={gsConfig?.filterValue || ''}
+                    onChange={(e) => updateGoogleSheets({ filterValue: e.target.value || undefined })}
+                    placeholder="Filter value"
+                    disabled={disabled || !gsConfig?.filterColumn}
+                    className="h-9 text-sm"
+                  />
+                </div>
+              </div>
+            </>
+          )}
         </>
       )}
-    </>
-  )
-}
 
-{/* Static Data Info */ }
-{
-  sourceType === 'static' && (
-    <div className="rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
-      Using built-in sample data. Select "Google Sheets" to connect to real data.
+      {/* Static Data Info */}
+      {sourceType === 'static' && (
+        <div className="rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
+          Using built-in sample data. Select "Google Sheets" to connect to real data.
+        </div>
+      )}
     </div>
-  )
-}
-    </div >
   );
 }
 

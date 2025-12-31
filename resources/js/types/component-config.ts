@@ -101,9 +101,6 @@ export interface BaseChartConfig {
 
   // Colors
   colors?: ChartColorsConfig;
-
-  // Verification
-  showDataTable?: boolean;
 }
 
 export interface LineChartConfig extends BaseChartConfig {
