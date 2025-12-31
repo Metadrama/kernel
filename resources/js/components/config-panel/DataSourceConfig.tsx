@@ -389,7 +389,7 @@ export function DataSourceConfig({ value, onChange, disabled }: DataSourceConfig
                     />
                   </div>
 
-                  {gsConfig?.generatedLabels?.mode === 'fit' ? (
+                  {gsConfig?.generatedLabels?.mode === 'fit' && (
                     <div className="space-y-2">
                       <Label className="text-xs">End Date</Label>
                       <Input
@@ -404,31 +404,31 @@ export function DataSourceConfig({ value, onChange, disabled }: DataSourceConfig
                         })}
                       />
                     </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <Label className="text-xs">Interval</Label>
-                      <Select
-                        value={gsConfig?.generatedLabels?.interval || 'month'}
-                        onValueChange={(v: any) => updateGoogleSheets({
-                          generatedLabels: {
-                            ...gsConfig?.generatedLabels!,
-                            interval: v
-                          }
-                        })}
-                      >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="day">Daily</SelectItem>
-                          <SelectItem value="week">Weekly</SelectItem>
-                          <SelectItem value="month">Monthly</SelectItem>
-                          <SelectItem value="quarter">Quarterly</SelectItem>
-                          <SelectItem value="year">Yearly</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
                   )}
+
+                  <div className="space-y-2">
+                    <Label className="text-xs">Granularity</Label>
+                    <Select
+                      value={gsConfig?.generatedLabels?.interval || 'month'}
+                      onValueChange={(v: any) => updateGoogleSheets({
+                        generatedLabels: {
+                          ...gsConfig?.generatedLabels!,
+                          interval: v
+                        }
+                      })}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="day">Daily</SelectItem>
+                        <SelectItem value="week">Weekly</SelectItem>
+                        <SelectItem value="month">Monthly</SelectItem>
+                        <SelectItem value="quarter">Quarterly</SelectItem>
+                        <SelectItem value="year">Yearly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               )}
 
@@ -458,48 +458,87 @@ export function DataSourceConfig({ value, onChange, disabled }: DataSourceConfig
                 </Select>
               </div>
 
-              {/* Filter Configuration */}
+              {/* Aggregation Selection */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Filter (Optional)</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <Select
-                    value={gsConfig?.filterColumn || '__none__'}
-                    onValueChange={(v) => updateGoogleSheets({ filterColumn: v === '__none__' ? undefined : v })}
-                    disabled={disabled}
-                  >
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Filter by column" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">No filter</SelectItem>
-                      {columns.headers.map((header, idx) => (
-                        <SelectItem key={idx} value={header || `Column ${idx + 1}`}>
-                          {header || `Column ${idx + 1}`}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    value={gsConfig?.filterValue || ''}
-                    onChange={(e) => updateGoogleSheets({ filterValue: e.target.value || undefined })}
-                    placeholder="Filter value"
-                    disabled={disabled || !gsConfig?.filterColumn}
-                    className="h-9 text-sm"
-                  />
-                </div>
+                <Label className="text-sm font-medium">Aggregation</Label>
+                <Select
+                  value={gsConfig?.aggregation || 'sum'}
+                  onValueChange={(v: any) => updateGoogleSheets({ aggregation: v })}
+                  disabled={disabled}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sum">Sum (Total)</SelectItem>
+                    <SelectItem value="average">Average</SelectItem>
+                    <SelectItem value="count">Count</SelectItem>
+                    <SelectItem value="min">Minimum</SelectItem>
+                    <SelectItem value="max">Maximum</SelectItem>
+                    <SelectItem value="none">None (Raw Data)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            </>
-          )}
+
+            </div>
+
+          {/* Data Verification */}
+          <div className="flex items-center space-x-2 pt-2 border-t">
+            <div className="flex-1">
+              <Label className="text-sm font-medium">Verify Data</Label>
+              <p className="text-[10px] text-muted-foreground">Show data table instead of chart</p>
+            </div>
+            <Switch
+              checked={(value as any).showDataTable || false}
+              onCheckedChange={(checked) => onChange({ ...value, showDataTable: checked } as any)}
+            />
+          </div>
+
+          {/* Filter Configuration */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Filter (Optional)</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <Select
+                value={gsConfig?.filterColumn || '__none__'}
+                onValueChange={(v) => updateGoogleSheets({ filterColumn: v === '__none__' ? undefined : v })}
+                disabled={disabled}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Filter by column" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">No filter</SelectItem>
+                  {columns.headers.map((header, idx) => (
+                    <SelectItem key={idx} value={header || `Column ${idx + 1}`}>
+                      {header || `Column ${idx + 1}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                value={gsConfig?.filterValue || ''}
+                onChange={(e) => updateGoogleSheets({ filterValue: e.target.value || undefined })}
+                placeholder="Filter value"
+                disabled={disabled || !gsConfig?.filterColumn}
+                className="h-9 text-sm"
+              />
+            </div>
+          </div>
         </>
       )}
+    </>
+  )
+}
 
-      {/* Static Data Info */}
-      {sourceType === 'static' && (
-        <div className="rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
-          Using built-in sample data. Select "Google Sheets" to connect to real data.
-        </div>
-      )}
+{/* Static Data Info */ }
+{
+  sourceType === 'static' && (
+    <div className="rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
+      Using built-in sample data. Select "Google Sheets" to connect to real data.
     </div>
+  )
+}
+    </div >
   );
 }
 

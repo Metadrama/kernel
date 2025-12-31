@@ -38,6 +38,9 @@ export interface GoogleSheetsDataSource {
     interval?: 'day' | 'week' | 'month' | 'quarter' | 'year'; // Required for 'step' mode
     count?: number;
   };
+
+  // Data Aggregation
+  aggregation?: 'sum' | 'count' | 'average' | 'min' | 'max' | 'none';
 }
 
 export interface ApiDataSource {
@@ -98,6 +101,9 @@ export interface BaseChartConfig {
 
   // Colors
   colors?: ChartColorsConfig;
+
+  // Verification
+  showDataTable?: boolean;
 }
 
 export interface LineChartConfig extends BaseChartConfig {

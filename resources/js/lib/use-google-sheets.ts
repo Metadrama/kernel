@@ -91,7 +91,7 @@ function aggregateData(
 export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleSheetsResult {
   const {
     dataSource,
-    aggregation = 'sum',
+    aggregation = dataSource.aggregation || 'sum',
     sortBy = 'none',
     sortOrder = 'desc',
     limit,
@@ -237,15 +237,31 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
           const count = transformedData.length;
 
           if (genMode === 'fit' && count > 1) {
-            // Fit Mode: Spread points evenly between start and end
-            const totalDuration = end.getTime() - start.getTime();
-            const step = totalDuration / (count - 1);
+            // Fit Mode: Bin data into buckets based on granularity
+            let bucketCount = 12; // Default to months
+
+            // Calculate buckets based on interval default
+            const durationMs = end.getTime() - start.getTime();
+            const dayMs = 1000 * 60 * 60 * 24;
+
+            if (interval === 'day') bucketCount = Math.max(1, Math.ceil(durationMs / dayMs));
+            else if (interval === 'week') bucketCount = Math.max(1, Math.ceil(durationMs / (dayMs * 7)));
+            else if (interval === 'month') bucketCount = Math.max(1, Math.ceil(durationMs / (dayMs * 30)));
+            else if (interval === 'quarter') bucketCount = Math.max(1, Math.ceil(durationMs / (dayMs * 90)));
+            else if (interval === 'year') bucketCount = Math.max(1, Math.ceil(durationMs / (dayMs * 365)));
+
+            const itemsPerBucket = count / bucketCount;
 
             transformedData.forEach((item, index) => {
-              const date = new Date(start.getTime() + (step * index));
-              // Smart formatting based on duration
-              const daysSpan = totalDuration / (1000 * 60 * 60 * 24);
-              if (daysSpan < 365) {
+              // Determine which bucket this index falls into
+              const bucketIndex = Math.floor(index / itemsPerBucket);
+
+              // Calculate date for this bucket
+              // Use Start + (BucketIndex * Duration/Buckets)
+              const date = new Date(start.getTime() + (bucketIndex * (durationMs / bucketCount)));
+
+              // Format label - this will group them for aggregation later
+              if (interval === 'day' || (interval === 'week' && durationMs < dayMs * 60)) {
                 item.label = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
               } else {
                 item.label = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
