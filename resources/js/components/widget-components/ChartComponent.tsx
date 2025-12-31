@@ -196,13 +196,19 @@ export interface ChartComponentConfigProps {
         colorPalette?: 'vibrant' | 'pastel' | 'cool' | 'warm';
         showTooltip?: boolean;
     };
+    width?: number;
+    height?: number;
 }
 
-export default function ChartComponent({ config }: ChartComponentConfigProps) {
+export default function ChartComponent({ config, width, height }: ChartComponentConfigProps) {
+    // Adaptive sizing thresholds
+    const isTiny = (width && width < 160) || (height && height < 100);
+    const isSmall = (width && width < 280) || (height && height < 180);
+
     const chartType = config?.chartType || 'line';
-    const showTitle = config?.showTitle ?? false;
+    const showTitle = config?.showTitle ?? (!isTiny && !isSmall);
     const title = config?.title;
-    const showLegend = config?.showLegend ?? false;
+    const showLegend = (config?.showLegend ?? false) && !isSmall;
     const legendPosition = config?.legendPosition || 'bottom';
     const showTooltip = config?.showTooltip ?? true;
     const containerRef = useRef<HTMLDivElement>(null);
@@ -222,9 +228,21 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
         ) => {
             const { hasAxisLabels = true, isSpider = false } = options;
 
-            // Compact baseline margins (px)
-            // - keep right margin slightly larger to avoid last point/label feeling cramped
-            // - keep bottom/left larger only when axes are enabled
+            if (isTiny) {
+                return { top: 4, right: 4, bottom: 4, left: 4 };
+            }
+
+            if (isSmall) {
+                // Sparkline-ish mode: minimal margins
+                return {
+                    top: 10,
+                    right: 10,
+                    bottom: hasAxisLabels ? 20 : 10,
+                    left: hasAxisLabels ? 24 : 10
+                };
+            }
+
+            // Standard margins
             const top = 10;
             const right = 18 + (isSpider ? 14 : 0);
             const bottom = hasAxisLabels ? 28 : 12;
@@ -241,7 +259,7 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                 left: left + (legendPosition === 'left' ? legendAddX : 0),
             };
         },
-        [showLegend, legendPosition],
+        [showLegend, legendPosition, isSmall, isTiny],
     );
 
     // Check if we should use Google Sheets data
@@ -250,8 +268,8 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
         dataSource?.type === 'google-sheets' &&
         (dataSource as GoogleSheetsDataSource).spreadsheetId &&
         (dataSource as GoogleSheetsDataSource).sheetName &&
-        (dataSource as GoogleSheetsDataSource).labelColumn &&
-        (dataSource as GoogleSheetsDataSource).valueColumn;
+        (dataSource as GoogleSheetsDataSource).valueColumn &&
+        ((dataSource as GoogleSheetsDataSource).labelMode === 'generated' || (dataSource as GoogleSheetsDataSource).labelColumn);
 
     // Fetch Google Sheets data if configured
     const {
@@ -308,6 +326,36 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
         return { pie, bar, line, length: labels.length };
     }, [useGoogleSheets, sheetsData, chartType, title]);
 
+    // Intelligent downsampling for large datasets to prevent browser hang
+    const displayData = useMemo(() => {
+        const MAX_POINTS = 200; // Cap at 200 points for performance
+        if (nivoData.length <= MAX_POINTS) return nivoData;
+
+        const step = Math.ceil(nivoData.length / MAX_POINTS);
+
+        // Filter function (keep first, last, and every Nth)
+        const filterFn = (_: any, i: number) => i === 0 || i === nivoData.length - 1 || i % step === 0;
+
+        return {
+            ...nivoData,
+            length: Math.ceil(nivoData.length / step),
+            pie: nivoData.pie.filter(filterFn),
+            bar: nivoData.bar.filter(filterFn),
+            line: [{
+                ...nivoData.line[0],
+                data: nivoData.line[0].data.filter(filterFn)
+            }]
+        };
+    }, [nivoData]);
+
+    // Smart tick generator to prevent label overlap
+    const getSmartTicks = useCallback((dataLength: number, labels: string[]) => {
+        if (dataLength <= 8) return undefined; // Let Nivo handle small sets
+        const count = 6; // Target number of ticks
+        const step = Math.floor((dataLength - 1) / (count - 1));
+        return Array.from({ length: count }, (_, i) => labels[Math.min(i * step, dataLength - 1)]);
+    }, []);
+
     const renderChart = () => {
         // Show loading state
         if (useGoogleSheets && loading) {
@@ -343,7 +391,7 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
             );
         }
 
-        const colors = getChartColors(nivoData.length, config?.colorPalette);
+        const colors = getChartColors(displayData.length, config?.colorPalette);
 
         // Premium modern theme with better typography and spacing
         const theme = {
@@ -445,7 +493,7 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
 
             return (
                 <ResponsivePie
-                    data={nivoData.pie}
+                    data={displayData.pie}
                     margin={margin}
                     innerRadius={dConfig?.innerRadius ?? 0.65}
                     padAngle={dConfig?.padAngle ?? 1.2}
@@ -467,7 +515,7 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                     arcLabelsTextColor="white"
                     arcLabel={(d) =>
                         dConfig?.dataLabelType === 'percent'
-                            ? `${Math.round((d.value / nivoData.pie.reduce((a, b) => a + b.value, 0)) * 100)}%`
+                            ? `${Math.round((d.value / displayData.pie.reduce((a, b) => a + b.value, 0)) * 100)}%`
                             : `${d.value}`
                     }
                     theme={theme}
@@ -529,7 +577,7 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
 
             return (
                 <ResponsiveBar
-                    data={nivoData.bar}
+                    data={displayData.bar}
                     keys={['value']}
                     indexBy="label"
                     layout={isHorizontal ? 'horizontal' : 'vertical'}
@@ -540,24 +588,34 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                     theme={theme}
                     borderRadius={bConfig?.borderRadius ?? 6}
                     // Axes with formatting
-                    axisBottom={{
-                        tickSize: 0,
-                        tickPadding: 12,
-                        tickRotation: 0,
-                        legend: bConfig?.xAxis?.label,
-                        legendPosition: 'middle',
-                        legendOffset: 32,
-                        format: isHorizontal ? valueFormatter : undefined,
-                    }}
-                    axisLeft={{
-                        tickSize: 0,
-                        tickPadding: 12,
-                        tickRotation: 0,
-                        legend: bConfig?.yAxis?.label,
-                        legendPosition: 'middle',
-                        legendOffset: -50,
-                        format: isHorizontal ? undefined : valueFormatter,
-                    }}
+                    axisBottom={
+                        isTiny
+                            ? null
+                            : {
+                                tickSize: 0,
+                                tickPadding: 12,
+                                tickRotation: 0,
+                                legend: isSmall ? undefined : bConfig?.xAxis?.label,
+                                legendPosition: 'middle',
+                                legendOffset: 32,
+                                tickValues: isHorizontal ? undefined : getSmartTicks(displayData.length, displayData.bar.map(d => d.label)),
+                                format: isHorizontal ? valueFormatter : undefined,
+                            }
+                    }
+                    axisLeft={
+                        isTiny
+                            ? null
+                            : {
+                                tickSize: 0,
+                                tickPadding: 12,
+                                tickRotation: 0,
+                                legend: isSmall ? undefined : bConfig?.yAxis?.label,
+                                legendPosition: 'middle',
+                                legendOffset: -50,
+                                tickValues: isHorizontal ? getSmartTicks(displayData.length, displayData.bar.map(d => d.label)) : undefined,
+                                format: isHorizontal ? undefined : valueFormatter,
+                            }
+                    }
                     enableGridX={bConfig?.xAxis?.showGridLines ?? false}
                     enableGridY={bConfig?.yAxis?.showGridLines ?? true}
                     enableLabel={false}
@@ -600,7 +658,7 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
 
         return (
             <ResponsiveLine
-                data={nivoData.line}
+                data={displayData.line}
                 margin={margin}
                 colors={colors}
                 theme={theme}
@@ -615,23 +673,32 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                 // Grid & Axes
                 enableGridX={lConfig?.xAxis?.showGridLines ?? false}
                 enableGridY={lConfig?.yAxis?.showGridLines ?? true}
-                axisBottom={{
-                    tickSize: 0,
-                    tickPadding: 12,
-                    tickRotation: 0,
-                    legend: lConfig?.xAxis?.label,
-                    legendOffset: 36,
-                    legendPosition: 'middle',
-                }}
-                axisLeft={{
-                    tickSize: 0,
-                    tickPadding: 12,
-                    tickRotation: 0,
-                    legend: lConfig?.yAxis?.label,
-                    legendOffset: -50,
-                    legendPosition: 'middle',
-                    format: axisFormatter,
-                }}
+                axisBottom={
+                    isTiny
+                        ? null
+                        : {
+                            tickSize: 0,
+                            tickPadding: 12,
+                            tickRotation: 0,
+                            legend: isSmall ? undefined : lConfig?.xAxis?.label,
+                            legendOffset: 36,
+                            legendPosition: 'middle',
+                            tickValues: getSmartTicks(displayData.length, displayData.line[0].data.map(d => d.x as string)),
+                        }
+                }
+                axisLeft={
+                    isTiny
+                        ? null
+                        : {
+                            tickSize: 0,
+                            tickPadding: 12,
+                            tickRotation: 0,
+                            legend: isSmall ? undefined : lConfig?.yAxis?.label,
+                            legendOffset: -50,
+                            legendPosition: 'middle',
+                            format: axisFormatter,
+                        }
+                }
                 // Area
                 enableArea={enableArea}
                 areaOpacity={0.1}
@@ -643,17 +710,17 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                 tooltip={
                     showTooltip
                         ? ({ point }) => (
-                              <ChartTooltip
-                                  color={point.color}
-                                  title={point.id}
-                                  subtitle={
-                                      <>
-                                          {point.data.xFormatted}:{' '}
-                                          <strong style={{ color: 'var(--foreground)' }}>{tooltipValueFormatter(point.data.y as number)}</strong>
-                                      </>
-                                  }
-                              />
-                          )
+                            <ChartTooltip
+                                color={point.color}
+                                title={point.id}
+                                subtitle={
+                                    <>
+                                        {point.data.xFormatted}:{' '}
+                                        <strong style={{ color: 'var(--foreground)' }}>{tooltipValueFormatter(point.data.y as number)}</strong>
+                                    </>
+                                }
+                            />
+                        )
                         : () => null
                 }
                 defs={[

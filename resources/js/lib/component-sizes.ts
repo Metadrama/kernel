@@ -14,12 +14,12 @@ export interface ComponentSize {
  * Default sizes when dropping a new component
  */
 export const COMPONENT_DEFAULT_SIZES: Record<string, ComponentSize> = {
-    'chart-line': { width: 400, height: 250 },
-    'chart-bar': { width: 400, height: 250 },
+    'chart-line': { width: 400, height: 256 },
+    'chart-bar': { width: 400, height: 256 },
     'chart-doughnut': { width: 280, height: 280 },
-    'chart': { width: 400, height: 250 },
-    'heading': { width: 300, height: 48 },
-    'kpi': { width: 180, height: 120 },
+    'chart': { width: 400, height: 256 },
+    'heading': { width: 304, height: 48 },
+    'kpi': { width: 184, height: 120 },
     'default': { width: 280, height: 200 },
 };
 
@@ -27,13 +27,13 @@ export const COMPONENT_DEFAULT_SIZES: Record<string, ComponentSize> = {
  * Minimum sizes for resize constraints
  */
 export const COMPONENT_MIN_SIZES: Record<string, ComponentSize> = {
-    'chart-line': { width: 200, height: 150 },
-    'chart-bar': { width: 200, height: 150 },
-    'chart-doughnut': { width: 150, height: 150 },
-    'chart': { width: 200, height: 150 },
+    'chart-line': { width: 200, height: 152 },
+    'chart-bar': { width: 200, height: 152 },
+    'chart-doughnut': { width: 152, height: 152 },
+    'chart': { width: 200, height: 152 },
     'heading': { width: 80, height: 32 },
-    'kpi': { width: 100, height: 80 },
-    'default': { width: 80, height: 60 },
+    'kpi': { width: 104, height: 80 },
+    'default': { width: 80, height: 64 },
 };
 
 /**
@@ -45,7 +45,7 @@ export const COMPONENT_MAX_SIZES: Record<string, ComponentSize | null> = {
     'chart-doughnut': null,
     'chart': null,
     'heading': { width: 800, height: 120 },
-    'kpi': { width: 400, height: 300 },
+    'kpi': { width: 400, height: 304 },
     'default': null,
 };
 

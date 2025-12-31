@@ -32,7 +32,7 @@ interface UseGoogleSheetsResult {
 function parseNumericValue(value: unknown): number {
   if (typeof value === 'number') return value;
   if (typeof value !== 'string') return 0;
-  
+
   // Remove currency symbols, commas, and whitespace
   const cleaned = value.replace(/[^0-9.-]/g, '');
   const num = parseFloat(cleaned);
@@ -45,7 +45,7 @@ function aggregateData(
   aggregation: AggregationType
 ): Map<string, number> {
   const groups = new Map<string, number[]>();
-  
+
   // Group values by label
   for (const item of data) {
     if (!groups.has(item.label)) {
@@ -53,13 +53,13 @@ function aggregateData(
     }
     groups.get(item.label)!.push(item.value);
   }
-  
+
   // Apply aggregation
   const result = new Map<string, number>();
-  
+
   for (const [label, values] of groups) {
     let aggregatedValue: number;
-    
+
     switch (aggregation) {
       case 'sum':
         aggregatedValue = values.reduce((a, b) => a + b, 0);
@@ -81,23 +81,23 @@ function aggregateData(
         aggregatedValue = values[0] ?? 0;
         break;
     }
-    
+
     result.set(label, aggregatedValue);
   }
-  
+
   return result;
 }
 
 export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleSheetsResult {
-  const { 
-    dataSource, 
-    aggregation = 'sum', 
-    sortBy = 'none', 
+  const {
+    dataSource,
+    aggregation = 'sum',
+    sortBy = 'none',
     sortOrder = 'desc',
     limit,
-    showOther = false 
+    showOther = false
   } = options;
-  
+
   const [data, setData] = useState<ChartDataset | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -122,19 +122,20 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
   }, [dataSource]);
 
   useEffect(() => {
-    const { 
-      spreadsheetId, 
-      sheetName, 
-      labelColumn, 
+    const {
+      spreadsheetId,
+      sheetName,
+      labelColumn,
       valueColumn,
       headerRow = 2,
       dataStartRow = 3,
       filterColumn,
-      filterValue 
+      filterValue
     } = dataSource;
 
-    // Validate required fields
-    if (!spreadsheetId || !sheetName || !labelColumn || !valueColumn) {
+    // Validate required fields (labelColumn only needed if mode is 'column' or undefined)
+    const mode = dataSource.labelMode || 'column';
+    if (!spreadsheetId || !sheetName || !valueColumn || (mode === 'column' && !labelColumn)) {
       setData(null);
       return;
     }
@@ -148,32 +149,32 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
       try {
         // Escape sheet name for Google Sheets API (wrap in single quotes if it contains special characters)
         const escapedSheetName = /[^\w]/.test(sheetName) ? `'${sheetName.replace(/'/g, "''")}'` : sheetName;
-        
+
         // First, fetch headers to get column indices
         const headerRange = `${escapedSheetName}!A${headerRow}:ZZ${headerRow}`;
         const headerResponse = await fetch('/api/sheets/read', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             spreadsheet_id: spreadsheetId,
             range: headerRange,
           }),
         });
-        
+
         const headerData = await headerResponse.json();
-        
+
         if (!headerData.success || !headerData.data?.[0]) {
           throw new Error('Failed to fetch headers');
         }
 
         const headers: string[] = headerData.data[0];
-        const labelColIndex = headers.findIndex(h => h === labelColumn);
+        const labelColIndex = mode === 'column' ? headers.findIndex(h => h === labelColumn) : -1;
         const valueColIndex = headers.findIndex(h => h === valueColumn);
-        const filterColIndex = filterColumn 
-          ? headers.findIndex(h => h === filterColumn) 
+        const filterColIndex = filterColumn
+          ? headers.findIndex(h => h === filterColumn)
           : -1;
 
-        if (labelColIndex === -1 || valueColIndex === -1) {
+        if (valueColIndex === -1 || (mode === 'column' && labelColIndex === -1)) {
           throw new Error('Could not find specified columns');
         }
 
@@ -182,14 +183,14 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
         const dataResponse = await fetch('/api/sheets/read', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             spreadsheet_id: spreadsheetId,
             range: dataRange,
           }),
         });
-        
+
         const rowData = await dataResponse.json();
-        
+
         if (!rowData.success) {
           throw new Error(rowData.error || 'Failed to fetch data');
         }
@@ -197,17 +198,26 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
         if (cancelled) return;
 
         const rows: string[][] = rowData.data || [];
-        
+
         // Transform data
         const transformedData: Array<{ label: string; value: number }> = [];
-        
+
         for (const row of rows) {
-          const label = row[labelColIndex] || '';
+          // Determine label
+          let label = '';
+          if (mode === 'column') {
+            label = row[labelColIndex] || '';
+          } else if (mode === 'generated' && dataSource.generatedLabels) {
+            // We'll generate labels after collecting all values to ensure correct index
+            // For now, use placeholder
+            label = `__GEN__${transformedData.length}`;
+          }
+
           const value = parseNumericValue(row[valueColIndex]);
-          
-          // Skip empty rows
-          if (!label && value === 0) continue;
-          
+
+          // Skip empty rows (only check label if using column mode)
+          if ((mode === 'column' && !label) && value === 0) continue;
+
           // Apply filter if specified
           if (filterColIndex !== -1 && filterValue) {
             const filterCellValue = row[filterColIndex] || '';
@@ -215,8 +225,45 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
               continue;
             }
           }
-          
+
           transformedData.push({ label, value });
+        }
+
+        // Handle Generated Labels
+        if (mode === 'generated' && dataSource.generatedLabels) {
+          const { startDate, endDate, interval, mode: genMode = 'step' } = dataSource.generatedLabels;
+          const start = new Date(startDate);
+          const end = endDate ? new Date(endDate) : new Date();
+          const count = transformedData.length;
+
+          if (genMode === 'fit' && count > 1) {
+            // Fit Mode: Spread points evenly between start and end
+            const totalDuration = end.getTime() - start.getTime();
+            const step = totalDuration / (count - 1);
+
+            transformedData.forEach((item, index) => {
+              const date = new Date(start.getTime() + (step * index));
+              // Smart formatting based on duration
+              const daysSpan = totalDuration / (1000 * 60 * 60 * 24);
+              if (daysSpan < 365) {
+                item.label = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+              } else {
+                item.label = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+              }
+            });
+          } else {
+            // Step Mode: Add fixed interval
+            transformedData.forEach((item, index) => {
+              const date = new Date(start);
+              if (interval === 'day') date.setDate(date.getDate() + index);
+              else if (interval === 'week') date.setDate(date.getDate() + index * 7);
+              else if (interval === 'month') date.setMonth(date.getMonth() + index);
+              else if (interval === 'quarter') date.setMonth(date.getMonth() + index * 3);
+              else if (interval === 'year') date.setFullYear(date.getFullYear() + index);
+
+              item.label = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+            });
+          }
         }
 
         // Aggregate data
@@ -224,7 +271,7 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
 
         // Convert to arrays and sort
         let entries = Array.from(aggregated.entries());
-        
+
         if (sortBy === 'label') {
           entries.sort((a, b) => {
             const cmp = a[0].localeCompare(b[0]);
@@ -240,12 +287,12 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
         // Apply limit
         let finalLabels: string[];
         let finalValues: number[];
-        
+
         if (limit && entries.length > limit) {
           const topEntries = entries.slice(0, limit);
           finalLabels = topEntries.map(e => e[0]);
           finalValues = topEntries.map(e => e[1]);
-          
+
           // Add "Other" category if enabled
           if (showOther) {
             const otherEntries = entries.slice(limit);

@@ -28,6 +28,16 @@ export interface GoogleSheetsDataSource {
   // Header row handling
   headerRow?: number; // 1-based row number (default: 1)
   dataStartRow?: number; // 1-based row number (default: 2)
+
+  // Label configuration
+  labelMode?: 'column' | 'generated';
+  generatedLabels?: {
+    mode?: 'step' | 'fit'; // 'step' = add interval per row. 'fit' = spread rows between start/end.
+    startDate: string;
+    endDate?: string; // Required for 'fit' mode
+    interval?: 'day' | 'week' | 'month' | 'quarter' | 'year'; // Required for 'step' mode
+    count?: number;
+  };
 }
 
 export interface ApiDataSource {

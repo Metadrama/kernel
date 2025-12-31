@@ -399,7 +399,16 @@ export function DirectComponent({
     const renderComponent = () => {
         switch (componentType) {
             case 'chart-line':
-                return <ChartComponent config={component.config} />;
+            case 'chart-bar':
+            case 'chart-doughnut':
+            case 'chart':
+                return (
+                    <ChartComponent
+                        config={{ ...component.config, chartType: componentType.replace('chart-', '') as any }}
+                        width={displayRect.width}
+                        height={displayRect.height}
+                    />
+                );
             default:
                 return <div className="flex h-full w-full items-center justify-center bg-gray-100 text-gray-500">{componentType}</div>;
         }

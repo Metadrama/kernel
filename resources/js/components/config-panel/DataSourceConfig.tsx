@@ -44,26 +44,26 @@ export function DataSourceConfig({ value, onChange, disabled }: DataSourceConfig
   const [columns, setColumns] = useState<SheetColumns | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const sourceType = value.type;
   const gsConfig = value.type === 'google-sheets' ? value : null;
 
   // Fetch spreadsheet metadata when ID changes
   const fetchMetadata = useCallback(async (spreadsheetId: string) => {
     if (!spreadsheetId) return;
-    
+
     setLoading(true);
     setError(null);
-    
+
     try {
       const response = await fetch('/api/sheets/metadata', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ spreadsheet_id: spreadsheetId }),
       });
-      
+
       const data = await response.json();
-      
+
       if (data.success) {
         setMetadata(data.metadata);
       } else {
@@ -79,31 +79,31 @@ export function DataSourceConfig({ value, onChange, disabled }: DataSourceConfig
   // Fetch columns when sheet changes
   const fetchColumns = useCallback(async (spreadsheetId: string, sheetName: string, headerRow: number = 2) => {
     if (!spreadsheetId || !sheetName) return;
-    
+
     setLoading(true);
     setError(null);
-    
+
     try {
       // Escape sheet name for Google Sheets API (wrap in single quotes if it contains special characters)
       const escapedSheetName = /[^\w]/.test(sheetName) ? `'${sheetName.replace(/'/g, "''")}'` : sheetName;
-      
+
       // Fetch header row and a few sample rows
       const range = `${escapedSheetName}!A${headerRow}:Z${headerRow + 3}`;
       const response = await fetch('/api/sheets/read', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           spreadsheet_id: spreadsheetId,
           range,
         }),
       });
-      
+
       const data = await response.json();
-      
+
       if (data.success && data.data?.length > 0) {
         setColumns({
           headers: (data.data[0] || []).map((h: unknown) => String(h || '')),
-          sampleData: (data.data.slice(1) || []).map((row: unknown[]) => 
+          sampleData: (data.data.slice(1) || []).map((row: unknown[]) =>
             (row || []).map((cell: unknown) => String(cell || ''))
           ),
         });
@@ -160,19 +160,24 @@ export function DataSourceConfig({ value, onChange, disabled }: DataSourceConfig
 
   const updateGoogleSheets = (updates: Partial<GoogleSheetsDataSource>) => {
     if (value.type !== 'google-sheets') return;
+    // Clear label column if switching to generated
+    if (updates.labelMode === 'generated') {
+      updates.labelColumn = undefined;
+      updates.generatedLabels = updates.generatedLabels || { startDate: new Date().toISOString().split('T')[0], interval: 'month' };
+    }
     onChange({ ...value, ...updates });
   };
 
   // Extract spreadsheet ID from URL if pasted
   const handleSpreadsheetInput = (input: string) => {
     let id = input;
-    
+
     // Try to extract ID from URL
     const urlMatch = input.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
     if (urlMatch) {
       id = urlMatch[1];
     }
-    
+
     updateGoogleSheets({ spreadsheetId: id });
     if (id && id !== gsConfig?.spreadsheetId) {
       setMetadata(null);
@@ -255,8 +260,8 @@ export function DataSourceConfig({ value, onChange, disabled }: DataSourceConfig
           {metadata && metadata.sheets.length > 0 && (
             <div className="space-y-2">
               <Label className="text-sm font-medium">Sheet</Label>
-              <Select 
-                value={gsConfig?.sheetName || undefined} 
+              <Select
+                value={gsConfig?.sheetName || undefined}
                 onValueChange={(v) => updateGoogleSheets({ sheetName: v })}
                 disabled={disabled}
               >
@@ -307,30 +312,130 @@ export function DataSourceConfig({ value, onChange, disabled }: DataSourceConfig
           {/* Column Mappings */}
           {columns && columns.headers.length > 0 && (
             <>
+              {/* Label configuration mode */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Label Column</Label>
-                <Select 
-                  value={gsConfig?.labelColumn || undefined} 
-                  onValueChange={(v) => updateGoogleSheets({ labelColumn: v })}
+                <Label className="text-sm font-medium">Label Source</Label>
+                <Select
+                  value={gsConfig?.labelMode || 'column'}
+                  onValueChange={(v: any) => updateGoogleSheets({ labelMode: v })}
                   disabled={disabled}
                 >
                   <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Select column for labels" />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {columns.headers.map((header, idx) => (
-                      <SelectItem key={idx} value={header || `Column ${idx + 1}`}>
-                        {String.fromCharCode(65 + idx)}: {header || `Column ${idx + 1}`}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="column">From Column</SelectItem>
+                    <SelectItem value="generated">Generated Time Series</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
+              {gsConfig?.labelMode === 'column' || !gsConfig?.labelMode ? (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Label Column</Label>
+                  <Select
+                    value={gsConfig?.labelColumn || undefined}
+                    onValueChange={(v) => updateGoogleSheets({ labelColumn: v })}
+                    disabled={disabled}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Select column for labels" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {columns.headers.map((header, idx) => (
+                        <SelectItem key={idx} value={header || `Column ${idx + 1}`}>
+                          {String.fromCharCode(65 + idx)}: {header || `Column ${idx + 1}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 rounded-md border p-3 bg-muted/20">
+                  <div className="col-span-2 space-y-2">
+                    <Label className="text-xs">Generation Method</Label>
+                    <Select
+                      value={gsConfig?.generatedLabels?.mode || 'step'}
+                      onValueChange={(v: any) => updateGoogleSheets({
+                        generatedLabels: {
+                          ...gsConfig?.generatedLabels,
+                          startDate: gsConfig?.generatedLabels?.startDate || new Date().toISOString().split('T')[0],
+                          mode: v
+                        }
+                      })}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="step">Fixed Interval (e.g. Daily)</SelectItem>
+                        <SelectItem value="fit">Fit to Date Range</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs">Start Date</Label>
+                    <Input
+                      type="date"
+                      className="h-8 text-xs"
+                      value={gsConfig?.generatedLabels?.startDate || ''}
+                      onChange={(e) => updateGoogleSheets({
+                        generatedLabels: {
+                          ...gsConfig?.generatedLabels!,
+                          startDate: e.target.value
+                        }
+                      })}
+                    />
+                  </div>
+
+                  {gsConfig?.generatedLabels?.mode === 'fit' ? (
+                    <div className="space-y-2">
+                      <Label className="text-xs">End Date</Label>
+                      <Input
+                        type="date"
+                        className="h-8 text-xs"
+                        value={gsConfig?.generatedLabels?.endDate || ''}
+                        onChange={(e) => updateGoogleSheets({
+                          generatedLabels: {
+                            ...gsConfig?.generatedLabels!,
+                            endDate: e.target.value
+                          }
+                        })}
+                      />
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label className="text-xs">Interval</Label>
+                      <Select
+                        value={gsConfig?.generatedLabels?.interval || 'month'}
+                        onValueChange={(v: any) => updateGoogleSheets({
+                          generatedLabels: {
+                            ...gsConfig?.generatedLabels!,
+                            interval: v
+                          }
+                        })}
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="day">Daily</SelectItem>
+                          <SelectItem value="week">Weekly</SelectItem>
+                          <SelectItem value="month">Monthly</SelectItem>
+                          <SelectItem value="quarter">Quarterly</SelectItem>
+                          <SelectItem value="year">Yearly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Value Column</Label>
-                <Select 
-                  value={gsConfig?.valueColumn || undefined} 
+                <Select
+                  value={gsConfig?.valueColumn || undefined}
                   onValueChange={(v) => updateGoogleSheets({ valueColumn: v })}
                   disabled={disabled}
                 >
@@ -340,8 +445,8 @@ export function DataSourceConfig({ value, onChange, disabled }: DataSourceConfig
                   <SelectContent>
                     {columns.headers.map((header, idx) => {
                       const sampleValue = columns.sampleData?.[0]?.[idx];
-                      const displaySample = sampleValue 
-                        ? ` (e.g., ${String(sampleValue).substring(0, 15)}${String(sampleValue).length > 15 ? '...' : ''})` 
+                      const displaySample = sampleValue
+                        ? ` (e.g., ${String(sampleValue).substring(0, 15)}${String(sampleValue).length > 15 ? '...' : ''})`
                         : '';
                       return (
                         <SelectItem key={idx} value={header || `Column ${idx + 1}`}>
@@ -357,8 +462,8 @@ export function DataSourceConfig({ value, onChange, disabled }: DataSourceConfig
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Filter (Optional)</Label>
                 <div className="grid grid-cols-2 gap-2">
-                  <Select 
-                    value={gsConfig?.filterColumn || '__none__'} 
+                  <Select
+                    value={gsConfig?.filterColumn || '__none__'}
                     onValueChange={(v) => updateGoogleSheets({ filterColumn: v === '__none__' ? undefined : v })}
                     disabled={disabled}
                   >
