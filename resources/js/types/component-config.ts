@@ -143,6 +143,7 @@ export interface BarChartConfig extends BaseChartConfig {
   stacked?: boolean;
   borderRadius?: number;
   barThickness?: number | 'flex';
+  barRatio?: number; // 0-1, ratio of bar width to category width
 
   // Axis
   xAxis?: ChartAxisConfig;
@@ -396,6 +397,7 @@ export const DEFAULT_BAR_CHART_CONFIG: BarChartConfig = {
   horizontal: false,
   stacked: false,
   borderRadius: 4,
+  barRatio: 0.8,
   aggregation: 'sum',
   sortBy: 'none',
   sortOrder: 'desc',

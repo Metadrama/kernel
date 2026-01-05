@@ -177,11 +177,11 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
     // Legend Props
     const getLegendProps = (position: 'top' | 'bottom' | 'left' | 'right' = 'bottom') => {
         switch (position) {
-            case 'top': return { verticalAlign: 'top' as const, align: 'center' as const, height: 36 };
-            case 'left': return { verticalAlign: 'middle' as const, align: 'left' as const, layout: 'vertical' as const, width: 100 };
-            case 'right': return { verticalAlign: 'middle' as const, align: 'right' as const, layout: 'vertical' as const, width: 100 };
+            case 'top': return { verticalAlign: 'top' as const, align: 'center' as const, height: 24, wrapperStyle: { fontSize: 11 } };
+            case 'left': return { verticalAlign: 'middle' as const, align: 'left' as const, layout: 'vertical' as const, width: 80, wrapperStyle: { fontSize: 11 } };
+            case 'right': return { verticalAlign: 'middle' as const, align: 'right' as const, layout: 'vertical' as const, width: 80, wrapperStyle: { fontSize: 11 } };
             case 'bottom':
-            default: return { verticalAlign: 'bottom' as const, align: 'center' as const, height: 36 };
+            default: return { verticalAlign: 'bottom' as const, align: 'center' as const, height: 24, wrapperStyle: { fontSize: 11 } };
         }
     };
 
@@ -214,7 +214,7 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
     if (['line', 'bar', 'combo', 'area'].includes(safeConfig.chartType)) {
         const layout = isHorizontal ? 'vertical' : 'horizontal';
 
-        const barRatio = (safeConfig as any).barRatio ?? 0.6;
+        const barRatio = (safeConfig as any).barRatio ?? 0.8;
         const barGapPercent = Math.max(0, Math.min(90, (1 - barRatio) * 100));
 
         return (
@@ -267,7 +267,7 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
                     )}
 
                     <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted)/0.2)' }} />
-                    {(safeConfig.showLegend ?? true) && <Legend {...legendProps} wrapperStyle={undefined} />}
+                    {(safeConfig.showLegend ?? true) && <Legend {...legendProps} />}
 
                     {/* BAR SERIES */}
                     {(safeConfig.chartType === 'bar' || safeConfig.chartType === 'combo') && (
