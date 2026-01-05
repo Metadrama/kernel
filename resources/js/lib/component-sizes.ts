@@ -18,6 +18,7 @@ export const COMPONENT_DEFAULT_SIZES: Record<string, ComponentSize> = {
     'chart-bar': { width: 400, height: 256 },
     'chart-doughnut': { width: 280, height: 280 },
     'chart': { width: 400, height: 256 },
+    'text': { width: 120, height: 40 },
     'heading': { width: 304, height: 48 },
     'kpi': { width: 184, height: 120 },
     'default': { width: 280, height: 200 },
@@ -31,6 +32,7 @@ export const COMPONENT_MIN_SIZES: Record<string, ComponentSize> = {
     'chart-bar': { width: 200, height: 152 },
     'chart-doughnut': { width: 152, height: 152 },
     'chart': { width: 200, height: 152 },
+    'text': { width: 40, height: 24 },
     'heading': { width: 80, height: 32 },
     'kpi': { width: 104, height: 80 },
     'default': { width: 80, height: 64 },
@@ -44,6 +46,7 @@ export const COMPONENT_MAX_SIZES: Record<string, ComponentSize | null> = {
     'chart-bar': null,
     'chart-doughnut': null,
     'chart': null,
+    'text': null,
     'heading': { width: 800, height: 120 },
     'kpi': { width: 400, height: 304 },
     'default': null,
@@ -58,6 +61,7 @@ export const COMPONENT_ASPECT_RATIOS: Record<string, number | null> = {
     'chart-bar': null,
     'chart-doughnut': 1,     // Square for doughnut charts
     'chart': null,
+    'text': null,            // Freeform for text
     'heading': null,
     'kpi': null,
     'default': null,
