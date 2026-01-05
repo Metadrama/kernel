@@ -214,12 +214,16 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
     if (['line', 'bar', 'combo', 'area'].includes(safeConfig.chartType)) {
         const layout = isHorizontal ? 'vertical' : 'horizontal';
 
+        const barRatio = (safeConfig as any).barRatio ?? 0.6;
+        const barGapPercent = Math.max(0, Math.min(90, (1 - barRatio) * 100));
+
         return (
             <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
                     data={displayData}
                     layout={layout}
-                    margin={{ top: 10, right: 30, left: 10, bottom: 20 }}
+                    barCategoryGap={`${barGapPercent}%`}
+                    margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
                 >
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.4} />
 
@@ -272,7 +276,6 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
                             name="Value"
                             fill={safeConfig.chartType === 'combo' ? ((safeConfig as ComboChartConfig).barColor || primaryColor) : primaryColor}
                             radius={[(safeConfig as BarChartConfig).borderRadius ?? 4, (safeConfig as BarChartConfig).borderRadius ?? 4, 0, 0]}
-                            barSize={(safeConfig as any).barRatio ? (safeConfig as any).barRatio * 40 : 30}
                             stackId={(safeConfig as BarChartConfig).stacked ? "a" : undefined}
                             yAxisId="left"
                         >
