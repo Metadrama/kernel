@@ -24,22 +24,27 @@ function ComponentLoader() {
 export const COMPONENT_REGISTRY: Record<string, React.ComponentType<{ config?: Record<string, unknown> }>> = {
   'chart': ({ config }) => (
     <Suspense fallback={<ComponentLoader />}>
-      <ChartComponent config={{ ...config, chartType: (config?.chartType as 'line' | 'bar' | 'doughnut') || 'line' }} />
+      <ChartComponent config={{ ...config, chartType: (config?.chartType as any) || 'line' } as any} />
     </Suspense>
   ),
   'chart-line': ({ config }) => (
     <Suspense fallback={<ComponentLoader />}>
-      <ChartComponent config={{ ...config, chartType: 'line' }} />
+      <ChartComponent config={{ ...config, chartType: 'line' } as any} />
     </Suspense>
   ),
   'chart-bar': ({ config }) => (
     <Suspense fallback={<ComponentLoader />}>
-      <ChartComponent config={{ ...config, chartType: 'bar' }} />
+      <ChartComponent config={{ ...config, chartType: 'bar' } as any} />
     </Suspense>
   ),
   'chart-doughnut': ({ config }) => (
     <Suspense fallback={<ComponentLoader />}>
-      <ChartComponent config={{ ...config, chartType: 'doughnut' }} />
+      <ChartComponent config={{ ...config, chartType: 'doughnut' } as any} />
+    </Suspense>
+  ),
+  'chart-combo': ({ config }) => (
+    <Suspense fallback={<ComponentLoader />}>
+      <ChartComponent config={{ ...config, chartType: 'combo' } as any} />
     </Suspense>
   ),
   'heading': ({ config }) => (

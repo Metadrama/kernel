@@ -75,7 +75,7 @@ export interface SavedDataSource {
 // Chart Configuration Types
 // ============================================================================
 
-export type ChartType = 'line' | 'bar' | 'doughnut' | 'pie' | 'area';
+export type ChartType = 'line' | 'bar' | 'doughnut' | 'pie' | 'area' | 'combo';
 
 export type LegendPosition = 'top' | 'bottom' | 'left' | 'right' | 'none';
 
@@ -125,6 +125,10 @@ export interface LineChartConfig extends BaseChartConfig {
   fill?: boolean; // Fill area under line
   pointRadius?: number;
   showPoints?: boolean;
+  lineWidth?: number;
+
+  // Data transformation
+  aggregation?: AggregationType;
 
   // Axis
   xAxis?: ChartAxisConfig;
@@ -176,7 +180,40 @@ export interface DoughnutChartConfig extends BaseChartConfig {
   cornerRadius?: number;
 }
 
-export type ChartConfig = LineChartConfig | BarChartConfig | DoughnutChartConfig;
+export interface ComboChartConfig extends BaseChartConfig {
+  chartType: 'combo';
+
+  // Data Column Mapping
+  // labelColumn is from dataSource
+  barColumn?: string;
+  lineColumn?: string;
+
+  // Visuals
+  barColor?: string;
+  lineColor?: string;
+  barOpacity?: number;
+  lineOpacity?: number;
+  lineTension?: number;
+  showPoints?: boolean;
+
+  // Axis - Combo needs explicit left/right control
+  leftAxis?: ChartAxisConfig;
+  rightAxis?: ChartAxisConfig;
+
+  // Options
+  // Note: stacked applies to bars only in this context usually,
+  // but let's keep it simple.
+  stacked?: boolean;
+  barRatio?: number; // 0-1 width
+
+  // Transform
+  aggregation?: AggregationType;
+  limit?: number;
+  sortBy?: 'label' | 'value' | 'none';
+  sortOrder?: SortOrder;
+}
+
+export type ChartConfig = LineChartConfig | BarChartConfig | DoughnutChartConfig | ComboChartConfig;
 
 // ============================================================================
 // Text Component Configuration Types
@@ -382,6 +419,24 @@ export const DEFAULT_DOUGHNUT_CHART_CONFIG: DoughnutChartConfig = {
   showOther: true,
 };
 
+export const DEFAULT_COMBO_CHART_CONFIG: ComboChartConfig = {
+  chartType: 'combo',
+  dataSource: { type: 'static' },
+  showTitle: false,
+  showLegend: true,
+  legendPosition: 'bottom',
+  showTooltip: true,
+  enableAnimation: true,
+  barOpacity: 1,
+  lineOpacity: 1,
+  lineTension: 0.4,
+  showPoints: true,
+  barRatio: 0.6,
+  aggregation: 'sum',
+  leftAxis: { showGridLines: true },
+  rightAxis: { showGridLines: false },
+};
+
 export const DEFAULT_HEADING_CONFIG: HeadingConfig = {
   text: 'Heading',
   level: 'h2',
@@ -405,6 +460,7 @@ export function getDefaultConfig(componentType: string): ComponentConfig | undef
   const defaults: Record<string, ComponentConfig> = {
     'chart-line': DEFAULT_LINE_CHART_CONFIG,
     'chart-bar': DEFAULT_BAR_CHART_CONFIG,
+    'chart-combo': DEFAULT_COMBO_CHART_CONFIG,
     'chart-doughnut': DEFAULT_DOUGHNUT_CHART_CONFIG,
     'heading': DEFAULT_HEADING_CONFIG,
     'kpi': DEFAULT_KPI_CONFIG,

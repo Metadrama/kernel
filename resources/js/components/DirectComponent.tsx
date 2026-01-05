@@ -401,12 +401,11 @@ export function DirectComponent({
             case 'chart-line':
             case 'chart-bar':
             case 'chart-doughnut':
+            case 'chart-combo':
             case 'chart':
                 return (
                     <ChartComponent
-                        config={{ ...component.config, chartType: componentType.replace('chart-', '') as any }}
-                        width={displayRect.width}
-                        height={displayRect.height}
+                        config={{ ...component.config, chartType: componentType.replace('chart-', '') as any } as any}
                     />
                 );
             default:

@@ -13,11 +13,14 @@ interface UseGoogleSheetsOptions {
   sortOrder?: 'asc' | 'desc';
   limit?: number;
   showOther?: boolean;
+  // For Combo Charts
+  secondValueColumn?: string;
 }
 
 interface ChartDataset {
   labels: string[];
   values: number[];
+  secondaryValues?: number[];
   rawData?: Array<Record<string, unknown>>;
 }
 
@@ -41,51 +44,50 @@ function parseNumericValue(value: unknown): number {
 
 // Aggregate values by label
 function aggregateData(
-  data: Array<{ label: string; value: number }>,
+  data: Array<{ label: string; value: number; secondaryValue?: number }>,
   aggregation: AggregationType
-): Map<string, number> {
-  const groups = new Map<string, number[]>();
+): { primary: Map<string, number>; secondary: Map<string, number> } {
+  const primaryGroups = new Map<string, number[]>();
+  const secondaryGroups = new Map<string, number[]>();
 
   // Group values by label
   for (const item of data) {
-    if (!groups.has(item.label)) {
-      groups.set(item.label, []);
+    if (!primaryGroups.has(item.label)) {
+      primaryGroups.set(item.label, []);
+      secondaryGroups.set(item.label, []);
     }
-    groups.get(item.label)!.push(item.value);
+    primaryGroups.get(item.label)!.push(item.value);
+    if (item.secondaryValue !== undefined) {
+      secondaryGroups.get(item.label)!.push(item.secondaryValue);
+    }
   }
 
-  // Apply aggregation
-  const result = new Map<string, number>();
-
-  for (const [label, values] of groups) {
-    let aggregatedValue: number;
-
-    switch (aggregation) {
-      case 'sum':
-        aggregatedValue = values.reduce((a, b) => a + b, 0);
-        break;
-      case 'count':
-        aggregatedValue = values.length;
-        break;
-      case 'average':
-        aggregatedValue = values.reduce((a, b) => a + b, 0) / values.length;
-        break;
-      case 'min':
-        aggregatedValue = Math.min(...values);
-        break;
-      case 'max':
-        aggregatedValue = Math.max(...values);
-        break;
-      case 'none':
-      default:
-        aggregatedValue = values[0] ?? 0;
-        break;
+  // Apply aggregation helper
+  const calculateAgg = (values: number[], agg: AggregationType) => {
+    if (values.length === 0) return 0;
+    switch (agg) {
+      case 'sum': return values.reduce((a, b) => a + b, 0);
+      case 'count': return values.length;
+      case 'average': return values.reduce((a, b) => a + b, 0) / values.length;
+      case 'min': return Math.min(...values);
+      case 'max': return Math.max(...values);
+      default: return values[0];
     }
+  };
 
-    result.set(label, aggregatedValue);
+  const primaryResult = new Map<string, number>();
+  const secondaryResult = new Map<string, number>();
+
+  for (const [label, values] of primaryGroups) {
+    primaryResult.set(label, calculateAgg(values, aggregation));
+
+    const secValues = secondaryGroups.get(label) || [];
+    if (secValues.length > 0) {
+      secondaryResult.set(label, calculateAgg(secValues, aggregation));
+    }
   }
 
-  return result;
+  return { primary: primaryResult, secondary: secondaryResult };
 }
 
 export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleSheetsResult {
@@ -95,7 +97,8 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
     sortBy = 'none',
     sortOrder = 'desc',
     limit,
-    showOther = false
+    showOther = false,
+    secondValueColumn
   } = options;
 
   // Force aggregation to 'sum' if mode is generated and aggregation is 'none' (or undefined)
@@ -176,6 +179,8 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
         const headers: string[] = headerData.data[0];
         const labelColIndex = mode === 'column' ? headers.findIndex(h => h === labelColumn) : -1;
         const valueColIndex = headers.findIndex(h => h === valueColumn);
+        const secondValueColIndex = secondValueColumn ? headers.findIndex(h => h === secondValueColumn) : -1;
+
         const dateColIndex = (mode === 'generated' && dataSource.generatedLabels?.useDateColumn)
           ? headers.findIndex(h => h === dataSource.generatedLabels?.useDateColumn)
           : -1;
@@ -210,7 +215,7 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
         const rows: string[][] = rowData.data || [];
 
         // Transform data
-        const transformedData: Array<{ label: string; value: number; explicitDate?: Date }> = [];
+        const transformedData: Array<{ label: string; value: number; secondaryValue?: number; explicitDate?: Date }> = [];
 
         for (const row of rows) {
           // Determine label
@@ -224,6 +229,10 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
           }
 
           const value = parseNumericValue(row[valueColIndex]);
+          let secondaryValue: number | undefined;
+          if (secondValueColIndex !== -1) {
+            secondaryValue = parseNumericValue(row[secondValueColIndex]);
+          }
 
           // Skip empty rows (only check label if using column mode)
           if ((mode === 'column' && !label) && value === 0) continue;
@@ -242,7 +251,7 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
             if (!isNaN(d.getTime())) explicitDate = d;
           }
 
-          transformedData.push({ label, value, explicitDate });
+          transformedData.push({ label, value, secondaryValue, explicitDate });
         }
 
         // Handle Generated Labels
@@ -256,30 +265,30 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
             if (dataSource.generatedLabels.useDateColumn) {
               // STRICT TIME SERIES MODE
               // 1. Generate empty buckets for the full range
-              const buckets: Array<{ label: string; values: number[] }> = [];
+              const buckets: Array<{ label: string; values: number[]; secondaryValues: number[] }> = [];
               const current = new Date(start);
 
               while (current <= end) {
                 let label = '';
                 if (interval === 'day') {
                   label = current.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                  buckets.push({ label, values: [] });
+                  buckets.push({ label, values: [], secondaryValues: [] });
                   current.setDate(current.getDate() + 1);
                 } else if (interval === 'week') {
                   label = current.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                  buckets.push({ label, values: [] });
+                  buckets.push({ label, values: [], secondaryValues: [] });
                   current.setDate(current.getDate() + 7);
                 } else if (interval === 'month') {
                   label = current.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-                  buckets.push({ label, values: [] });
+                  buckets.push({ label, values: [], secondaryValues: [] });
                   current.setMonth(current.getMonth() + 1);
                 } else if (interval === 'quarter') {
                   label = current.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-                  buckets.push({ label, values: [] });
+                  buckets.push({ label, values: [], secondaryValues: [] });
                   current.setMonth(current.getMonth() + 3);
                 } else { // Year
                   label = current.toLocaleDateString('en-US', { year: 'numeric' });
-                  buckets.push({ label, values: [] });
+                  buckets.push({ label, values: [], secondaryValues: [] });
                   current.setFullYear(current.getFullYear() + 1);
                 }
               }
@@ -312,6 +321,9 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
 
                 if (bucketIndex >= 0 && bucketIndex < buckets.length) {
                   buckets[bucketIndex].values.push(item.value);
+                  if (item.secondaryValue !== undefined) {
+                    buckets[bucketIndex].secondaryValues.push(item.secondaryValue);
+                  }
                 }
               });
 
@@ -325,7 +337,13 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
                 // If we have multiple values per bucket, we should emit multiple rows with same label
                 // so the main aggregateData function can do its job (sum/avg/count)
                 if (b.values.length > 0) {
-                  b.values.forEach(v => transformedData.push({ label: b.label, value: v }));
+                  b.values.forEach((v, i) => {
+                    transformedData.push({
+                      label: b.label,
+                      value: v,
+                      secondaryValue: b.secondaryValues[i]
+                    });
+                  });
                 } else {
                   // Important: Ensure empty buckets appear with 0 value for valid trend line
                   transformedData.push({ label: b.label, value: 0 });
@@ -381,10 +399,10 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
         }
 
         // Aggregate data
-        const aggregated = aggregateData(transformedData, effectiveAggregation);
+        const { primary, secondary } = aggregateData(transformedData, effectiveAggregation);
 
-        // Convert to arrays and sort
-        let entries = Array.from(aggregated.entries());
+        // Convert to arrays and sort (using primary value)
+        let entries = Array.from(primary.entries());
 
         if (sortBy === 'label') {
           entries.sort((a, b) => {
@@ -401,11 +419,20 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
         // Apply limit
         let finalLabels: string[];
         let finalValues: number[];
+        let finalSecondaryValues: number[] | undefined;
+
+        if (secondary.size > 0) {
+          finalSecondaryValues = [];
+        }
 
         if (limit && entries.length > limit) {
           const topEntries = entries.slice(0, limit);
           finalLabels = topEntries.map(e => e[0]);
           finalValues = topEntries.map(e => e[1]);
+
+          if (finalSecondaryValues) {
+            finalSecondaryValues = topEntries.map(e => secondary.get(e[0]) ?? 0);
+          }
 
           // Add "Other" category if enabled
           if (showOther) {
@@ -413,15 +440,25 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
             const otherValue = otherEntries.reduce((sum, e) => sum + e[1], 0);
             finalLabels.push('Other');
             finalValues.push(otherValue);
+
+            if (finalSecondaryValues) {
+              // Aggregation for secondary "Other" is complex, assume sum for now
+              const otherSec = otherEntries.reduce((sum, e) => sum + (secondary.get(e[0]) ?? 0), 0);
+              finalSecondaryValues.push(otherSec);
+            }
           }
         } else {
           finalLabels = entries.map(e => e[0]);
           finalValues = entries.map(e => e[1]);
+          if (finalSecondaryValues) {
+            finalSecondaryValues = entries.map(e => secondary.get(e[0]) ?? 0);
+          }
         }
 
         setData({
           labels: finalLabels,
           values: finalValues,
+          secondaryValues: finalSecondaryValues
         });
       } catch (err) {
         if (!cancelled) {
@@ -440,7 +477,7 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
     return () => {
       cancelled = true;
     };
-  }, [configKey, effectiveAggregation, sortBy, sortOrder, limit, showOther, fetchKey]);
+  }, [configKey, effectiveAggregation, sortBy, sortOrder, limit, showOther, secondValueColumn, fetchKey]);
 
   return { data, loading, error, refetch };
 }

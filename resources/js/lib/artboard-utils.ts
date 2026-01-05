@@ -165,6 +165,60 @@ export function validateArtboardPosition(position: CanvasPosition, canvasSize: {
 }
 
 /**
+ * Convert canvas coordinates to artboard-relative coordinates
+ */
+export function canvasToArtboardCoords(point: CanvasPosition, artboard: ArtboardSchema): CanvasPosition {
+    return {
+        x: point.x - artboard.position.x,
+        y: point.y - artboard.position.y
+    };
+}
+
+/**
+ * Convert artboard-relative coordinates to canvas coordinates
+ */
+export function artboardToCanvasCoords(point: CanvasPosition, artboard: ArtboardSchema): CanvasPosition {
+    return {
+        x: point.x + artboard.position.x,
+        y: point.y + artboard.position.y
+    };
+}
+
+/**
+ * Calculate grid configuration for an artboard
+ */
+export function calculateArtboardGridConfig(artboard: ArtboardSchema) {
+    // This could be enhanced to support per-artboard grid settings
+    return {
+        gridSize: 20,
+        gridColor: '#e0e0e0', // Placeholder
+    };
+}
+
+/**
+ * Calculate effective grid configuration
+ */
+export function calculateEffectiveGridConfig(artboard: ArtboardSchema) {
+    return calculateArtboardGridConfig(artboard);
+}
+
+/**
+ * Constants
+ */
+export const ARTBOARD_CONTAINER_PADDING = 32;
+
+/**
+ * Scale dimensions
+ */
+export function scaleDimensions(dimensions: ArtboardDimensions, scale: number): ArtboardDimensions {
+    return {
+        ...dimensions,
+        widthPx: dimensions.widthPx * scale,
+        heightPx: dimensions.heightPx * scale,
+    };
+}
+
+/**
  * Export artboard to JSON file
  */
 export function exportArtboardToJson(artboard: ArtboardSchema): void {

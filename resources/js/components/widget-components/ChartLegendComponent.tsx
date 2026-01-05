@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { useChartData } from './useChartData';
 import { getChartColors } from './chart-utils';
 import { useArtboardContext } from '@/context/ArtboardContext';
-import type { ChartComponentConfigProps } from './ChartComponent';
 
 export default function ChartLegendComponent({ config }: { config?: any }) {
     const { artboards } = useArtboardContext();
@@ -13,9 +12,9 @@ export default function ChartLegendComponent({ config }: { config?: any }) {
 
         // Search for the linked component across all artboards
         for (const artboard of artboards) {
-            for (const widget of artboard.widgets) {
-                const linked = widget.components.find(c => c.instanceId === config.linkedChartId);
-                if (linked && linked.config) {
+            for (const widget of artboard.components) {
+                if (widget.instanceId === config.linkedChartId) {
+                    const linked = widget;
                     // Merge: use linked data/colors, but keep own title if set (or override?)
                     // Usually we want to reflect the chart, so using linked config fully for data/style is best.
                     // But we might want own title.
