@@ -419,6 +419,7 @@ export function DirectComponent({
             <ContextMenuTrigger asChild disabled={locked}>
                 <div
                     ref={componentRef}
+                    data-component-id={component.instanceId}
                     className={cn(
                         'absolute select-none',
                         isDragging && 'cursor-grabbing',

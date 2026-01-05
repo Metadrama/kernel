@@ -149,7 +149,7 @@ export default function ArtboardCanvas() {
         // No-op - components are added by dropping directly onto artboards
     }, []);
 
-    // Component selection
+    // Component selection - dismiss other panels when selecting a component
     const handleSelectComponent = useCallback(
         (componentId: string) => {
             // Find the component across all artboards
@@ -158,11 +158,14 @@ export default function ArtboardCanvas() {
                 if (component) {
                     setSelectedComponent({ artboardId: artboard.id, component });
                     setShowInspector(true);
+                    // Dismiss other panels - component inspector takes priority
+                    setSelectedArtboardId(null);
+                    setShowAddArtboard(false);
                     return;
                 }
             }
         },
-        [artboards],
+        [artboards, setSelectedArtboardId],
     );
 
     const handleComponentConfigChange = useCallback(
@@ -189,6 +192,20 @@ export default function ArtboardCanvas() {
         setShowInspector(false);
         setSelectedComponent(null);
     }, []);
+
+    // Click on empty canvas (outside artboards) to dismiss all panels
+    const handleCanvasClick = useCallback(
+        (e: React.MouseEvent) => {
+            // Only dismiss if clicking directly on canvas background, not on artboards
+            if (e.target === e.currentTarget) {
+                setSelectedComponent(null);
+                setShowInspector(false);
+                setSelectedArtboardId(null);
+                setShowAddArtboard(false);
+            }
+        },
+        [setSelectedArtboardId],
+    );
 
     // Persistence - save to database
     const handleSave = useCallback(async () => {
@@ -266,6 +283,7 @@ export default function ArtboardCanvas() {
                             transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
                             transformOrigin: '0 0',
                         }}
+                        onClick={handleCanvasClick}
                     >
                         {/* Grid Background */}
                         <div
@@ -296,9 +314,16 @@ export default function ArtboardCanvas() {
                                     onSelect={() => {
                                         setSelectedArtboardId(artboard.id);
                                         bringArtboardToFront(artboard.id);
+                                        // Dismiss Add Artboard panel when selecting an artboard
+                                        setShowAddArtboard(false);
                                     }}
                                     onSelectComponent={handleSelectComponent}
-                                    onDeselectComponent={() => setSelectedComponent(null)}
+                                    onDeselectComponent={() => {
+                                        // Close Component Inspector and Add Artboard panel when clicking empty artboard
+                                        setSelectedComponent(null);
+                                        setShowInspector(false);
+                                        setShowAddArtboard(false);
+                                    }}
                                     selectedComponentId={
                                         selectedComponent?.artboardId === artboard.id ? selectedComponent.component.instanceId : undefined
                                     }

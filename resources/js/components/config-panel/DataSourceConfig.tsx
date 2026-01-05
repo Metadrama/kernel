@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Database, Table, FileSpreadsheet, RefreshCw, Check, AlertCircle } from 'lucide-react';
+import { Database, Table, FileSpreadsheet, RefreshCw, Check, AlertCircle, Save, FolderOpen, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { DataSource, GoogleSheetsDataSource } from '@/types/component-config';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import type { DataSource, GoogleSheetsDataSource, SavedDataSource } from '@/types/component-config';
+import { useSavedDataSources } from '@/lib/use-saved-data-sources';
 
 interface DataSourceConfigProps {
   value: DataSource;
@@ -44,6 +53,12 @@ export function DataSourceConfig({ value, onChange, disabled }: DataSourceConfig
   const [columns, setColumns] = useState<SheetColumns | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Saved data sources
+  const { savedSources, loading: savedLoading, saveDataSource, deleteDataSource } = useSavedDataSources();
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [saveName, setSaveName] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const sourceType = value.type;
   const gsConfig = value.type === 'google-sheets' ? value : null;
@@ -186,8 +201,118 @@ export function DataSourceConfig({ value, onChange, disabled }: DataSourceConfig
     }
   };
 
+  // Load a saved data source
+  const handleLoadSavedSource = (savedSource: SavedDataSource) => {
+    if (savedSource.type === 'google-sheets') {
+      const config = savedSource.config as Omit<GoogleSheetsDataSource, 'type'>;
+      onChange({
+        type: 'google-sheets',
+        ...config,
+      });
+      // Reset metadata/columns to trigger refetch
+      setMetadata(null);
+      setColumns(null);
+      if (config.spreadsheetId) {
+        fetchMetadata(config.spreadsheetId);
+      }
+    } else if (savedSource.type === 'api') {
+      onChange({
+        type: 'api',
+        ...savedSource.config,
+      } as DataSource);
+    }
+  };
+
+  // Save current data source
+  const handleSaveDataSource = async () => {
+    if (!saveName.trim() || value.type === 'static') return;
+
+    setSaving(true);
+    const { type, ...config } = value;
+    await saveDataSource(saveName.trim(), type as 'google-sheets' | 'api', config);
+    setSaving(false);
+    setSaveDialogOpen(false);
+    setSaveName('');
+  };
+
+  // Delete a saved data source
+  const handleDeleteSavedSource = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm('Are you sure you want to delete this saved data source?')) {
+      await deleteDataSource(id);
+    }
+  };
+
+  // Check if current config can be saved (has enough data)
+  const canSave = value.type === 'google-sheets' && gsConfig?.spreadsheetId && gsConfig?.sheetName;
+
   return (
     <div className="space-y-4">
+      {/* Saved Data Sources */}
+      {savedSources.length > 0 && (
+        <div className="space-y-2">
+          <Label className="text-sm font-medium flex items-center gap-2">
+            <FolderOpen className="h-4 w-4" />
+            Saved Sources
+          </Label>
+          <Select
+            value="__select__"
+            onValueChange={(id) => {
+              const source = savedSources.find(s => s.id === id);
+              if (source) handleLoadSavedSource(source);
+            }}
+            disabled={disabled || savedLoading}
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Load a saved source..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__select__" disabled>
+                Load a saved source...
+              </SelectItem>
+              {savedSources.map((source) => (
+                <SelectItem key={source.id} value={source.id}>
+                  <div className="flex items-center justify-between w-full gap-2">
+                    <div className="flex items-center gap-2">
+                      <FileSpreadsheet className="h-3 w-3 text-muted-foreground" />
+                      <span>{source.name}</span>
+                    </div>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {/* List saved sources with delete option */}
+          <div className="space-y-1">
+            {savedSources.slice(0, 3).map((source) => (
+              <div
+                key={source.id}
+                className="flex items-center justify-between text-xs p-2 rounded-md bg-muted/30 hover:bg-muted/50 cursor-pointer group"
+                onClick={() => handleLoadSavedSource(source)}
+              >
+                <div className="flex items-center gap-2 truncate">
+                  <FileSpreadsheet className="h-3 w-3 text-muted-foreground shrink-0" />
+                  <span className="truncate">{source.name}</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => handleDeleteSavedSource(source.id, e)}
+                >
+                  <Trash2 className="h-3 w-3 text-destructive" />
+                </Button>
+              </div>
+            ))}
+            {savedSources.length > 3 && (
+              <p className="text-[10px] text-muted-foreground text-center">
+                +{savedSources.length - 3} more saved sources
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Data Source Type */}
       <div className="space-y-2">
         <Label className="text-sm font-medium">Source Type</Label>
@@ -429,6 +554,36 @@ export function DataSourceConfig({ value, onChange, disabled }: DataSourceConfig
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {gsConfig?.generatedLabels?.mode === 'fit' && (
+                    <>
+                      <div className="col-span-2 separator h-px bg-border my-1" />
+                      <div className="col-span-2 space-y-2">
+                        <Label className="text-xs">Date Column</Label>
+                        <Select
+                          value={gsConfig?.generatedLabels?.useDateColumn || undefined}
+                          onValueChange={(v: any) => updateGoogleSheets({
+                            generatedLabels: {
+                              ...gsConfig?.generatedLabels!,
+                              useDateColumn: v
+                            }
+                          })}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue placeholder="Select date column" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {columns.headers.map((header, idx) => (
+                              <SelectItem key={idx} value={header || `Column ${idx + 1}`}>
+                                {String.fromCharCode(65 + idx)}: {header || `Column ${idx + 1}`}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-[10px] text-muted-foreground">Rows calculate date from this column.</p>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -510,6 +665,22 @@ export function DataSourceConfig({ value, onChange, disabled }: DataSourceConfig
                   />
                 </div>
               </div>
+
+              {/* Save Data Source Button */}
+              {canSave && (
+                <div className="pt-2 border-t">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setSaveDialogOpen(true)}
+                    disabled={disabled}
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    Save as Reusable Source
+                  </Button>
+                </div>
+              )}
             </>
           )}
         </>
@@ -521,6 +692,45 @@ export function DataSourceConfig({ value, onChange, disabled }: DataSourceConfig
           Using built-in sample data. Select "Google Sheets" to connect to real data.
         </div>
       )}
+
+      {/* Save Data Source Dialog */}
+      <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Save Data Source</DialogTitle>
+            <DialogDescription>
+              Save this data source configuration for quick reuse in other components.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="source-name">Name</Label>
+              <Input
+                id="source-name"
+                value={saveName}
+                onChange={(e) => setSaveName(e.target.value)}
+                placeholder="e.g., Sales Data Q4 2024"
+                autoFocus
+              />
+            </div>
+            {metadata && (
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p><strong>Spreadsheet:</strong> {metadata.title}</p>
+                <p><strong>Sheet:</strong> {gsConfig?.sheetName}</p>
+                {gsConfig?.valueColumn && <p><strong>Value Column:</strong> {gsConfig.valueColumn}</p>}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaveDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveDataSource} disabled={!saveName.trim() || saving}>
+              {saving ? 'Saving...' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

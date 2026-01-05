@@ -99,7 +99,11 @@ export default function ArtboardContainer({
     // Click on artboard background to deselect components
     const handleArtboardClick = useCallback(
         (e: React.MouseEvent) => {
-            if (e.target === containerRef.current || e.target === e.currentTarget) {
+            // Check if click is on artboard background (not on a component)
+            // Components have data-component-id attribute set by DirectComponent
+            const target = e.target as HTMLElement;
+            const isOnComponent = target.closest('[data-component-id]');
+            if (!isOnComponent) {
                 onDeselectComponent?.();
                 onSelect();
             }
@@ -470,7 +474,6 @@ export default function ArtboardContainer({
                                     onGuidesChange={setActiveGuides}
                                     onSelect={() => {
                                         onSelectComponent?.(component.instanceId);
-                                        onSelect();
                                     }}
                                     onPositionChange={(pos) => updateComponentPosition(component.instanceId, pos)}
                                     onDelete={() => deleteComponent(component.instanceId)}

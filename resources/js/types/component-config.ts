@@ -37,6 +37,7 @@ export interface GoogleSheetsDataSource {
     endDate?: string; // Required for 'fit' mode
     interval?: 'day' | 'week' | 'month' | 'quarter' | 'year'; // Required for 'step' mode
     count?: number;
+    useDateColumn?: string; // Optional: Use actual dates from this column instead of row index
   };
 
   // Data Aggregation
@@ -56,6 +57,19 @@ export interface ApiDataSource {
 }
 
 export type DataSource = StaticDataSource | GoogleSheetsDataSource | ApiDataSource;
+
+// ============================================================================
+// Saved Data Source Types
+// ============================================================================
+
+export interface SavedDataSource {
+  id: string;
+  name: string;
+  type: 'google-sheets' | 'api';
+  config: Omit<GoogleSheetsDataSource, 'type'> | Omit<ApiDataSource, 'type'>;
+  createdAt: string;
+  updatedAt: string;
+}
 
 // ============================================================================
 // Chart Configuration Types

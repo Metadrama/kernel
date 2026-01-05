@@ -98,6 +98,12 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
     showOther = false
   } = options;
 
+  // Force aggregation to 'sum' if mode is generated and aggregation is 'none' (or undefined)
+  // because binning requires aggregation to return a single value per bin.
+  const effectiveAggregation = (dataSource.labelMode === 'generated' && (!aggregation || aggregation === 'none'))
+    ? 'sum'
+    : (aggregation || 'sum');
+
   const [data, setData] = useState<ChartDataset | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -170,6 +176,10 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
         const headers: string[] = headerData.data[0];
         const labelColIndex = mode === 'column' ? headers.findIndex(h => h === labelColumn) : -1;
         const valueColIndex = headers.findIndex(h => h === valueColumn);
+        const dateColIndex = (mode === 'generated' && dataSource.generatedLabels?.useDateColumn)
+          ? headers.findIndex(h => h === dataSource.generatedLabels?.useDateColumn)
+          : -1;
+
         const filterColIndex = filterColumn
           ? headers.findIndex(h => h === filterColumn)
           : -1;
@@ -200,7 +210,7 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
         const rows: string[][] = rowData.data || [];
 
         // Transform data
-        const transformedData: Array<{ label: string; value: number }> = [];
+        const transformedData: Array<{ label: string; value: number; explicitDate?: Date }> = [];
 
         for (const row of rows) {
           // Determine label
@@ -226,7 +236,13 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
             }
           }
 
-          transformedData.push({ label, value });
+          let explicitDate: Date | undefined;
+          if (dateColIndex !== -1 && row[dateColIndex]) {
+            const d = new Date(row[dateColIndex]);
+            if (!isNaN(d.getTime())) explicitDate = d;
+          }
+
+          transformedData.push({ label, value, explicitDate });
         }
 
         // Handle Generated Labels
@@ -237,36 +253,118 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
           const count = transformedData.length;
 
           if (genMode === 'fit' && count > 1) {
-            // Fit Mode: Bin data into buckets based on granularity
-            let bucketCount = 12; // Default to months
+            if (dataSource.generatedLabels.useDateColumn) {
+              // STRICT TIME SERIES MODE
+              // 1. Generate empty buckets for the full range
+              const buckets: Array<{ label: string; values: number[] }> = [];
+              const current = new Date(start);
 
-            // Calculate buckets based on interval default
-            const durationMs = end.getTime() - start.getTime();
-            const dayMs = 1000 * 60 * 60 * 24;
-
-            if (interval === 'day') bucketCount = Math.max(1, Math.ceil(durationMs / dayMs));
-            else if (interval === 'week') bucketCount = Math.max(1, Math.ceil(durationMs / (dayMs * 7)));
-            else if (interval === 'month') bucketCount = Math.max(1, Math.ceil(durationMs / (dayMs * 30)));
-            else if (interval === 'quarter') bucketCount = Math.max(1, Math.ceil(durationMs / (dayMs * 90)));
-            else if (interval === 'year') bucketCount = Math.max(1, Math.ceil(durationMs / (dayMs * 365)));
-
-            const itemsPerBucket = count / bucketCount;
-
-            transformedData.forEach((item, index) => {
-              // Determine which bucket this index falls into
-              const bucketIndex = Math.floor(index / itemsPerBucket);
-
-              // Calculate date for this bucket
-              // Use Start + (BucketIndex * Duration/Buckets)
-              const date = new Date(start.getTime() + (bucketIndex * (durationMs / bucketCount)));
-
-              // Format label - this will group them for aggregation later
-              if (interval === 'day' || (interval === 'week' && durationMs < dayMs * 60)) {
-                item.label = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-              } else {
-                item.label = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+              while (current <= end) {
+                let label = '';
+                if (interval === 'day') {
+                  label = current.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                  buckets.push({ label, values: [] });
+                  current.setDate(current.getDate() + 1);
+                } else if (interval === 'week') {
+                  label = current.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                  buckets.push({ label, values: [] });
+                  current.setDate(current.getDate() + 7);
+                } else if (interval === 'month') {
+                  label = current.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                  buckets.push({ label, values: [] });
+                  current.setMonth(current.getMonth() + 1);
+                } else if (interval === 'quarter') {
+                  label = current.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                  buckets.push({ label, values: [] });
+                  current.setMonth(current.getMonth() + 3);
+                } else { // Year
+                  label = current.toLocaleDateString('en-US', { year: 'numeric' });
+                  buckets.push({ label, values: [] });
+                  current.setFullYear(current.getFullYear() + 1);
+                }
               }
-            });
+
+              // 2. Distribute data into buckets
+              transformedData.forEach(item => {
+                if (!item.explicitDate) return;
+
+                // Simple linear search for bucket (optimization: could be binary search)
+                // We look for the buckets that this date falls into
+                const dateMs = item.explicitDate.getTime();
+
+                // Re-calculate start to ensure alignment
+                const rangeStart = start.getTime();
+                const dayMs = 86400000;
+
+                let bucketIndex = -1;
+
+                if (interval === 'day') {
+                  bucketIndex = Math.floor((dateMs - rangeStart) / dayMs);
+                } else if (interval === 'week') {
+                  bucketIndex = Math.floor((dateMs - rangeStart) / (dayMs * 7));
+                } else if (interval === 'month') {
+                  bucketIndex = (item.explicitDate.getFullYear() - start.getFullYear()) * 12 + (item.explicitDate.getMonth() - start.getMonth());
+                } else if (interval === 'quarter') {
+                  bucketIndex = Math.floor(((item.explicitDate.getFullYear() - start.getFullYear()) * 12 + (item.explicitDate.getMonth() - start.getMonth())) / 3);
+                } else if (interval === 'year') {
+                  bucketIndex = item.explicitDate.getFullYear() - start.getFullYear();
+                }
+
+                if (bucketIndex >= 0 && bucketIndex < buckets.length) {
+                  buckets[bucketIndex].values.push(item.value);
+                }
+              });
+
+              // 3. Flatten for aggregation
+              // We replace transformedData with our bucketed data
+              // The main aggregation function will handle sum/avg/etc.
+              transformedData.length = 0; // Clear original
+              buckets.forEach(b => {
+                // pre-aggregate here or let main aggregator handle it?
+                // Main aggregator expects { label, value }.
+                // If we have multiple values per bucket, we should emit multiple rows with same label
+                // so the main aggregateData function can do its job (sum/avg/count)
+                if (b.values.length > 0) {
+                  b.values.forEach(v => transformedData.push({ label: b.label, value: v }));
+                } else {
+                  // Important: Ensure empty buckets appear with 0 value for valid trend line
+                  transformedData.push({ label: b.label, value: 0 });
+                }
+              });
+
+            } else {
+              // LINEAR FIT MODE (Fallback / Original)
+              let bucketCount = 12; // Default to months
+
+              // Calculate buckets based on interval default
+              const durationMs = end.getTime() - start.getTime();
+              const dayMs = 1000 * 60 * 60 * 24;
+
+              if (interval === 'day') bucketCount = Math.max(1, Math.ceil(durationMs / dayMs));
+              else if (interval === 'week') bucketCount = Math.max(1, Math.ceil(durationMs / (dayMs * 7)));
+              else if (interval === 'month') bucketCount = Math.max(1, Math.ceil(durationMs / (dayMs * 30)));
+              else if (interval === 'quarter') bucketCount = Math.max(1, Math.ceil(durationMs / (dayMs * 90)));
+              else if (interval === 'year') bucketCount = Math.max(1, Math.ceil(durationMs / (dayMs * 365)));
+
+              const itemsPerBucket = count / bucketCount;
+
+              transformedData.forEach((item, index) => {
+                // Determine which bucket this index falls into
+                const bucketIndex = Math.floor(index / itemsPerBucket);
+
+                // Calculate date for this bucket
+                // Use Start + (BucketIndex * Duration/Buckets)
+                const date = new Date(start.getTime() + (bucketIndex * (durationMs / bucketCount)));
+
+                // Format label - this will group them for aggregation later
+                // Only show Year for long spans, Month/Day for shorter
+                if (interval === 'day' || (interval === 'week' && durationMs < dayMs * 60)) {
+                  item.label = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                } else {
+                  item.label = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                }
+              });
+            }
           } else {
             // Step Mode: Add fixed interval
             transformedData.forEach((item, index) => {
@@ -283,7 +381,7 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
         }
 
         // Aggregate data
-        const aggregated = aggregateData(transformedData, aggregation);
+        const aggregated = aggregateData(transformedData, effectiveAggregation);
 
         // Convert to arrays and sort
         let entries = Array.from(aggregated.entries());
@@ -342,7 +440,7 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
     return () => {
       cancelled = true;
     };
-  }, [configKey, aggregation, sortBy, sortOrder, limit, showOther, fetchKey]);
+  }, [configKey, effectiveAggregation, sortBy, sortOrder, limit, showOther, fetchKey]);
 
   return { data, loading, error, refetch };
 }
