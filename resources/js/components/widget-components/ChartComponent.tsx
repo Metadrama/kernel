@@ -22,10 +22,10 @@ import {
 // ============================================================================
 
 const COLOR_PALETTES = {
-    vibrant: ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b', '#10b981', '#06b6d4', '#3b82f6', '#a855f7', '#14b8a6'],
-    pastel: ['#c7d2fe', '#ddd6fe', '#fbcfe8', '#fecdd3', '#fed7aa', '#a7f3d0', '#a5f3fc', '#bfdbfe', '#e9d5ff', '#99f6e4'],
-    cool: ['#3b82f6', '#06b6d4', '#8b5cf6', '#6366f1', '#0ea5e9', '#a855f7', '#14b8a6', '#2563eb', '#7c3aed', '#0891b2'],
-    warm: ['#f59e0b', '#ef4444', '#f97316', '#ec4899', '#eab308', '#dc2626', '#ea580c', '#db2777', '#d97706', '#be123c'],
+    vibrant: ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#1d4ed8', '#1e40af', '#3730a3', '#4f46e5', '#6366f1', '#818cf8'],
+    pastel: ['#bfdbfe', '#c7d2fe', '#ddd6fe', '#e0e7ff', '#a5b4fc', '#93c5fd', '#7dd3fc', '#a5f3fc', '#99f6e4', '#a7f3d0'],
+    cool: ['#0f172a', '#1e293b', '#334155', '#475569', '#64748b', '#94a3b8', '#3b82f6', '#0ea5e9', '#06b6d4', '#14b8a6'],
+    warm: ['#78350f', '#92400e', '#b45309', '#d97706', '#f59e0b', '#fbbf24', '#c2410c', '#ea580c', '#f97316', '#fb923c'],
 };
 
 function getChartColors(count: number, paletteKey: keyof typeof COLOR_PALETTES = 'vibrant'): string[] {
@@ -233,8 +233,8 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
                         type={layout === 'vertical' ? 'number' : 'category'}
                         hide={!(safeConfig as any).xAxis?.label && false}
                         tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
-                        tickLine={false}
-                        axisLine={false}
+                        tickLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
+                        axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
                         dy={10}
                         tickFormatter={layout === 'vertical' ? xAxisFormatter : undefined}
                     />
@@ -246,8 +246,8 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
                         type={layout === 'vertical' ? 'category' : 'number'}
                         hide={false}
                         tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
-                        tickLine={false}
-                        axisLine={false}
+                        tickLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
+                        axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
                         dx={-10}
                         width={40}
                         tickFormatter={layout === 'vertical' ? undefined : yAxisFormatter}
@@ -260,8 +260,8 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
                             orientation="right"
                             hide={!(safeConfig as ComboChartConfig).rightAxis?.showGridLines && !(safeConfig as ComboChartConfig).rightAxis?.label}
                             tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
-                            tickLine={false}
-                            axisLine={false}
+                            tickLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
+                            axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
                             tickFormatter={rightAxisFormatter}
                         />
                     )}

@@ -1,53 +1,53 @@
 
-// Vibrant color palettes for charts
+// Professional color palettes for charts
 export const COLOR_PALETTES = {
     vibrant: [
-        '#3b82f6', // blue
-        '#10b981', // emerald
-        '#f59e0b', // amber
-        '#ef4444', // red
-        '#8b5cf6', // violet
-        '#ec4899', // pink
-        '#06b6d4', // cyan
-        '#f97316', // orange
-        '#84cc16', // lime
-        '#6366f1', // indigo
+        '#2563eb', // blue-600
+        '#3b82f6', // blue-500
+        '#60a5fa', // blue-400
+        '#93c5fd', // blue-300
+        '#1d4ed8', // blue-700
+        '#1e40af', // blue-800
+        '#3730a3', // indigo-800
+        '#4f46e5', // indigo-600
+        '#6366f1', // indigo-500
+        '#818cf8', // indigo-400
     ],
     pastel: [
-        '#93c5fd', // blue
-        '#6ee7b7', // emerald
-        '#fcd34d', // amber
-        '#fca5a5', // red
-        '#c4b5fd', // violet
-        '#f9a8d4', // pink
-        '#67e8f9', // cyan
-        '#fdba74', // orange
-        '#bef264', // lime
-        '#a5b4fc', // indigo
+        '#bfdbfe', // blue-200
+        '#c7d2fe', // indigo-200
+        '#ddd6fe', // violet-200
+        '#e0e7ff', // indigo-100
+        '#a5b4fc', // indigo-300
+        '#93c5fd', // blue-300
+        '#7dd3fc', // sky-300
+        '#a5f3fc', // cyan-200
+        '#99f6e4', // teal-200
+        '#a7f3d0', // emerald-200
     ],
     cool: [
-        '#3b82f6', // blue
-        '#06b6d4', // cyan
-        '#8b5cf6', // violet
-        '#6366f1', // indigo
-        '#0ea5e9', // sky
-        '#a855f7', // purple
-        '#14b8a6', // teal
-        '#2563eb', // blue-600
-        '#7c3aed', // violet-600
-        '#0891b2', // cyan-600
+        '#0f172a', // slate-900
+        '#1e293b', // slate-800
+        '#334155', // slate-700
+        '#475569', // slate-600
+        '#64748b', // slate-500
+        '#94a3b8', // slate-400
+        '#3b82f6', // blue-500
+        '#0ea5e9', // sky-500
+        '#06b6d4', // cyan-500
+        '#14b8a6', // teal-500
     ],
     warm: [
-        '#f59e0b', // amber
-        '#ef4444', // red
-        '#f97316', // orange
-        '#ec4899', // pink
-        '#eab308', // yellow
-        '#dc2626', // red-600
-        '#ea580c', // orange-600
-        '#db2777', // pink-600
+        '#78350f', // amber-900
+        '#92400e', // amber-800
+        '#b45309', // amber-700
         '#d97706', // amber-600
-        '#be123c', // rose-700
+        '#f59e0b', // amber-500
+        '#fbbf24', // amber-400
+        '#c2410c', // orange-700
+        '#ea580c', // orange-600
+        '#f97316', // orange-500
+        '#fb923c', // orange-400
     ],
 };
 
