@@ -36,9 +36,9 @@ export const AVAILABLE_COMPONENTS: ComponentCard[] = [
         subcategory: 'basic',
     },
     {
-        id: 'heading',
-        name: 'Heading',
-        description: 'Text heading for sections',
+        id: 'text',
+        name: 'Text',
+        description: 'Rich text block with full formatting options',
         icon: 'Type',
         category: 'typography',
         subcategory: 'basic',

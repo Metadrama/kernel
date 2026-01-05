@@ -6,7 +6,7 @@ import { lazy, Suspense } from 'react';
 // Lazy load components for better performance
 const ChartComponent = lazy(() => import('./ChartComponent'));
 const ChartLegendComponent = lazy(() => import('./ChartLegendComponent'));
-const HeadingComponent = lazy(() => import('./HeadingComponent'));
+const TextComponent = lazy(() => import('./TextComponent'));
 
 // Loading placeholder
 function ComponentLoader() {
@@ -47,9 +47,9 @@ export const COMPONENT_REGISTRY: Record<string, React.ComponentType<{ config?: R
       <ChartComponent config={{ ...config, chartType: 'combo' } as any} />
     </Suspense>
   ),
-  'heading': ({ config }) => (
+  'text': ({ config }) => (
     <Suspense fallback={<ComponentLoader />}>
-      <HeadingComponent config={config} />
+      <TextComponent config={config} />
     </Suspense>
   ),
   'chart-legend': ({ config }) => (

@@ -30,7 +30,7 @@ import {
     ContextMenuSubTrigger,
     ContextMenuTrigger,
 } from '@/components/ui/context-menu';
-import ChartComponent from '@/components/widget-components/ChartComponent';
+import { COMPONENT_REGISTRY } from '@/components/widget-components';
 import { type AlignmentGuide, type ComponentBounds } from '@/lib/alignment-helpers';
 import { GRID_SIZE_PX, snapToGrid } from '@/lib/canvas-constants';
 import { getAspectRatio, getMaxSize, getMinSize } from '@/lib/component-sizes';
@@ -397,20 +397,15 @@ export function DirectComponent({
 
     // Render the actual component content
     const renderComponent = () => {
-        switch (componentType) {
-            case 'chart-line':
-            case 'chart-bar':
-            case 'chart-doughnut':
-            case 'chart-combo':
-            case 'chart':
-                return (
-                    <ChartComponent
-                        config={{ ...component.config, chartType: componentType.replace('chart-', '') as any } as any}
-                    />
-                );
-            default:
-                return <div className="flex h-full w-full items-center justify-center bg-gray-100 text-gray-500">{componentType}</div>;
+        const RegisteredComponent = COMPONENT_REGISTRY[componentType];
+        if (RegisteredComponent) {
+            return <RegisteredComponent config={component.config} />;
         }
+        return (
+            <div className="flex h-full w-full items-center justify-center bg-gray-100 text-gray-500">
+                {componentType}
+            </div>
+        );
     };
 
     return (

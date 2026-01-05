@@ -220,9 +220,41 @@ export type ChartConfig = LineChartConfig | BarChartConfig | DoughnutChartConfig
 // Text Component Configuration Types
 // ============================================================================
 
-export type HeadingLevel = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
+export type FontSize = 'xs' | 'sm' | 'base' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
 
-export type TextAlign = 'left' | 'center' | 'right';
+export type FontWeight = 'thin' | 'light' | 'normal' | 'medium' | 'semibold' | 'bold' | 'extrabold';
+
+export type FontStyle = 'normal' | 'italic';
+
+export type TextDecoration = 'none' | 'underline' | 'line-through';
+
+export type TextAlign = 'left' | 'center' | 'right' | 'justify';
+
+export type LineHeight = 'tight' | 'snug' | 'normal' | 'relaxed' | 'loose';
+
+export type LetterSpacing = 'tighter' | 'tight' | 'normal' | 'wide' | 'wider';
+
+export type TextTransform = 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+
+export interface TextConfig {
+  text?: string;
+  fontSize?: FontSize;
+  fontWeight?: FontWeight;
+  fontStyle?: FontStyle;
+  textDecoration?: TextDecoration;
+  align?: TextAlign;
+  color?: string;
+  lineHeight?: LineHeight;
+  letterSpacing?: LetterSpacing;
+  textTransform?: TextTransform;
+  opacity?: number; // 0-100
+  // Data binding (optional - can bind to a cell value)
+  dataSource?: DataSource;
+  dataField?: string; // Which field to display
+}
+
+// Legacy type alias for backwards compatibility
+export type HeadingLevel = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
 
 export interface HeadingConfig {
   text?: string;
@@ -232,14 +264,6 @@ export interface HeadingConfig {
   // Data binding (optional - can bind to a cell value)
   dataSource?: DataSource;
   dataField?: string; // Which field to display
-}
-
-export interface TextConfig {
-  content?: string;
-  align?: TextAlign;
-  fontSize?: 'xs' | 'sm' | 'base' | 'lg' | 'xl';
-  fontWeight?: 'normal' | 'medium' | 'semibold' | 'bold';
-  color?: string;
 }
 
 // ============================================================================
@@ -439,6 +463,20 @@ export const DEFAULT_COMBO_CHART_CONFIG: ComboChartConfig = {
   rightAxis: { showGridLines: false },
 };
 
+export const DEFAULT_TEXT_CONFIG: TextConfig = {
+  text: 'Text',
+  fontSize: 'base',
+  fontWeight: 'normal',
+  fontStyle: 'normal',
+  textDecoration: 'none',
+  align: 'left',
+  lineHeight: 'normal',
+  letterSpacing: 'normal',
+  textTransform: 'none',
+  opacity: 100,
+};
+
+// Legacy - kept for backwards compatibility
 export const DEFAULT_HEADING_CONFIG: HeadingConfig = {
   text: 'Heading',
   level: 'h2',
@@ -464,7 +502,8 @@ export function getDefaultConfig(componentType: string): ComponentConfig | undef
     'chart-bar': DEFAULT_BAR_CHART_CONFIG,
     'chart-combo': DEFAULT_COMBO_CHART_CONFIG,
     'chart-doughnut': DEFAULT_DOUGHNUT_CHART_CONFIG,
-    'heading': DEFAULT_HEADING_CONFIG,
+    'text': DEFAULT_TEXT_CONFIG,
+    'heading': DEFAULT_HEADING_CONFIG, // Legacy support
     'kpi': DEFAULT_KPI_CONFIG,
   };
 
