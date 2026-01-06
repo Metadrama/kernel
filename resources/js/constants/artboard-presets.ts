@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Artboard Format Presets
  * 
  * Defines standard dimensions for common output formats.
@@ -7,7 +7,7 @@
  * - Screen/Web: 96 DPI
  */
 
-import type { ArtboardPreset, ArtboardDimensions } from '@/types/artboard';
+import type { ArtboardPreset, ArtboardDimensions } from '@/features/artboard/types/artboard';
 
 /**
  * Convert millimeters to pixels at given DPI
@@ -32,7 +32,7 @@ const A4_PORTRAIT: ArtboardDimensions = {
   heightPx: mmToPx(297, PRINT_DPI),
   aspectRatio: 210 / 297,
   dpi: PRINT_DPI,
-  label: 'A4 Portrait (210×297mm)',
+  label: 'A4 Portrait (210Ã—297mm)',
 };
 
 const A4_LANDSCAPE: ArtboardDimensions = {
@@ -42,7 +42,7 @@ const A4_LANDSCAPE: ArtboardDimensions = {
   heightPx: mmToPx(210, PRINT_DPI),
   aspectRatio: 297 / 210,
   dpi: PRINT_DPI,
-  label: 'A4 Landscape (297×210mm)',
+  label: 'A4 Landscape (297Ã—210mm)',
 };
 
 const A3_PORTRAIT: ArtboardDimensions = {
@@ -52,7 +52,7 @@ const A3_PORTRAIT: ArtboardDimensions = {
   heightPx: mmToPx(420, PRINT_DPI),
   aspectRatio: 297 / 420,
   dpi: PRINT_DPI,
-  label: 'A3 Portrait (297×420mm)',
+  label: 'A3 Portrait (297Ã—420mm)',
 };
 
 const A3_LANDSCAPE: ArtboardDimensions = {
@@ -62,7 +62,7 @@ const A3_LANDSCAPE: ArtboardDimensions = {
   heightPx: mmToPx(297, PRINT_DPI),
   aspectRatio: 420 / 297,
   dpi: PRINT_DPI,
-  label: 'A3 Landscape (420×297mm)',
+  label: 'A3 Landscape (420Ã—297mm)',
 };
 
 const A2_PORTRAIT: ArtboardDimensions = {
@@ -72,7 +72,7 @@ const A2_PORTRAIT: ArtboardDimensions = {
   heightPx: mmToPx(594, PRINT_DPI),
   aspectRatio: 420 / 594,
   dpi: PRINT_DPI,
-  label: 'A2 Portrait (420×594mm)',
+  label: 'A2 Portrait (420Ã—594mm)',
 };
 
 const A2_LANDSCAPE: ArtboardDimensions = {
@@ -82,7 +82,7 @@ const A2_LANDSCAPE: ArtboardDimensions = {
   heightPx: mmToPx(420, PRINT_DPI),
   aspectRatio: 594 / 420,
   dpi: PRINT_DPI,
-  label: 'A2 Landscape (594×420mm)',
+  label: 'A2 Landscape (594Ã—420mm)',
 };
 
 // ============================================================================
@@ -96,7 +96,7 @@ const SLIDE_16_9: ArtboardDimensions = {
   heightPx: 1080,
   aspectRatio: 16 / 9,
   dpi: SCREEN_DPI,
-  label: '16:9 Slide (1920×1080px)',
+  label: '16:9 Slide (1920Ã—1080px)',
 };
 
 const SLIDE_4_3: ArtboardDimensions = {
@@ -104,7 +104,7 @@ const SLIDE_4_3: ArtboardDimensions = {
   heightPx: 768,
   aspectRatio: 4 / 3,
   dpi: SCREEN_DPI,
-  label: '4:3 Slide (1024×768px)',
+  label: '4:3 Slide (1024Ã—768px)',
 };
 
 // ============================================================================
@@ -116,7 +116,7 @@ const WEB_1440: ArtboardDimensions = {
   heightPx: 900,
   aspectRatio: 1440 / 900,
   dpi: SCREEN_DPI,
-  label: 'Web 1440px (1440×900px)',
+  label: 'Web 1440px (1440Ã—900px)',
 };
 
 const WEB_RESPONSIVE: ArtboardDimensions = {
@@ -124,7 +124,7 @@ const WEB_RESPONSIVE: ArtboardDimensions = {
   heightPx: 800,
   aspectRatio: 1280 / 800,
   dpi: SCREEN_DPI,
-  label: 'Web Responsive (1280×800px)',
+  label: 'Web Responsive (1280Ã—800px)',
 };
 
 // ============================================================================
@@ -136,7 +136,7 @@ const DISPLAY_FHD: ArtboardDimensions = {
   heightPx: 1080,
   aspectRatio: 16 / 9,
   dpi: SCREEN_DPI,
-  label: 'Full HD Display (1920×1080px)',
+  label: 'Full HD Display (1920Ã—1080px)',
 };
 
 const DISPLAY_4K: ArtboardDimensions = {
@@ -144,7 +144,7 @@ const DISPLAY_4K: ArtboardDimensions = {
   heightPx: 2160,
   aspectRatio: 16 / 9,
   dpi: SCREEN_DPI,
-  label: '4K Display (3840×2160px)',
+  label: '4K Display (3840Ã—2160px)',
 };
 
 // ============================================================================
@@ -156,7 +156,7 @@ const MOBILE_PORTRAIT: ArtboardDimensions = {
   heightPx: 667,
   aspectRatio: 9 / 16,
   dpi: SCREEN_DPI,
-  label: 'Mobile Portrait (375×667px)',
+  label: 'Mobile Portrait (375Ã—667px)',
 };
 
 const MOBILE_LANDSCAPE: ArtboardDimensions = {
@@ -164,7 +164,7 @@ const MOBILE_LANDSCAPE: ArtboardDimensions = {
   heightPx: 375,
   aspectRatio: 16 / 9,
   dpi: SCREEN_DPI,
-  label: 'Mobile Landscape (667×375px)',
+  label: 'Mobile Landscape (667Ã—375px)',
 };
 
 // ============================================================================
@@ -305,3 +305,4 @@ export const ARTBOARD_CATEGORIES = [
   { id: 'display', label: 'Display/TV', icon: 'Tv' },
   { id: 'mobile', label: 'Mobile', icon: 'Smartphone' },
 ] as const;
+

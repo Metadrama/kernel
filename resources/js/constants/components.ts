@@ -1,4 +1,4 @@
-import type { ComponentCard } from '@/types/dashboard';
+﻿import type { ComponentCard } from '@/features/dashboard/types/dashboard';
 
 // Unified list of draggable components
 export const AVAILABLE_COMPONENTS: ComponentCard[] = [
@@ -52,3 +52,4 @@ export const AVAILABLE_COMPONENTS: ComponentCard[] = [
         subcategory: 'helper',
     },
 ];
+

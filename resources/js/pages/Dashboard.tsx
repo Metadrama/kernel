@@ -1,9 +1,9 @@
-import ComponentSidebar from '@/components/ComponentSidebar';
-import ArtboardCanvas from '@/components/artboard/ArtboardCanvas';
-import MobileDashboardView from '@/components/mobile/MobileDashboardView';
-import { ArtboardProvider } from '@/context/ArtboardContext';
-import { DragDropProvider } from '@/context/DragDropContext';
-import type { DashboardLayout } from '@/types/dashboard';
+﻿import ComponentSidebar from '@/features/dashboard/components/ComponentSidebar';
+import ArtboardCanvas from '@/features/artboard/components/ArtboardCanvas';
+import MobileDashboardView from '@/features/dashboard/components/MobileDashboardView';
+import { ArtboardProvider } from '@/core/context/ArtboardContext';
+import { DragDropProvider } from '@/core/context/DragDropContext';
+import type { DashboardLayout } from '@/features/dashboard/types/dashboard';
 import { Head } from '@inertiajs/react';
 import { useEffect } from 'react';
 
@@ -78,3 +78,7 @@ export default function Dashboard({ currentDashboard }: DashboardProps) {
         </>
     );
 }
+
+
+
+
