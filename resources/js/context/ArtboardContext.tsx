@@ -1,6 +1,7 @@
 import type { ArtboardSchema } from '@/types/artboard';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { z } from 'zod';
+import { zArtboardSchema, zPersistedPayloadV1 } from '@/types/validation/artboard-schemas';
 
 const ENABLE_LOCALSTORAGE_FALLBACK = false;
 const ENABLE_LOCALSTORAGE_PERSIST = false;
@@ -47,91 +48,6 @@ type PersistedArtboardsPayloadV1 = {
     version: 1;
     artboards: ArtboardSchema[];
 };
-
-const ARTBOARD_FORMATS = [
-    'a4-portrait',
-    'a4-landscape',
-    'a3-portrait',
-    'a3-landscape',
-    'a2-portrait',
-    'a2-landscape',
-    'slide-16-9',
-    'slide-4-3',
-    'web-1440',
-    'web-responsive',
-    'display-fhd',
-    'display-4k',
-    'mobile-portrait',
-    'mobile-landscape',
-    'custom',
-] as const;
-
-const zComponentPosition = z
-    .object({
-        x: z.number(),
-        y: z.number(),
-        width: z.number(),
-        height: z.number(),
-        zIndex: z.number(),
-        rotation: z.number().optional(),
-    })
-    .passthrough();
-
-const zArtboardComponent = z
-    .object({
-        instanceId: z.string(),
-        componentType: z.string(),
-        position: zComponentPosition,
-        config: z.record(z.string(), z.unknown()),
-        locked: z.boolean().optional(),
-    })
-    .passthrough();
-
-const zArtboardDimensions = z
-    .object({
-        widthMm: z.number().optional(),
-        heightMm: z.number().optional(),
-        widthPx: z.number(),
-        heightPx: z.number(),
-        aspectRatio: z.number(),
-        dpi: z.number(),
-        label: z.string(),
-    })
-    .passthrough();
-
-const zCanvasPosition = z
-    .object({
-        x: z.number(),
-        y: z.number(),
-    })
-    .passthrough();
-
-const zArtboardSchema: z.ZodType<ArtboardSchema> = z
-    .object({
-        id: z.string(),
-        name: z.string(),
-        format: z.enum(ARTBOARD_FORMATS),
-        dimensions: zArtboardDimensions,
-        position: zCanvasPosition,
-        zoom: z.number(),
-        backgroundColor: z.string(),
-        backgroundImage: z.string().optional(),
-        components: z.array(zArtboardComponent),
-        locked: z.boolean(),
-        visible: z.boolean(),
-        showGrid: z.boolean(),
-        showRulers: z.boolean(),
-        clipContent: z.boolean().optional().default(true),
-        gridPadding: z.number(),
-        createdAt: z.string(),
-        updatedAt: z.string(),
-    })
-    .passthrough();
-
-const zPersistedPayloadV1 = z.object({
-    version: z.literal(1),
-    artboards: z.array(zArtboardSchema),
-});
 
 const loadArtboards = (initialData?: InitialData): ArtboardSchema[] => {
     // Prefer server data if provided
@@ -273,13 +189,13 @@ export function ArtboardProvider({ children, initialData }: ArtboardProviderProp
                 // Deep clone components
                 const newComponents = source.components.map((c) => ({
                     ...c,
-                    instanceId: `component-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    instanceId: `component - ${Date.now()} -${Math.random().toString(36).substr(2, 9)} `,
                 }));
 
                 const newArtboard: ArtboardSchema = {
                     ...source,
-                    id: `artboard-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                    name: `${source.name} Copy${count > 1 ? ` ${i + 1}` : ''}`,
+                    id: `artboard - ${Date.now()} -${Math.random().toString(36).substr(2, 9)} `,
+                    name: `${source.name} Copy${count > 1 ? ` ${i + 1}` : ''} `,
                     position: {
                         x: startX,
                         y: source.position.y,

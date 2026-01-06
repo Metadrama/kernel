@@ -402,7 +402,7 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
         const { primary, secondary } = aggregateData(transformedData, effectiveAggregation);
 
         // Convert to arrays and sort (using primary value)
-        let entries = Array.from(primary.entries());
+        const entries = Array.from(primary.entries());
 
         if (sortBy === 'label') {
           entries.sort((a, b) => {

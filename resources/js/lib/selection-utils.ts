@@ -152,7 +152,7 @@ export function updateZOrder<T extends { id: string; zIndex?: number }>(
 
     if (targetIndex === -1) return items;
 
-    let newOrder = [...sorted];
+    const newOrder = [...sorted];
     const target = newOrder[targetIndex];
 
     switch (operation) {
