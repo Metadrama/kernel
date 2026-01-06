@@ -14,7 +14,7 @@ This document provides a complete mapping of the project's dependencies, includi
 The application acts as a Dashboard Builder.
 1.  **Frontend:** A React-based SPA served via Inertia.js. It provides a drag-and-drop interface for building dashboards.
 2.  **Backend:** Laravel serves the initial HTML, handles routing, and provides API endpoints for data retrieval and persistence.
-3.  **Persistence:** Instead of a traditional SQL database for application data, the system currently uses the local filesystem (`storage/app/`) to store Dashboard configurations, Data Sources, and Spreadsheet metadata as JSON files.
+3.  **Persistence:** Instead of a traditional SQL database for application data, the system currently uses the local filesystem (`storage/app/`) to store Dashboard configurations as JSON files.
 4.  **Integration:** Connects to Google Sheets via the Google API Client to fetch real-time data for charts.
 
 ---
@@ -40,8 +40,6 @@ The backend follows a standard MVC pattern but relies heavily on **Services** fo
 | Controller | Service Dependency | Responsibility |
 | :--- | :--- | :--- |
 | `DashboardController` | `DashboardService` | CRUD for Workspace/Dashboard JSON files. |
-| `DataSourceController` | `DataSourceService` | CRUD for Data Source configurations. |
-| `SpreadsheetController` | `SpreadsheetService` | CRUD for Spreadsheet metadata. |
 | `GoogleSheetsController`| `GoogleSheetsService`| Proxy for Google Sheets API (Read/Write/Append). |
 
 #### Data Flow (Backend)
@@ -78,13 +76,13 @@ The backend follows a standard MVC pattern but relies heavily on **Services** fo
 
 *   **`Dashboard.tsx`** (Page)
     *   `ArtboardProvider` (Context)
-    *   `DragDropProvider` (Context)
     *   `ComponentSidebar` (Widget Palette)
     *   `ArtboardCanvas` (Main Drag & Drop Area)
-        *   `DirectComponent` (Wrapper for widgets)
-            *   **`ChartComponent`** (Visualizes data)
-                *   Uses `useGoogleSheetsData` (Hook) to fetch data.
-                *   Uses `recharts` (Library) to render.
+        *   `WidgetShell` (Wrapper for widgets)
+            *   `WidgetComponent` (Placed inside widget)
+                *   **`ChartComponent`** (Visualizes data)
+                    *   Uses `useGoogleSheetsData` (Hook) to fetch data.
+                    *   Uses `recharts` (Library) to render.
 
 ---
 
@@ -94,16 +92,15 @@ The backend follows a standard MVC pattern but relies heavily on **Services** fo
 graph TD
     subgraph Frontend [Frontend (React/Inertia)]
         Page_Dashboard[Page: Dashboard.tsx]
-        Page_Welcome[Page: Welcome.tsx]
 
         subgraph Contexts
             Ctx_Artboard[ArtboardProvider]
-            Ctx_DragDrop[DragDropProvider]
         end
 
         subgraph Components
             Comp_Sidebar[ComponentSidebar]
             Comp_Canvas[ArtboardCanvas]
+            Comp_WidgetShell[WidgetShell]
             Comp_Chart[ChartComponent]
         end
 
@@ -112,29 +109,26 @@ graph TD
         end
 
         Page_Dashboard --> Ctx_Artboard
-        Ctx_Artboard --> Ctx_DragDrop
-        Ctx_DragDrop --> Comp_Sidebar
-        Ctx_DragDrop --> Comp_Canvas
-        Comp_Canvas --> Comp_Chart
+        Ctx_Artboard --> Comp_Sidebar
+        Ctx_Artboard --> Comp_Canvas
+        Comp_Canvas --> Comp_WidgetShell
+        Comp_WidgetShell --> Comp_Chart
         Comp_Chart --> Hook_Sheets
     end
 
     subgraph Backend [Backend (Laravel)]
         subgraph Controllers
             Ctrl_Dash[DashboardController]
-            Ctrl_DS[DataSourceController]
             Ctrl_Sheet[GoogleSheetsController]
         end
 
         subgraph Services
             Svc_Dash[DashboardService]
-            Svc_DS[DataSourceService]
             Svc_GSheet[GoogleSheetsService]
         end
 
         subgraph Storage [Local Storage / JSON]
             File_Dash[dashboards/*.json]
-            File_DS[data-sources/*.json]
         end
     end
 
@@ -148,12 +142,10 @@ graph TD
 
     %% Controller -> Service
     Ctrl_Dash --> Svc_Dash
-    Ctrl_DS --> Svc_DS
     Ctrl_Sheet --> Svc_GSheet
 
     %% Service -> Storage/External
     Svc_Dash --> File_Dash
-    Svc_DS --> File_DS
     Svc_GSheet -- API Client --> GoogleAPI
 
     classDef react fill:#61dafb,stroke:#333,stroke-width:2px,color:black;
@@ -161,9 +153,9 @@ graph TD
     classDef storage fill:#f1c40f,stroke:#333,stroke-width:2px,color:black;
     classDef external fill:#2ecc71,stroke:#333,stroke-width:2px,color:white;
 
-    class Page_Dashboard,Page_Welcome,Ctx_Artboard,Ctx_DragDrop,Comp_Sidebar,Comp_Canvas,Comp_Chart,Hook_Sheets react;
-    class Ctrl_Dash,Ctrl_DS,Ctrl_Sheet,Svc_Dash,Svc_DS,Svc_GSheet laravel;
-    class File_Dash,File_DS storage;
+    class Page_Dashboard,Ctx_Artboard,Comp_Sidebar,Comp_Canvas,Comp_WidgetShell,Comp_Chart,Hook_Sheets react;
+    class Ctrl_Dash,Ctrl_Sheet,Svc_Dash,Svc_GSheet laravel;
+    class File_Dash storage;
     class GoogleAPI external;
 ```
 
@@ -175,19 +167,13 @@ classDiagram
         class DashboardController {
             +index()
             +save()
-            +discard()
+            +list()
+            +show()
         }
         class GoogleSheetsController {
             +read()
             +write()
             +append()
-        }
-        class SpreadsheetController {
-            +index()
-            +show()
-            +store()
-            +update()
-            +destroy()
         }
     }
 
@@ -205,24 +191,11 @@ classDiagram
             +write()
             +getMetadata()
         }
-        class DataSourceService {
-            +list()
-            +get()
-            +create()
-        }
-        class SpreadsheetService {
-            +list()
-            +get()
-            +create()
-        }
     }
 
     DashboardController --> DashboardService : uses
     GoogleSheetsController --> GoogleSheetsService : uses
-    SpreadsheetController --> SpreadsheetService : uses
 
     DashboardService ..> Storage : reads/writes JSON
-    DataSourceService ..> Storage : reads/writes JSON
-    SpreadsheetService ..> Storage : reads/writes JSON
     GoogleSheetsService ..> Google_Client : delegates
 ```
