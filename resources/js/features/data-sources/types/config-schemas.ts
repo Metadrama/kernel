@@ -549,7 +549,30 @@ export const DOUGHNUT_CHART_SCHEMA: ComponentConfigSchema = {
         { value: 'average', label: 'Average' },
       ],
     },
-    ...COMMON_TRANSFORM_FIELDS,
+    {
+      key: 'sortBy',
+      label: 'Sort By',
+      type: 'select',
+      defaultValue: 'value',
+      group: 'Data',
+      options: [
+        { value: 'none', label: 'Original Order' },
+        { value: 'label', label: 'Label (A-Z)' },
+        { value: 'value', label: 'Value' },
+      ],
+    },
+    {
+      key: 'sortOrder',
+      label: 'Sort Order',
+      type: 'select',
+      defaultValue: 'desc',
+      group: 'Data',
+      options: [
+        { value: 'asc', label: 'Ascending' },
+        { value: 'desc', label: 'Descending' },
+      ],
+      showWhen: { field: 'sortBy', operator: 'not-equals', value: 'none' },
+    },
     {
       key: 'limit',
       label: 'Show Top N Segments',

@@ -1,4 +1,4 @@
-﻿import { MOCK_CHART_DATA, useGoogleSheetsData } from '@/features/widgets/hooks/useGoogleSheetsChartData';
+import { MOCK_CHART_DATA, useGoogleSheetsData } from '@/features/widgets/hooks/useGoogleSheetsChartData';
 import type { BarChartConfig, ChartConfig, ComboChartConfig, DoughnutChartConfig, GoogleSheetsDataSource, LineChartConfig } from '@/features/data-sources/types/component-config';
 import { Loader2 } from 'lucide-react';
 import { useMemo } from 'react';
@@ -223,7 +223,7 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
                     data={displayData}
                     layout={layout}
                     barCategoryGap={`${barGapPercent}%`}
-                    margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                    margin={{ top: 5, right: 5, left: 0, bottom: 0 }}
                 >
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.4} />
 
@@ -267,7 +267,7 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
                     )}
 
                     <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted)/0.2)' }} />
-                    {(safeConfig.showLegend ?? true) && <Legend {...legendProps} />}
+                    {(safeConfig.showLegend ?? false) && <Legend {...legendProps} />}
 
                     {/* BAR SERIES */}
                     {(safeConfig.chartType === 'bar' || safeConfig.chartType === 'combo') && (
@@ -313,7 +313,7 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
 
         return (
             <ResponsiveContainer width="100%" height="100%">
-                <PieChart margin={{ top: 20, bottom: 20, left: 0, right: 0 }}>
+                <PieChart margin={{ top: 0, bottom: 0, left: 0, right: 0 }}>
                     <Pie
                         data={displayData}
                         dataKey="value"
@@ -321,7 +321,7 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
                         cx="50%"
                         cy="50%"
                         innerRadius={innerRadius}
-                        outerRadius="80%"
+                        outerRadius="85%"
                         paddingAngle={dConfig.padAngle || 2}
                         cornerRadius={dConfig.cornerRadius || 4}
                         stroke="hsl(var(--background))"
@@ -332,7 +332,7 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
                         ))}
                     </Pie>
                     <Tooltip content={<CustomTooltip />} />
-                    {(safeConfig.showLegend ?? true) && <Legend {...legendProps} />}
+                    {(safeConfig.showLegend ?? false) && <Legend {...legendProps} />}
                 </PieChart>
             </ResponsiveContainer>
         );
