@@ -659,10 +659,21 @@ export const TEXT_SCHEMA: ComponentConfigSchema = {
       group: 'Display',
       description: 'The text to display',
     },
-    // Typography - Font Size
+    // Font Size (px) - Custom override
+    {
+      key: 'fontSizePx',
+      label: 'Font Size (px)',
+      type: 'number',
+      min: 8,
+      max: 200,
+      step: 1,
+      group: 'Display',
+      description: 'Custom font size in pixels (overrides preset)',
+    },
+    // Typography - Font Size (preset)
     {
       key: 'fontSize',
-      label: 'Font Size',
+      label: 'Font Size Preset',
       type: 'select',
       defaultValue: 'base',
       group: 'Display',

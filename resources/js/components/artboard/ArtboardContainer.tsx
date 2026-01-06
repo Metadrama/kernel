@@ -33,6 +33,8 @@ interface ArtboardContainerProps {
     artboard: ArtboardSchema;
     isSelected: boolean;
     canvasScale: number;
+    /** Whether components should scale with zoom (true = natural scaling, false = counter-scale) */
+    scaleWithZoom: boolean;
     zIndex: number;
     onUpdate: (artboardId: string, updates: Partial<ArtboardSchema>) => void;
     onDelete: (artboardId: string) => void;
@@ -46,6 +48,7 @@ export default function ArtboardContainer({
     artboard,
     isSelected,
     canvasScale,
+    scaleWithZoom,
     zIndex,
     onUpdate,
     onDelete,
@@ -139,6 +142,16 @@ export default function ArtboardContainer({
         (instanceId: string, position: { x: number; y: number; width: number; height: number }) => {
             const updatedComponents = artboard.components.map((c) =>
                 c.instanceId === instanceId ? { ...c, position: { ...c.position, ...position } } : c,
+            );
+            onUpdate(artboard.id, { components: updatedComponents });
+        },
+        [artboard.components, artboard.id, onUpdate],
+    );
+
+    const updateComponentConfig = useCallback(
+        (instanceId: string, config: Record<string, unknown>) => {
+            const updatedComponents = artboard.components.map((c) =>
+                c.instanceId === instanceId ? { ...c, config } : c,
             );
             onUpdate(artboard.id, { components: updatedComponents });
         },
@@ -470,12 +483,14 @@ export default function ArtboardContainer({
                                     component={component}
                                     isSelected={selectedComponentId === component.instanceId}
                                     scale={canvasScale}
+                                    scaleWithZoom={scaleWithZoom}
                                     siblingBounds={siblingBounds}
                                     onGuidesChange={setActiveGuides}
                                     onSelect={() => {
                                         onSelectComponent?.(component.instanceId);
                                     }}
                                     onPositionChange={(pos) => updateComponentPosition(component.instanceId, pos)}
+                                    onConfigChange={(config) => updateComponentConfig(component.instanceId, config)}
                                     onDelete={() => deleteComponent(component.instanceId)}
                                     onZOrderChange={(op) => updateComponentZOrder(component.instanceId, op)}
                                 />

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 
 export type FontSize = 'xs' | 'sm' | 'base' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
 export type FontWeight = 'thin' | 'light' | 'normal' | 'medium' | 'semibold' | 'bold' | 'extrabold';
@@ -12,6 +12,7 @@ export type TextTransform = 'none' | 'uppercase' | 'lowercase' | 'capitalize';
 export interface TextComponentConfig {
   text?: string;
   fontSize?: FontSize;
+  fontSizePx?: number; // Custom px value (overrides fontSize preset)
   fontWeight?: FontWeight;
   fontStyle?: FontStyle;
   textDecoration?: TextDecoration;
@@ -28,16 +29,16 @@ interface TextComponentProps {
   onConfigChange?: (config: Record<string, unknown>) => void;
 }
 
-// Tailwind class mappings
-const fontSizeClasses: Record<FontSize, string> = {
-  xs: 'text-xs',
-  sm: 'text-sm',
-  base: 'text-base',
-  lg: 'text-lg',
-  xl: 'text-xl',
-  '2xl': 'text-2xl',
-  '3xl': 'text-3xl',
-  '4xl': 'text-4xl',
+// Base font sizes in pixels for each Tailwind size class
+const fontSizePixels: Record<FontSize, number> = {
+  xs: 12,
+  sm: 14,
+  base: 16,
+  lg: 18,
+  xl: 20,
+  '2xl': 24,
+  '3xl': 30,
+  '4xl': 36,
 };
 
 const fontWeightClasses: Record<FontWeight, string> = {
@@ -91,7 +92,7 @@ const textTransformClasses: Record<TextTransform, string> = {
   capitalize: 'capitalize',
 };
 
-export default function TextComponent({ 
+export default function TextComponent({
   config,
   onConfigChange,
 }: TextComponentProps) {
@@ -107,20 +108,55 @@ export default function TextComponent({
   const letterSpacing = config?.letterSpacing ?? 'normal';
   const textTransform = config?.textTransform ?? 'none';
   const opacity = config?.opacity ?? 100;
-  
+
   const [isEditing, setIsEditing] = useState(false);
   const [currentText, setCurrentText] = useState(text);
+  const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  const [textSize, setTextSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLSpanElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     setCurrentText(text);
   }, [text]);
 
+  // Track container size with ResizeObserver
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        const { width, height } = entry.contentRect;
+        setContainerSize({ width, height });
+      }
+    });
+
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
+  // Measure the natural text size (at base font size, scale=1)
+  useLayoutEffect(() => {
+    const textEl = textRef.current;
+    if (!textEl || isEditing) return;
+
+    // Temporarily remove transform to measure natural size
+    const prevTransform = textEl.style.transform;
+    textEl.style.transform = 'none';
+
+    const rect = textEl.getBoundingClientRect();
+    setTextSize({ width: rect.width, height: rect.height });
+
+    textEl.style.transform = prevTransform;
+  }, [currentText, fontSize, fontWeight, fontStyle, letterSpacing, textTransform, isEditing]);
+
   useEffect(() => {
     if (isEditing && textareaRef.current) {
       textareaRef.current.focus();
       textareaRef.current.select();
-      // Auto-resize textarea
       adjustTextareaHeight();
     }
   }, [isEditing]);
@@ -148,12 +184,29 @@ export default function TextComponent({
       setCurrentText(text);
       setIsEditing(false);
     }
-    // Allow Enter for new lines in multi-line mode
-    // Use Ctrl+Enter or Cmd+Enter to save
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       setIsEditing(false);
       if (currentText !== text) {
         onConfigChange?.({ ...config, text: currentText });
+      }
+    }
+
+    // Text formatting shortcuts
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === 'b' || e.key === 'B') {
+        e.preventDefault();
+        const newWeight = fontWeight === 'bold' ? 'normal' : 'bold';
+        onConfigChange?.({ ...config, fontWeight: newWeight });
+      }
+      if (e.key === 'i' || e.key === 'I') {
+        e.preventDefault();
+        const newStyle = fontStyle === 'italic' ? 'normal' : 'italic';
+        onConfigChange?.({ ...config, fontStyle: newStyle });
+      }
+      if (e.key === 'u' || e.key === 'U') {
+        e.preventDefault();
+        const newDecoration = textDecoration === 'underline' ? 'none' : 'underline';
+        onConfigChange?.({ ...config, textDecoration: newDecoration });
       }
     }
   };
@@ -163,25 +216,40 @@ export default function TextComponent({
     adjustTextareaHeight();
   };
 
-  // Build class string
+  // Calculate scale factor to fit text within container
+  const calculateScaleFactor = (): number => {
+    if (textSize.width === 0 || textSize.height === 0 || containerSize.width === 0 || containerSize.height === 0) {
+      return 1;
+    }
+    // Scale to fit container, using the smaller scale to ensure text fits
+    const widthScale = containerSize.width / textSize.width;
+    const heightScale = containerSize.height / textSize.height;
+    return Math.min(widthScale, heightScale);
+  };
+
+  const scaleFactor = calculateScaleFactor();
+  const baseFontSizePx = config?.fontSizePx ?? fontSizePixels[fontSize];
+
+  // Build class string (without font size - we use inline style)
   const textClasses = [
-    fontSizeClasses[fontSize],
     fontWeightClasses[fontWeight],
     fontStyleClasses[fontStyle],
     textDecorationClasses[textDecoration],
-    textAlignClasses[align],
     lineHeightClasses[lineHeight],
     letterSpacingClasses[letterSpacing],
     textTransformClasses[textTransform],
   ].join(' ');
 
-  // Build inline styles
+  // Build inline styles with base font size (scaling handled by transform)
   const textStyles: React.CSSProperties = {
     color: color || undefined,
     opacity: opacity / 100,
+    fontSize: `${baseFontSizePx}px`,
+    transform: `scale(${scaleFactor})`,
+    transformOrigin: align === 'center' ? 'center center' : align === 'right' ? 'right center' : 'left center',
   };
 
-  // Container alignment classes
+  // Container alignment classes for horizontal positioning
   const containerAlignClass = {
     left: 'justify-start',
     center: 'justify-center',
@@ -191,15 +259,22 @@ export default function TextComponent({
 
   if (isEditing) {
     return (
-      <div className={`h-full w-full px-4 py-3 flex items-start ${containerAlignClass}`}>
+      <div
+        ref={containerRef}
+        className={`h-full w-full flex items-center ${containerAlignClass} overflow-hidden`}
+      >
         <textarea
           ref={textareaRef}
           value={currentText}
           onChange={handleChange}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
-          className={`w-full bg-transparent border-b-2 border-primary outline-none resize-none min-h-[1.5em] ${textClasses}`}
-          style={textStyles}
+          className={`w-full bg-transparent border-b-2 border-primary outline-none resize-none min-h-[1.5em] ${textClasses} ${textAlignClasses[align]}`}
+          style={{
+            color: color || undefined,
+            opacity: opacity / 100,
+            fontSize: `${baseFontSizePx}px`,
+          }}
           placeholder="Enter text..."
         />
       </div>
@@ -207,13 +282,15 @@ export default function TextComponent({
   }
 
   return (
-    <div 
-      className={`h-full w-full px-4 py-3 flex items-start cursor-text ${containerAlignClass} hover:bg-muted/30 transition-colors`}
+    <div
+      ref={containerRef}
+      className={`h-full w-full flex items-center cursor-text ${containerAlignClass} hover:bg-muted/30 transition-colors overflow-hidden`}
       onDoubleClick={handleDoubleClick}
-      title="Double-click to edit (Ctrl+Enter to save)"
+      title="Double-click to edit | Ctrl+B: Bold | Ctrl+I: Italic | Ctrl+U: Underline | Ctrl+Enter: Save"
     >
-      <span 
-        className={`${textClasses} text-foreground whitespace-pre-wrap break-words`}
+      <span
+        ref={textRef}
+        className={`${textClasses} text-foreground whitespace-nowrap`}
         style={textStyles}
       >
         {currentText || 'Text'}

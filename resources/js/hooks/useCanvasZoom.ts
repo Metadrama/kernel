@@ -26,6 +26,8 @@ export interface UseCanvasZoomOptions {
     minScale?: number;
     /** Max scale (default: 5) */
     maxScale?: number;
+    /** Whether components should scale with zoom (default: true) */
+    initialScaleWithZoom?: boolean;
 }
 
 export interface UseCanvasZoomReturn {
@@ -35,6 +37,10 @@ export interface UseCanvasZoomReturn {
     pan: CanvasPosition;
     /** Viewport dimensions */
     viewportSize: { width: number; height: number };
+    /** Whether components scale with zoom */
+    scaleWithZoom: boolean;
+    /** Toggle scale with zoom mode */
+    setScaleWithZoom: React.Dispatch<React.SetStateAction<boolean>>;
     /** Set pan directly */
     setPan: React.Dispatch<React.SetStateAction<CanvasPosition>>;
     /** Adjust scale with optional focus point */
@@ -49,6 +55,7 @@ export function useCanvasZoom(options: UseCanvasZoomOptions = {}): UseCanvasZoom
         initialPan = { x: 0, y: 0 },
         minScale = MIN_SCALE,
         maxScale = MAX_SCALE,
+        initialScaleWithZoom = true,
     } = options;
 
     const canvasRef = useRef<HTMLDivElement>(null);
@@ -56,6 +63,7 @@ export function useCanvasZoom(options: UseCanvasZoomOptions = {}): UseCanvasZoom
     const [scale, setScale] = useState(initialScale);
     const [pan, setPan] = useState<CanvasPosition>(initialPan);
     const [viewportSize, setViewportSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+    const [scaleWithZoom, setScaleWithZoom] = useState(initialScaleWithZoom);
 
     const clamp = useCallback(
         (value: number) => Math.min(Math.max(value, minScale), maxScale),
@@ -205,6 +213,8 @@ export function useCanvasZoom(options: UseCanvasZoomOptions = {}): UseCanvasZoom
         scale,
         pan,
         viewportSize,
+        scaleWithZoom,
+        setScaleWithZoom,
         setPan,
         adjustScale,
         canvasRef,

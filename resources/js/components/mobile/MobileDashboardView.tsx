@@ -55,8 +55,10 @@ export default function MobileDashboardView() {
                             component={component}
                             isSelected={false}
                             scale={1}
+                            scaleWithZoom={true}
                             onSelect={() => { }}
                             onPositionChange={() => { }}
+                            onConfigChange={() => { }}
                             onDelete={() => { }}
                             onZOrderChange={() => { }}
                         />

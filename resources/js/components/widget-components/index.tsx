@@ -21,7 +21,7 @@ function ComponentLoader() {
 }
 
 // Component registry - maps component type IDs to renderers
-export const COMPONENT_REGISTRY: Record<string, React.ComponentType<{ config?: Record<string, unknown> }>> = {
+export const COMPONENT_REGISTRY: Record<string, React.ComponentType<{ config?: Record<string, unknown>; onConfigChange?: (config: Record<string, unknown>) => void }>> = {
   'chart': ({ config }) => (
     <Suspense fallback={<ComponentLoader />}>
       <ChartComponent config={{ ...config, chartType: (config?.chartType as any) || 'line' } as any} />
@@ -47,9 +47,9 @@ export const COMPONENT_REGISTRY: Record<string, React.ComponentType<{ config?: R
       <ChartComponent config={{ ...config, chartType: 'combo' } as any} />
     </Suspense>
   ),
-  'text': ({ config }) => (
+  'text': ({ config, onConfigChange }) => (
     <Suspense fallback={<ComponentLoader />}>
-      <TextComponent config={config} />
+      <TextComponent config={config} onConfigChange={onConfigChange} />
     </Suspense>
   ),
   'chart-legend': ({ config }) => (

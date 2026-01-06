@@ -239,6 +239,7 @@ export type TextTransform = 'none' | 'uppercase' | 'lowercase' | 'capitalize';
 export interface TextConfig {
   text?: string;
   fontSize?: FontSize;
+  fontSizePx?: number; // Custom px value (overrides fontSize preset)
   fontWeight?: FontWeight;
   fontStyle?: FontStyle;
   textDecoration?: TextDecoration;

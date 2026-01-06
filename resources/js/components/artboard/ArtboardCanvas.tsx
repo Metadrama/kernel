@@ -32,7 +32,7 @@ export default function ArtboardCanvas() {
     // Components are now placed directly on artboards
 
     // Canvas zoom/pan from extracted hook
-    const { scale, pan, setPan, viewportSize, adjustScale, canvasRef } = useCanvasZoom();
+    const { scale, pan, setPan, viewportSize, adjustScale, canvasRef, scaleWithZoom, setScaleWithZoom } = useCanvasZoom();
 
     // Tool state
     const [activeTool, setActiveTool] = useState<ToolType>('pointer');
@@ -308,6 +308,7 @@ export default function ArtboardCanvas() {
                                     artboard={artboard}
                                     isSelected={selectedArtboardId === artboard.id}
                                     canvasScale={scale}
+                                    scaleWithZoom={scaleWithZoom}
                                     zIndex={index}
                                     onUpdate={handleUpdateArtboard}
                                     onDelete={handleDeleteArtboard}

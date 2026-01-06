@@ -44,6 +44,8 @@ interface DirectComponentProps {
     component: ArtboardComponent;
     isSelected: boolean;
     scale: number;
+    /** Whether components should scale with zoom (true = natural scaling, false = counter-scale) */
+    scaleWithZoom: boolean;
     /**
      * Bounds for all components on the same artboard (including this component).
      * Used for smart alignment guides/snapping during drag.
@@ -57,6 +59,7 @@ interface DirectComponentProps {
 
     onSelect: () => void;
     onPositionChange: (position: { x: number; y: number; width: number; height: number }) => void;
+    onConfigChange?: (config: Record<string, unknown>) => void;
     onDelete: () => void;
     onZOrderChange?: (operation: 'front' | 'forward' | 'back' | 'backward') => void;
 }
@@ -67,10 +70,12 @@ export function DirectComponent({
     component,
     isSelected,
     scale,
+    scaleWithZoom,
     siblingBounds,
     onGuidesChange,
     onSelect,
     onPositionChange,
+    onConfigChange,
     onDelete,
     onZOrderChange,
 }: DirectComponentProps) {
@@ -111,7 +116,9 @@ export function DirectComponent({
 
     // Counter-scale the component wrapper so the component content stays at "true" pixel size
     // in artboard space even when the canvas is zoomed.
-    const inverseScale = scale === 0 ? 1 : 1 / scale;
+    // When scaleWithZoom is true, components scale naturally with the canvas (no counter-scaling).
+    // When scaleWithZoom is false, apply counter-scaling to keep components at their true pixel size.
+    const inverseScale = scaleWithZoom ? 1 : (scale === 0 ? 1 : 1 / scale);
 
     // Mouse down on component (start drag)
     const handleMouseDown = useCallback(
@@ -399,7 +406,7 @@ export function DirectComponent({
     const renderComponent = () => {
         const RegisteredComponent = COMPONENT_REGISTRY[componentType];
         if (RegisteredComponent) {
-            return <RegisteredComponent config={component.config} />;
+            return <RegisteredComponent config={component.config} onConfigChange={onConfigChange} />;
         }
         return (
             <div className="flex h-full w-full items-center justify-center bg-gray-100 text-gray-500">
@@ -423,9 +430,11 @@ export function DirectComponent({
                     style={{
                         left: displayRect.x,
                         top: displayRect.y,
-                        width: displayRect.width * scale,
-                        height: displayRect.height * scale,
-                        transform: `scale(${inverseScale})`,
+                        // When scaleWithZoom is true, use natural dimensions (canvas transform handles scaling).
+                        // When scaleWithZoom is false, multiply by scale to compensate for the inverse transform.
+                        width: scaleWithZoom ? displayRect.width : displayRect.width * scale,
+                        height: scaleWithZoom ? displayRect.height : displayRect.height * scale,
+                        transform: inverseScale === 1 ? undefined : `scale(${inverseScale})`,
                         transformOrigin: 'top left',
                         zIndex: position.zIndex,
                     }}
@@ -446,37 +455,37 @@ export function DirectComponent({
                         <>
                             {/* Corner handles */}
                             <div
-                                className="resize-handle absolute -top-1 -left-1 h-3 w-3 cursor-nwse-resize border border-blue-500 bg-white"
+                                className="resize-handle absolute -top-0.5 -left-0.5 h-2 w-2 cursor-nwse-resize border border-blue-500 bg-white"
                                 onMouseDown={(e) => handleResizeStart(e, 'nw')}
                             />
                             <div
-                                className="resize-handle absolute -top-1 -right-1 h-3 w-3 cursor-nesw-resize border border-blue-500 bg-white"
+                                className="resize-handle absolute -top-0.5 -right-0.5 h-2 w-2 cursor-nesw-resize border border-blue-500 bg-white"
                                 onMouseDown={(e) => handleResizeStart(e, 'ne')}
                             />
                             <div
-                                className="resize-handle absolute -bottom-1 -left-1 h-3 w-3 cursor-nesw-resize border border-blue-500 bg-white"
+                                className="resize-handle absolute -bottom-0.5 -left-0.5 h-2 w-2 cursor-nesw-resize border border-blue-500 bg-white"
                                 onMouseDown={(e) => handleResizeStart(e, 'sw')}
                             />
                             <div
-                                className="resize-handle absolute -right-1 -bottom-1 h-3 w-3 cursor-nwse-resize border border-blue-500 bg-white"
+                                className="resize-handle absolute -right-0.5 -bottom-0.5 h-2 w-2 cursor-nwse-resize border border-blue-500 bg-white"
                                 onMouseDown={(e) => handleResizeStart(e, 'se')}
                             />
 
                             {/* Edge handles */}
                             <div
-                                className="resize-handle absolute -top-1 left-1/2 h-3 w-3 -translate-x-1/2 cursor-ns-resize border border-blue-500 bg-white"
+                                className="resize-handle absolute -top-0.5 left-1/2 h-2 w-2 -translate-x-1/2 cursor-ns-resize border border-blue-500 bg-white"
                                 onMouseDown={(e) => handleResizeStart(e, 'n')}
                             />
                             <div
-                                className="resize-handle absolute -bottom-1 left-1/2 h-3 w-3 -translate-x-1/2 cursor-ns-resize border border-blue-500 bg-white"
+                                className="resize-handle absolute -bottom-0.5 left-1/2 h-2 w-2 -translate-x-1/2 cursor-ns-resize border border-blue-500 bg-white"
                                 onMouseDown={(e) => handleResizeStart(e, 's')}
                             />
                             <div
-                                className="resize-handle absolute top-1/2 -left-1 h-3 w-3 -translate-y-1/2 cursor-ew-resize border border-blue-500 bg-white"
+                                className="resize-handle absolute top-1/2 -left-0.5 h-2 w-2 -translate-y-1/2 cursor-ew-resize border border-blue-500 bg-white"
                                 onMouseDown={(e) => handleResizeStart(e, 'w')}
                             />
                             <div
-                                className="resize-handle absolute top-1/2 -right-1 h-3 w-3 -translate-y-1/2 cursor-ew-resize border border-blue-500 bg-white"
+                                className="resize-handle absolute top-1/2 -right-0.5 h-2 w-2 -translate-y-1/2 cursor-ew-resize border border-blue-500 bg-white"
                                 onMouseDown={(e) => handleResizeStart(e, 'e')}
                             />
                         </>
