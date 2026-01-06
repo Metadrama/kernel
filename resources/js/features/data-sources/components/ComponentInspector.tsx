@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Component Inspector Panel
  * Right sidebar for configuring selected components
  */
@@ -247,6 +247,7 @@ export function ComponentInspector({ component, onConfigChange, onClose }: Compo
                                                         key={field.key}
                                                         value={(config.dataSource as DataSource) || { type: 'static' }}
                                                         onChange={handleDataSourceChange}
+                                                        componentType={component.componentType}
                                                     />
                                                 );
                                             }

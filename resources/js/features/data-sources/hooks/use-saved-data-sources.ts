@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Hook for managing saved data sources
  */
 
@@ -10,7 +10,7 @@ interface UseSavedDataSourcesReturn {
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
-  saveDataSource: (name: string, type: 'google-sheets' | 'api', config: Omit<GoogleSheetsDataSource, 'type'> | Omit<ApiDataSource, 'type'>) => Promise<SavedDataSource | null>;
+  saveDataSource: (name: string, type: 'google-sheets' | 'api', config: Omit<GoogleSheetsDataSource, 'type'> | Omit<ApiDataSource, 'type'>, sourceChartType?: string) => Promise<SavedDataSource | null>;
   updateDataSource: (id: string, data: Partial<Omit<SavedDataSource, 'id' | 'createdAt' | 'updatedAt'>>) => Promise<SavedDataSource | null>;
   deleteDataSource: (id: string) => Promise<boolean>;
 }
@@ -43,7 +43,8 @@ export function useSavedDataSources(): UseSavedDataSourcesReturn {
   const saveDataSource = useCallback(async (
     name: string,
     type: 'google-sheets' | 'api',
-    config: Omit<GoogleSheetsDataSource, 'type'> | Omit<ApiDataSource, 'type'>
+    config: Omit<GoogleSheetsDataSource, 'type'> | Omit<ApiDataSource, 'type'>,
+    sourceChartType?: string
   ): Promise<SavedDataSource | null> => {
     setLoading(true);
     setError(null);
@@ -52,7 +53,7 @@ export function useSavedDataSources(): UseSavedDataSourcesReturn {
       const response = await fetch('/api/data-sources', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, type, config }),
+        body: JSON.stringify({ name, type, config, sourceChartType }),
       });
 
       const data = await response.json();

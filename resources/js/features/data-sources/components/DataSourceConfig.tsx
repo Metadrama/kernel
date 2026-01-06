@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Data Source Configuration Component (Refactored)
  * Orchestrates data source type selection and delegates to specialized components
  */
@@ -33,9 +33,11 @@ interface DataSourceConfigProps {
   value: DataSource;
   onChange: (value: DataSource) => void;
   disabled?: boolean;
+  /** The component type this data source is being configured for */
+  componentType?: string;
 }
 
-export function DataSourceConfig({ value, onChange, disabled }: DataSourceConfigProps) {
+export function DataSourceConfig({ value, onChange, disabled, componentType }: DataSourceConfigProps) {
   const { savedSources, loading: savedLoading, saveDataSource, deleteDataSource } = useSavedDataSources();
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [saveName, setSaveName] = useState('');
@@ -99,7 +101,7 @@ export function DataSourceConfig({ value, onChange, disabled }: DataSourceConfig
 
     setSaving(true);
     const { type, ...config } = value;
-    await saveDataSource(saveName.trim(), type as 'google-sheets' | 'api', config);
+    await saveDataSource(saveName.trim(), type as 'google-sheets' | 'api', config, componentType);
     setSaving(false);
     setSaveDialogOpen(false);
     setSaveName('');

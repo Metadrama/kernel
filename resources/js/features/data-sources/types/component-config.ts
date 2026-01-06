@@ -69,6 +69,8 @@ export interface SavedDataSource {
   config: Omit<GoogleSheetsDataSource, 'type'> | Omit<ApiDataSource, 'type'>;
   createdAt: string;
   updatedAt: string;
+  /** The chart type this source was originally created for (informational only) */
+  sourceChartType?: string;
 }
 
 // ============================================================================
