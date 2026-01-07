@@ -256,19 +256,6 @@ export interface TextConfig {
   dataField?: string; // Which field to display
 }
 
-// Legacy type alias for backwards compatibility
-export type HeadingLevel = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
-
-export interface HeadingConfig {
-  text?: string;
-  level?: HeadingLevel;
-  align?: TextAlign;
-  color?: string;
-  // Data binding (optional - can bind to a cell value)
-  dataSource?: DataSource;
-  dataField?: string; // Which field to display
-}
-
 // ============================================================================
 // KPI/Metric Component Configuration
 // ============================================================================
@@ -297,6 +284,35 @@ export interface KpiConfig {
   valueColor?: string;
   trendUpColor?: string;
   trendDownColor?: string;
+}
+
+// ============================================================================
+// Gauge Chart Component Configuration
+// ============================================================================
+
+export interface GaugeChartConfig {
+  dataSource: DataSource;
+  valueField?: string;
+  min?: number;
+  max?: number;
+  formatType?: 'number' | 'currency' | 'percent';
+  currencyCode?: string;
+  colors?: { primary?: string; track?: string };
+  showValue?: boolean;
+  showLabel?: boolean;
+  label?: string;
+}
+
+// ============================================================================
+// Image Component Configuration
+// ============================================================================
+
+export interface ImageConfig {
+  src?: string;
+  alt?: string;
+  objectFit?: 'contain' | 'cover' | 'fill' | 'none';
+  borderRadius?: number;
+  opacity?: number;
 }
 
 // ============================================================================
@@ -341,9 +357,10 @@ export interface TableConfig {
 
 export type ComponentConfig =
   | ChartConfig
-  | HeadingConfig
   | TextConfig
   | KpiConfig
+  | GaugeChartConfig
+  | ImageConfig
   | TableConfig;
 
 // ============================================================================
@@ -479,13 +496,6 @@ export const DEFAULT_TEXT_CONFIG: TextConfig = {
   opacity: 100,
 };
 
-// Legacy - kept for backwards compatibility
-export const DEFAULT_HEADING_CONFIG: HeadingConfig = {
-  text: 'Heading',
-  level: 'h2',
-  align: 'left',
-};
-
 export const DEFAULT_KPI_CONFIG: KpiConfig = {
   dataSource: { type: 'static' },
   title: 'Metric',
@@ -493,6 +503,37 @@ export const DEFAULT_KPI_CONFIG: KpiConfig = {
   showTrend: false,
   aggregation: 'sum',
   formatType: 'number',
+};
+
+export const DEFAULT_GAUGE_CHART_CONFIG: GaugeChartConfig = {
+  dataSource: { type: 'static' },
+  min: 0,
+  max: 100,
+  formatType: 'number',
+  showValue: true,
+  showLabel: true,
+  label: 'Value',
+  colors: { primary: '#3b82f6', track: '#e5e7eb' },
+};
+
+export const DEFAULT_IMAGE_CONFIG: ImageConfig = {
+  src: '',
+  alt: '',
+  objectFit: 'contain',
+  borderRadius: 0,
+  opacity: 100,
+};
+
+export const DEFAULT_TABLE_CONFIG: TableConfig = {
+  dataSource: { type: 'static' },
+  columns: [],
+  showTitle: false,
+  showHeader: true,
+  striped: false,
+  bordered: false,
+  compact: false,
+  pageSize: 10,
+  showPagination: false,
 };
 
 // ============================================================================
@@ -505,9 +546,12 @@ export function getDefaultConfig(componentType: string): ComponentConfig | undef
     'chart-bar': DEFAULT_BAR_CHART_CONFIG,
     'chart-combo': DEFAULT_COMBO_CHART_CONFIG,
     'chart-doughnut': DEFAULT_DOUGHNUT_CHART_CONFIG,
+    'chart-gauge': DEFAULT_GAUGE_CHART_CONFIG,
     'text': DEFAULT_TEXT_CONFIG,
-    'heading': DEFAULT_HEADING_CONFIG, // Legacy support
+    'heading': DEFAULT_TEXT_CONFIG, // Legacy alias -> text
     'kpi': DEFAULT_KPI_CONFIG,
+    'image': DEFAULT_IMAGE_CONFIG,
+    'table': DEFAULT_TABLE_CONFIG,
   };
 
   return defaults[componentType];

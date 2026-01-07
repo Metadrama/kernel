@@ -12,7 +12,7 @@
  *   and clipped by the artboard (e.g. parent has `overflow: hidden` when clip is enabled).
  */
 
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { getGuideBounds } from '@/features/artboard/lib/alignment-helpers';
 import type { AlignmentGuide, ComponentBounds } from '@/features/artboard/lib/alignment-helpers';
 
@@ -46,6 +46,27 @@ export default function AlignmentGuidesOverlay({
   opacity = 0.7,
   zIndex = 60,
 }: AlignmentGuidesOverlayProps) {
+  // Track guides for snap feedback animation
+  const prevGuidesRef = useRef<string[]>([]);
+  const [newGuideKeys, setNewGuideKeys] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const currentKeys = guides.map((g) => `${g.type}-${g.position}`);
+    const prevKeys = prevGuidesRef.current;
+    
+    // Find newly added guides
+    const newKeys = currentKeys.filter((k) => !prevKeys.includes(k));
+    
+    if (newKeys.length > 0) {
+      setNewGuideKeys(new Set(newKeys));
+      // Clear the "new" state after animation
+      const timer = setTimeout(() => setNewGuideKeys(new Set()), 200);
+      return () => clearTimeout(timer);
+    }
+    
+    prevGuidesRef.current = currentKeys;
+  }, [guides]);
+
   if (!guides || guides.length === 0) return null;
 
   return (
@@ -58,6 +79,8 @@ export default function AlignmentGuidesOverlay({
     >
       {guides.map((guide) => {
         const { start, end } = getGuideBounds(guide, components);
+        const guideKey = `${guide.type}-${guide.position}`;
+        const isNew = newGuideKeys.has(guideKey);
 
         if (guide.type === 'vertical') {
           const top = start;
@@ -66,14 +89,16 @@ export default function AlignmentGuidesOverlay({
           return (
             <div
               key={`v-${guide.position}`}
-              className="absolute"
+              className="absolute transition-all duration-150 ease-out"
               style={{
                 left: guide.position,
                 top,
                 width: thicknessPx,
                 height,
                 backgroundColor: color,
-                opacity,
+                opacity: isNew ? 1 : opacity,
+                boxShadow: isNew ? `0 0 8px ${color}` : undefined,
+                transform: isNew ? 'scaleY(1.02)' : undefined,
               }}
             />
           );
@@ -86,14 +111,16 @@ export default function AlignmentGuidesOverlay({
         return (
           <div
             key={`h-${guide.position}`}
-            className="absolute"
+            className="absolute transition-all duration-150 ease-out"
             style={{
               top: guide.position,
               left,
               height: thicknessPx,
               width,
               backgroundColor: color,
-              opacity,
+              opacity: isNew ? 1 : opacity,
+              boxShadow: isNew ? `0 0 8px ${color}` : undefined,
+              transform: isNew ? 'scaleX(1.02)' : undefined,
             }}
           />
         );

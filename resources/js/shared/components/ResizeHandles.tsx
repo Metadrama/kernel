@@ -33,12 +33,21 @@ export function ResizeHandles({ isSelected, inverseScale, onResizeStart }: Resiz
         };
     };
 
+    // Corner handles are more prominent
+    const isCorner = (handle: ResizeHandle) => ['nw', 'ne', 'se', 'sw'].includes(handle);
+
     return (
         <>
             {handles.map((handle) => (
                 <div
                     key={handle}
-                    className="resize-handle absolute z-20 rounded-full border-2 border-primary bg-background"
+                    className={`
+                        resize-handle absolute z-20 rounded-full border-2 border-primary bg-background
+                        transition-all duration-150 ease-out
+                        hover:scale-125 hover:border-primary hover:bg-primary hover:shadow-md
+                        active:scale-110 active:bg-primary/80
+                        ${isCorner(handle) ? 'opacity-100' : 'opacity-70 hover:opacity-100'}
+                    `}
                     style={getHandleStyle(handle)}
                     onMouseDown={(e) => onResizeStart(e, handle)}
                 />

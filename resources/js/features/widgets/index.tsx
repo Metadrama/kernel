@@ -7,6 +7,10 @@ import { lazy, Suspense } from 'react';
 const ChartComponent = lazy(() => import('./components/ChartComponent'));
 const ChartLegendComponent = lazy(() => import('./components/ChartLegendComponent'));
 const TextComponent = lazy(() => import('./components/TextComponent'));
+const KpiComponent = lazy(() => import('./components/KpiComponent'));
+const GaugeChartComponent = lazy(() => import('./components/GaugeChartComponent'));
+const ImageComponent = lazy(() => import('./components/ImageComponent'));
+const TableComponent = lazy(() => import('./components/TableComponent'));
 
 // Loading placeholder
 function ComponentLoader() {
@@ -47,6 +51,11 @@ export const COMPONENT_REGISTRY: Record<string, React.ComponentType<{ config?: R
       <ChartComponent config={{ ...config, chartType: 'combo' } as any} />
     </Suspense>
   ),
+  'chart-gauge': ({ config }) => (
+    <Suspense fallback={<ComponentLoader />}>
+      <GaugeChartComponent config={config as any} />
+    </Suspense>
+  ),
   'text': ({ config, onConfigChange }) => (
     <Suspense fallback={<ComponentLoader />}>
       <TextComponent config={config} onConfigChange={onConfigChange} />
@@ -55,6 +64,27 @@ export const COMPONENT_REGISTRY: Record<string, React.ComponentType<{ config?: R
   'chart-legend': ({ config }) => (
     <Suspense fallback={<ComponentLoader />}>
       <ChartLegendComponent config={config} />
+    </Suspense>
+  ),
+  'kpi': ({ config }) => (
+    <Suspense fallback={<ComponentLoader />}>
+      <KpiComponent config={config as any} />
+    </Suspense>
+  ),
+  'image': ({ config }) => (
+    <Suspense fallback={<ComponentLoader />}>
+      <ImageComponent config={config as any} />
+    </Suspense>
+  ),
+  'table': ({ config }) => (
+    <Suspense fallback={<ComponentLoader />}>
+      <TableComponent config={config as any} />
+    </Suspense>
+  ),
+  // Legacy alias: 'heading' -> 'text' (heading is deprecated, use text with large fontSize)
+  'heading': ({ config, onConfigChange }) => (
+    <Suspense fallback={<ComponentLoader />}>
+      <TextComponent config={config} onConfigChange={onConfigChange} />
     </Suspense>
   ),
 };

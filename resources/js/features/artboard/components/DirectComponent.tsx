@@ -8,6 +8,7 @@
  * - Component rendering
  */
 
+import { useState } from 'react';
 import { cn } from '@/shared/lib/utils';
 import type { ArtboardComponent } from '@/features/dashboard/types/dashboard';
 import type { ComponentBounds, AlignmentGuide } from '@/features/artboard/lib/alignment-helpers';
@@ -58,6 +59,9 @@ export function DirectComponent({
         onGuidesChange,
     });
 
+    // Hover state for micro-interactions
+    const [isHovered, setIsHovered] = useState(false);
+
     // Counter-scale to keep components at true pixel size when scaleWithZoom is false
     const inverseScale = scaleWithZoom ? 1 : (scale === 0 ? 1 : 1 / scale);
 
@@ -89,9 +93,12 @@ export function DirectComponent({
                 data-component-id={component.instanceId}
                 className={cn(
                     'absolute select-none',
+                    'transition-all duration-150 ease-out',
                     isDragging && 'cursor-grabbing',
                     !isDragging && !locked && 'cursor-move',
-                    locked && 'cursor-not-allowed opacity-60'
+                    locked && 'cursor-not-allowed opacity-60',
+                    // Micro-interaction: subtle lift on hover (non-selected)
+                    !isSelected && isHovered && !isDragging && !isResizing && 'ring-1 ring-primary/20'
                 )}
                 style={{
                     left: displayRect.x,
@@ -100,22 +107,36 @@ export function DirectComponent({
                     height: displayRect.height,
                     zIndex: position.zIndex,
                     pointerEvents: 'auto',
-                    transition: isDragging || isResizing ? 'none' : undefined,
+                    // Micro-interaction: shadow lift on drag
+                    boxShadow: isDragging
+                        ? '0 20px 40px -10px rgba(0,0,0,0.15), 0 8px 16px -8px rgba(0,0,0,0.1)'
+                        : isHovered && !isSelected
+                            ? '0 4px 12px -2px rgba(0,0,0,0.08)'
+                            : undefined,
+                    // Micro-interaction: scale on drag pickup
+                    transform: isDragging ? 'scale(1.02)' : undefined,
+                    transition: isDragging || isResizing
+                        ? 'box-shadow 0.15s ease-out'
+                        : 'box-shadow 0.2s ease-out, ring 0.15s ease-out, transform 0.15s ease-out',
                 }}
                 onMouseDown={handleMouseDown}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
             >
-                {/* Selection border */}
-                {isSelected && (
-                    <div
-                        className="pointer-events-none absolute inset-0 border-2 border-primary"
-                        style={{
-                            transform: `scale(${inverseScale})`,
-                            transformOrigin: 'top left',
-                            width: `${displayRect.width / inverseScale}px`,
-                            height: `${displayRect.height / inverseScale}px`,
-                        }}
-                    />
-                )}
+                {/* Selection border with micro-interaction */}
+                <div
+                    className={cn(
+                        'pointer-events-none absolute inset-0 border-2 border-primary',
+                        'transition-all duration-150 ease-out',
+                        isSelected ? 'opacity-100' : 'opacity-0 scale-[0.98]'
+                    )}
+                    style={{
+                        transform: `scale(${inverseScale})`,
+                        transformOrigin: 'top left',
+                        width: `${displayRect.width / inverseScale}px`,
+                        height: `${displayRect.height / inverseScale}px`,
+                    }}
+                />
 
                 {/* Resize handles */}
                 <ResizeHandles isSelected={isSelected} inverseScale={inverseScale} onResizeStart={handleResizeStart} />

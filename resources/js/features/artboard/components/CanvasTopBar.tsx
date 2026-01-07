@@ -274,12 +274,12 @@ export default function CanvasTopBar({
                             </div>
 
                             <div className="p-2">
-                                <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Search workspacesâ€¦" className="h-8" />
+                                <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Search workspaces…" className="h-8" />
                             </div>
 
                             <div className="max-h-64 overflow-y-auto p-1">
                                 {isLoadingList ? (
-                                    <div className="p-3 text-xs text-muted-foreground">Loadingâ€¦</div>
+                                    <div className="p-3 text-xs text-muted-foreground">Loading…</div>
                                 ) : filteredWorkspaces.length === 0 ? (
                                     <div className="p-3 text-xs text-muted-foreground">No workspaces found.</div>
                                 ) : (
@@ -348,7 +348,7 @@ export default function CanvasTopBar({
                     )}
                 </div>
 
-                <span className="text-xs text-muted-foreground">â€¢</span>
+                <span className="text-xs text-muted-foreground">•</span>
                 <span className="text-xs text-muted-foreground">
                     {artboardCount} {artboardCount === 1 ? 'artboard' : 'artboards'}
                 </span>
@@ -393,8 +393,8 @@ export default function CanvasTopBar({
                         saveStatus === 'saved'
                             ? 'bg-green-600 hover:bg-green-700'
                             : saveStatus === 'error'
-                              ? 'bg-red-600 hover:bg-red-700'
-                              : 'bg-black hover:bg-black/90',
+                                ? 'bg-red-600 hover:bg-red-700'
+                                : 'bg-black hover:bg-black/90',
                     )}
                     onClick={onSave}
                     disabled={isSaving}

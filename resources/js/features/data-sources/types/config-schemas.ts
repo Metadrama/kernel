@@ -693,24 +693,6 @@ export const TEXT_SCHEMA: ComponentConfigSchema = {
       group: 'Display',
       description: 'Custom font size in pixels (overrides preset)',
     },
-    // Typography - Font Size (preset)
-    {
-      key: 'fontSize',
-      label: 'Font Size Preset',
-      type: 'select',
-      defaultValue: 'base',
-      group: 'Display',
-      options: [
-        { value: 'xs', label: 'Extra Small' },
-        { value: 'sm', label: 'Small' },
-        { value: 'base', label: 'Base' },
-        { value: 'lg', label: 'Large' },
-        { value: 'xl', label: 'Extra Large' },
-        { value: '2xl', label: '2XL' },
-        { value: '3xl', label: '3XL' },
-        { value: '4xl', label: '4XL' },
-      ],
-    },
     // Typography - Font Weight
     {
       key: 'fontWeight',
@@ -830,54 +812,6 @@ export const TEXT_SCHEMA: ComponentConfigSchema = {
       step: 5,
       group: 'Settings',
       description: 'Text transparency (0-100%)',
-    },
-  ],
-};
-
-// Legacy schema for backwards compatibility
-export const HEADING_SCHEMA: ComponentConfigSchema = {
-  componentType: 'heading',
-  label: 'Heading',
-  fields: [
-    {
-      key: 'text',
-      label: 'Text',
-      type: 'text',
-      defaultValue: 'Heading',
-      group: 'Display',
-    },
-    {
-      key: 'level',
-      label: 'Heading Level',
-      type: 'select',
-      defaultValue: 'h2',
-      group: 'Display',
-      options: [
-        { value: 'h1', label: 'H1 - Largest' },
-        { value: 'h2', label: 'H2' },
-        { value: 'h3', label: 'H3' },
-        { value: 'h4', label: 'H4' },
-        { value: 'h5', label: 'H5' },
-        { value: 'h6', label: 'H6 - Smallest' },
-      ],
-    },
-    {
-      key: 'align',
-      label: 'Alignment',
-      type: 'select',
-      defaultValue: 'left',
-      group: 'Display',
-      options: [
-        { value: 'left', label: 'Left' },
-        { value: 'center', label: 'Center' },
-        { value: 'right', label: 'Right' },
-      ],
-    },
-    {
-      key: 'color',
-      label: 'Color',
-      type: 'color',
-      group: 'Display',
     },
   ],
 };
@@ -1045,6 +979,244 @@ export const KPI_SCHEMA: ComponentConfigSchema = {
 };
 
 // ============================================================================
+// Gauge Chart Config Schema
+// ============================================================================
+
+export const GAUGE_CHART_SCHEMA: ComponentConfigSchema = {
+  componentType: 'chart-gauge',
+  label: 'Gauge Chart',
+  fields: [
+    DATA_SOURCE_FIELD,
+    {
+      key: 'valueField',
+      label: 'Value Column',
+      type: 'column-picker',
+      group: 'Data',
+      description: 'Column containing the gauge value',
+      showWhen: { field: 'dataSource.type', operator: 'not-equals', value: 'static' },
+    },
+    {
+      key: 'label',
+      label: 'Label',
+      type: 'text',
+      defaultValue: 'Value',
+      group: 'Display',
+    },
+    {
+      key: 'min',
+      label: 'Minimum Value',
+      type: 'number',
+      defaultValue: 0,
+      group: 'Settings',
+    },
+    {
+      key: 'max',
+      label: 'Maximum Value',
+      type: 'number',
+      defaultValue: 100,
+      group: 'Settings',
+    },
+    {
+      key: 'formatType',
+      label: 'Format',
+      type: 'select',
+      defaultValue: 'number',
+      group: 'Display',
+      options: [
+        { value: 'number', label: 'Number' },
+        { value: 'currency', label: 'Currency' },
+        { value: 'percent', label: 'Percentage' },
+      ],
+    },
+    {
+      key: 'currencyCode',
+      label: 'Currency',
+      type: 'select',
+      defaultValue: 'MYR',
+      group: 'Display',
+      options: [
+        { value: 'MYR', label: 'MYR (RM)' },
+        { value: 'USD', label: 'USD ($)' },
+        { value: 'EUR', label: 'EUR (€)' },
+        { value: 'GBP', label: 'GBP (£)' },
+      ],
+      showWhen: { field: 'formatType', operator: 'equals', value: 'currency' },
+    },
+    {
+      key: 'showValue',
+      label: 'Show Value',
+      type: 'boolean',
+      defaultValue: true,
+      group: 'Display',
+    },
+    {
+      key: 'showLabel',
+      label: 'Show Label',
+      type: 'boolean',
+      defaultValue: true,
+      group: 'Display',
+    },
+    {
+      key: 'colors.primary',
+      label: 'Gauge Color',
+      type: 'color',
+      defaultValue: '#3b82f6',
+      group: 'Display',
+    },
+    {
+      key: 'colors.track',
+      label: 'Track Color',
+      type: 'color',
+      defaultValue: '#e5e7eb',
+      group: 'Display',
+    },
+  ],
+};
+
+// ============================================================================
+// Image Config Schema
+// ============================================================================
+
+export const IMAGE_SCHEMA: ComponentConfigSchema = {
+  componentType: 'image',
+  label: 'Image',
+  fields: [
+    {
+      key: 'src',
+      label: 'Image URL',
+      type: 'text',
+      group: 'Display',
+      description: 'URL of the image to display',
+    },
+    {
+      key: 'alt',
+      label: 'Alt Text',
+      type: 'text',
+      group: 'Display',
+      description: 'Alternative text for accessibility',
+    },
+    {
+      key: 'objectFit',
+      label: 'Object Fit',
+      type: 'select',
+      defaultValue: 'contain',
+      group: 'Settings',
+      options: [
+        { value: 'contain', label: 'Contain' },
+        { value: 'cover', label: 'Cover' },
+        { value: 'fill', label: 'Fill' },
+        { value: 'none', label: 'None' },
+      ],
+    },
+    {
+      key: 'borderRadius',
+      label: 'Border Radius',
+      type: 'number',
+      defaultValue: 0,
+      min: 0,
+      max: 100,
+      group: 'Settings',
+    },
+    {
+      key: 'opacity',
+      label: 'Opacity',
+      type: 'range',
+      defaultValue: 100,
+      min: 0,
+      max: 100,
+      step: 5,
+      group: 'Settings',
+    },
+  ],
+};
+
+// ============================================================================
+// Table Config Schema
+// ============================================================================
+
+export const TABLE_SCHEMA: ComponentConfigSchema = {
+  componentType: 'table',
+  label: 'Table',
+  fields: [
+    DATA_SOURCE_FIELD,
+    {
+      key: 'dataSource.labelColumn',
+      label: 'Label Column',
+      type: 'column-picker',
+      group: 'Data',
+      description: 'Column for row labels',
+      showWhen: { field: 'dataSource.type', operator: 'not-equals', value: 'static' },
+    },
+    {
+      key: 'dataSource.valueColumn',
+      label: 'Value Column',
+      type: 'column-picker',
+      group: 'Data',
+      description: 'Column for row values',
+      showWhen: { field: 'dataSource.type', operator: 'not-equals', value: 'static' },
+    },
+    {
+      key: 'title',
+      label: 'Title',
+      type: 'text',
+      group: 'Display',
+    },
+    {
+      key: 'showTitle',
+      label: 'Show Title',
+      type: 'boolean',
+      defaultValue: false,
+      group: 'Display',
+    },
+    {
+      key: 'showHeader',
+      label: 'Show Header',
+      type: 'boolean',
+      defaultValue: true,
+      group: 'Display',
+    },
+    {
+      key: 'striped',
+      label: 'Striped Rows',
+      type: 'boolean',
+      defaultValue: false,
+      group: 'Display',
+    },
+    {
+      key: 'bordered',
+      label: 'Bordered',
+      type: 'boolean',
+      defaultValue: false,
+      group: 'Display',
+    },
+    {
+      key: 'compact',
+      label: 'Compact Mode',
+      type: 'boolean',
+      defaultValue: false,
+      group: 'Display',
+    },
+    {
+      key: 'showPagination',
+      label: 'Show Pagination',
+      type: 'boolean',
+      defaultValue: false,
+      group: 'Settings',
+    },
+    {
+      key: 'pageSize',
+      label: 'Rows Per Page',
+      type: 'number',
+      defaultValue: 10,
+      min: 5,
+      max: 100,
+      group: 'Settings',
+      showWhen: { field: 'showPagination', operator: 'equals', value: true },
+    },
+  ],
+};
+
+// ============================================================================
 // Schema Registry
 // ============================================================================
 
@@ -1053,9 +1225,12 @@ export const CONFIG_SCHEMAS: Record<string, ComponentConfigSchema> = {
   'chart-bar': BAR_CHART_SCHEMA,
   'chart-combo': COMBO_CHART_SCHEMA,
   'chart-doughnut': DOUGHNUT_CHART_SCHEMA,
+  'chart-gauge': GAUGE_CHART_SCHEMA,
   'text': TEXT_SCHEMA,
-  'heading': HEADING_SCHEMA, // Legacy support
+  'heading': TEXT_SCHEMA, // Legacy alias -> text
   'kpi': KPI_SCHEMA,
+  'image': IMAGE_SCHEMA,
+  'table': TABLE_SCHEMA,
   'chart-legend': CHART_LEGEND_SCHEMA,
 };
 

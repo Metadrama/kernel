@@ -11,7 +11,7 @@ import { getDefaultSize } from '@/shared/lib/component-sizes';
 import type { ArtboardSchema } from '@/features/artboard/types/artboard';
 import type { ArtboardComponent } from '@/features/dashboard/types/dashboard';
 import { Lock, Trash2, Unlock } from 'lucide-react';
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import AlignmentGuidesOverlay from './AlignmentGuidesOverlay';
 import { ArtboardHeader } from './ArtboardHeader';
 
@@ -48,6 +48,7 @@ export default function ArtboardContainer({
 
     const containerRef = useRef<HTMLDivElement>(null);
     const getDragged = useDraggedComponentRef();
+    const [isHovered, setIsHovered] = useState(false);
 
     const siblingBounds = useMemo(
         () =>
@@ -197,25 +198,33 @@ export default function ArtboardContainer({
                     <div
                         ref={containerRef}
                         data-artboard-id={artboard.id}
-                        className={`absolute ${isDragging ? 'cursor-grabbing' : ''}`}
+                        className={`absolute transition-shadow duration-200 ease-out ${isDragging ? 'cursor-grabbing' : ''}`}
                         style={{
                             left: displayPosition.x,
                             top: displayPosition.y,
                             width: artboard.dimensions.widthPx,
                             height: artboard.dimensions.heightPx,
                             zIndex: zIndex,
-                            transition: isDragging ? 'none' : undefined,
+                            transition: isDragging ? 'none' : 'box-shadow 0.2s ease-out',
                         }}
                         onClick={handleArtboardClick}
+                        onMouseEnter={() => setIsHovered(true)}
+                        onMouseLeave={() => setIsHovered(false)}
                         onDragOver={handleDragOver}
                         onDragLeave={handleDragLeave}
                         onDrop={handleDrop}
                     >
-                        {/* Background */}
+                        {/* Background with hover/selection micro-interactions */}
                         <div
-                            className={`absolute inset-0 shadow-2xl ${isSelected ? 'ring-2 ring-primary/30' : 'ring-1 ring-border'}`}
+                            className={`
+                                absolute inset-0 shadow-2xl transition-all duration-200 ease-out
+                                ${isSelected ? 'ring-2 ring-primary/40' : isHovered ? 'ring-1 ring-primary/20' : 'ring-1 ring-border'}
+                            `}
                             style={{
                                 backgroundColor: artboard.backgroundColor,
+                                boxShadow: isHovered && !isSelected
+                                    ? '0 25px 50px -12px rgba(0, 0, 0, 0.15)'
+                                    : undefined,
                             }}
                         />
 
