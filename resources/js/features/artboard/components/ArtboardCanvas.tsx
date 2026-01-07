@@ -189,6 +189,32 @@ export default function ArtboardCanvas() {
         [selectedComponent, setArtboards],
     );
 
+    const handleComponentPositionChange = useCallback(
+        (instanceId: string, positionUpdates: Partial<{ x: number; y: number; width: number; height: number; rotation: number }>) => {
+            if (!selectedComponent) return;
+            setArtboards((prev) =>
+                prev.map((a) => {
+                    if (a.id !== selectedComponent.artboardId) return a;
+                    return {
+                        ...a,
+                        components: a.components.map((c) =>
+                            c.instanceId === instanceId
+                                ? { ...c, position: { ...c.position, ...positionUpdates } }
+                                : c
+                        ),
+                        updatedAt: new Date().toISOString(),
+                    };
+                }),
+            );
+            setSelectedComponent((prev) =>
+                prev?.component.instanceId === instanceId
+                    ? { ...prev, component: { ...prev.component, position: { ...prev.component.position, ...positionUpdates } } }
+                    : prev,
+            );
+        },
+        [selectedComponent, setArtboards],
+    );
+
     const handleCloseInspector = useCallback(() => {
         setShowInspector(false);
         setSelectedComponent(null);
@@ -345,6 +371,7 @@ export default function ArtboardCanvas() {
                 <ComponentInspector
                     component={selectedComponent.component}
                     onConfigChange={handleComponentConfigChange}
+                    onPositionChange={handleComponentPositionChange}
                     onClose={handleCloseInspector}
                 />
             )}

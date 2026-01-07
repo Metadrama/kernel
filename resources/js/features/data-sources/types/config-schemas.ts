@@ -676,142 +676,27 @@ export const TEXT_SCHEMA: ComponentConfigSchema = {
     // Content
     {
       key: 'text',
-      label: 'Text Content',
+      label: '',
       type: 'text',
       defaultValue: 'Text',
       group: 'Display',
       description: 'The text to display',
     },
-    // Font Size (px) - Custom override
+    // Typography Panel - all typography controls in one Figma-style panel
     {
-      key: 'fontSizePx',
-      label: 'Font Size (px)',
-      type: 'number',
-      min: 8,
-      max: 200,
-      step: 1,
-      group: 'Display',
-      description: 'Custom font size in pixels (overrides preset)',
+      key: '_typography',
+      label: 'Typography',
+      type: 'typography',
+      group: 'Typography',
+      description: 'Font, size, weight, alignment, and text styles',
     },
-    // Typography - Font Weight
-    {
-      key: 'fontWeight',
-      label: 'Font Weight',
-      type: 'select',
-      defaultValue: 'normal',
-      group: 'Display',
-      options: [
-        { value: 'thin', label: 'Thin' },
-        { value: 'light', label: 'Light' },
-        { value: 'normal', label: 'Normal' },
-        { value: 'medium', label: 'Medium' },
-        { value: 'semibold', label: 'Semibold' },
-        { value: 'bold', label: 'Bold' },
-        { value: 'extrabold', label: 'Extra Bold' },
-      ],
-    },
-    // Typography - Font Style
-    {
-      key: 'fontStyle',
-      label: 'Font Style',
-      type: 'select',
-      defaultValue: 'normal',
-      group: 'Display',
-      options: [
-        { value: 'normal', label: 'Normal' },
-        { value: 'italic', label: 'Italic' },
-      ],
-    },
-    // Typography - Text Decoration
-    {
-      key: 'textDecoration',
-      label: 'Text Decoration',
-      type: 'select',
-      defaultValue: 'none',
-      group: 'Display',
-      options: [
-        { value: 'none', label: 'None' },
-        { value: 'underline', label: 'Underline' },
-        { value: 'line-through', label: 'Strikethrough' },
-      ],
-    },
-    // Layout - Alignment
-    {
-      key: 'align',
-      label: 'Alignment',
-      type: 'select',
-      defaultValue: 'left',
-      group: 'Display',
-      options: [
-        { value: 'left', label: 'Left' },
-        { value: 'center', label: 'Center' },
-        { value: 'right', label: 'Right' },
-        { value: 'justify', label: 'Justify' },
-      ],
-    },
-    // Typography - Line Height
-    {
-      key: 'lineHeight',
-      label: 'Line Height',
-      type: 'select',
-      defaultValue: 'normal',
-      group: 'Settings',
-      options: [
-        { value: 'tight', label: 'Tight' },
-        { value: 'snug', label: 'Snug' },
-        { value: 'normal', label: 'Normal' },
-        { value: 'relaxed', label: 'Relaxed' },
-        { value: 'loose', label: 'Loose' },
-      ],
-    },
-    // Typography - Letter Spacing
-    {
-      key: 'letterSpacing',
-      label: 'Letter Spacing',
-      type: 'select',
-      defaultValue: 'normal',
-      group: 'Settings',
-      options: [
-        { value: 'tighter', label: 'Tighter' },
-        { value: 'tight', label: 'Tight' },
-        { value: 'normal', label: 'Normal' },
-        { value: 'wide', label: 'Wide' },
-        { value: 'wider', label: 'Wider' },
-      ],
-    },
-    // Typography - Text Transform
-    {
-      key: 'textTransform',
-      label: 'Text Transform',
-      type: 'select',
-      defaultValue: 'none',
-      group: 'Settings',
-      options: [
-        { value: 'none', label: 'None' },
-        { value: 'uppercase', label: 'UPPERCASE' },
-        { value: 'lowercase', label: 'lowercase' },
-        { value: 'capitalize', label: 'Capitalize' },
-      ],
-    },
-    // Styling - Color
+    // Fill - Color with opacity (Figma style)
     {
       key: 'color',
-      label: 'Text Color',
-      type: 'color',
-      group: 'Display',
-      description: 'Override the default text color',
-    },
-    // Styling - Opacity
-    {
-      key: 'opacity',
-      label: 'Opacity',
-      type: 'range',
-      defaultValue: 100,
-      min: 0,
-      max: 100,
-      step: 5,
-      group: 'Settings',
-      description: 'Text transparency (0-100%)',
+      label: 'Fill',
+      type: 'color-fill',
+      group: 'Fill',
+      description: 'Text color and opacity',
     },
   ],
 };
@@ -1244,7 +1129,9 @@ export function getConfigSchema(componentType: string): ComponentConfigSchema | 
 
 export const CONFIG_GROUPS = [
   { id: 'Data', label: 'Data', icon: 'Database' },
-  { id: 'Display', label: 'Appearance', icon: 'Palette' },
+  { id: 'Display', label: 'Content', icon: 'Type' },
+  { id: 'Typography', label: 'Typography', icon: 'ALargeSmall' },
+  { id: 'Fill', label: 'Fill', icon: 'Palette' },
   { id: 'Settings', label: 'Settings', icon: 'Sliders' },
 ] as const;
 

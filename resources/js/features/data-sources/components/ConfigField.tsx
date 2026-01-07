@@ -14,17 +14,47 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/shared/components/ui/select';
+import { ColorInput } from '@/shared/components/ui/color-input';
 import type { ConfigFieldSchema } from '@/features/data-sources/types/component-config';
+import { TypographyFields } from './TypographyFields';
 
 interface ConfigFieldProps {
   field: ConfigFieldSchema;
   value: unknown;
   onChange: (value: unknown) => void;
   disabled?: boolean;
+  // For composite fields like typography that need access to full config
+  config?: Record<string, unknown>;
+  onConfigChange?: (key: string, value: unknown) => void;
 }
 
-export function ConfigField({ field, value, onChange, disabled }: ConfigFieldProps) {
+export function ConfigField({ field, value, onChange, disabled, config, onConfigChange }: ConfigFieldProps) {
   const id = `config-${field.key}`;
+  
+  // Typography composite field - renders the full typography panel
+  if (field.type === 'typography' && config && onConfigChange) {
+    return (
+      <TypographyFields
+        config={config}
+        onChange={onConfigChange}
+        disabled={disabled}
+      />
+    );
+  }
+
+  // Color-fill field - Figma-style color with opacity
+  if (field.type === 'color-fill' && config && onConfigChange) {
+    return (
+      <ColorInput
+        color={String(config.color || '#000000')}
+        opacity={Number(config.opacity ?? 100)}
+        onChange={(color) => onConfigChange('color', color)}
+        onOpacityChange={(opacity) => onConfigChange('opacity', opacity)}
+        showOpacity={true}
+        disabled={disabled}
+      />
+    );
+  }
   
   return (
     <div className="space-y-2">

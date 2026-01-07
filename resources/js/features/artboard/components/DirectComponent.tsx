@@ -113,8 +113,12 @@ export function DirectComponent({
                         : isHovered && !isSelected
                             ? '0 4px 12px -2px rgba(0,0,0,0.08)'
                             : undefined,
-                    // Micro-interaction: scale on drag pickup
-                    transform: isDragging ? 'scale(1.02)' : undefined,
+                    // Micro-interaction: scale on drag pickup + rotation
+                    transform: [
+                        position.rotation ? `rotate(${position.rotation}deg)` : '',
+                        isDragging ? 'scale(1.02)' : '',
+                    ].filter(Boolean).join(' ') || undefined,
+                    transformOrigin: 'center center',
                     transition: isDragging || isResizing
                         ? 'box-shadow 0.15s ease-out'
                         : 'box-shadow 0.2s ease-out, ring 0.15s ease-out, transform 0.15s ease-out',

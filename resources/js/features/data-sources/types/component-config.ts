@@ -238,14 +238,20 @@ export type LetterSpacing = 'tighter' | 'tight' | 'normal' | 'wide' | 'wider';
 
 export type TextTransform = 'none' | 'uppercase' | 'lowercase' | 'capitalize';
 
+export type FontFamily = 'inter' | 'roboto' | 'open-sans' | 'lato' | 'poppins' | 'montserrat' | 'source-sans-pro' | 'nunito' | 'raleway' | 'ubuntu' | 'system-ui' | 'serif' | 'mono';
+
+export type VerticalAlign = 'top' | 'middle' | 'bottom';
+
 export interface TextConfig {
   text?: string;
+  fontFamily?: FontFamily;
   fontSize?: FontSize;
   fontSizePx?: number; // Custom px value (overrides fontSize preset)
   fontWeight?: FontWeight;
   fontStyle?: FontStyle;
   textDecoration?: TextDecoration;
   align?: TextAlign;
+  verticalAlign?: VerticalAlign;
   color?: string;
   lineHeight?: LineHeight;
   letterSpacing?: LetterSpacing;
@@ -375,7 +381,12 @@ export type FieldType =
   | 'color'
   | 'range'
   | 'data-source'
-  | 'column-picker';
+  | 'column-picker'
+  | 'typography'      // Figma-style typography panel
+  | 'font-picker'     // Font family dropdown
+  | 'alignment-icons' // Icon toggle group for alignment
+  | 'style-toggles'   // B/I/U/S style buttons
+  | 'color-fill';     // Color with opacity
 
 export interface ConfigFieldSchema {
   key: string;

@@ -1,22 +1,27 @@
 import { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import { FONT_FAMILIES } from '@/shared/components/ui/font-picker';
 
+export type FontFamily = 'inter' | 'roboto' | 'open-sans' | 'lato' | 'poppins' | 'montserrat' | 'source-sans-pro' | 'nunito' | 'raleway' | 'ubuntu' | 'system-ui' | 'serif' | 'mono';
 export type FontSize = 'xs' | 'sm' | 'base' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
 export type FontWeight = 'thin' | 'light' | 'normal' | 'medium' | 'semibold' | 'bold' | 'extrabold';
 export type FontStyle = 'normal' | 'italic';
 export type TextDecoration = 'none' | 'underline' | 'line-through';
 export type TextAlign = 'left' | 'center' | 'right' | 'justify';
+export type VerticalAlign = 'top' | 'middle' | 'bottom';
 export type LineHeight = 'tight' | 'snug' | 'normal' | 'relaxed' | 'loose';
 export type LetterSpacing = 'tighter' | 'tight' | 'normal' | 'wide' | 'wider';
 export type TextTransform = 'none' | 'uppercase' | 'lowercase' | 'capitalize';
 
 export interface TextComponentConfig {
   text?: string;
+  fontFamily?: FontFamily;
   fontSize?: FontSize;
   fontSizePx?: number; // Custom px value (overrides fontSize preset)
   fontWeight?: FontWeight;
   fontStyle?: FontStyle;
   textDecoration?: TextDecoration;
   align?: TextAlign;
+  verticalAlign?: VerticalAlign;
   color?: string;
   lineHeight?: LineHeight;
   letterSpacing?: LetterSpacing;
@@ -98,16 +103,21 @@ export default function TextComponent({
 }: TextComponentProps) {
   // Extract config values with defaults
   const text = config?.text ?? 'Text';
+  const fontFamily = config?.fontFamily ?? 'inter';
   const fontSize = config?.fontSize ?? 'base';
   const fontWeight = config?.fontWeight ?? 'normal';
   const fontStyle = config?.fontStyle ?? 'normal';
   const textDecoration = config?.textDecoration ?? 'none';
   const align = config?.align ?? 'left';
+  const verticalAlign = config?.verticalAlign ?? 'middle';
   const color = config?.color;
   const lineHeight = config?.lineHeight ?? 'normal';
   const letterSpacing = config?.letterSpacing ?? 'normal';
   const textTransform = config?.textTransform ?? 'none';
   const opacity = config?.opacity ?? 100;
+
+  // Get the CSS font-family string from the FONT_FAMILIES list
+  const fontFamilyCSS = FONT_FAMILIES.find((f) => f.value === fontFamily)?.fontFamily || 'Inter, system-ui, sans-serif';
 
   const [isEditing, setIsEditing] = useState(false);
   const [currentText, setCurrentText] = useState(text);
@@ -242,6 +252,7 @@ export default function TextComponent({
 
   // Build inline styles with base font size (scaling handled by transform)
   const textStyles: React.CSSProperties = {
+    fontFamily: fontFamilyCSS,
     color: color || undefined,
     opacity: opacity / 100,
     fontSize: `${baseFontSizePx}px`,
@@ -249,7 +260,7 @@ export default function TextComponent({
     transformOrigin: align === 'center' ? 'center center' : align === 'right' ? 'right center' : 'left center',
   };
 
-  // Container alignment classes for horizontal positioning
+  // Container alignment classes for horizontal and vertical positioning
   const containerAlignClass = {
     left: 'justify-start',
     center: 'justify-center',
@@ -257,11 +268,17 @@ export default function TextComponent({
     justify: 'justify-start',
   }[align];
 
+  const containerVerticalAlignClass = {
+    top: 'items-start',
+    middle: 'items-center',
+    bottom: 'items-end',
+  }[verticalAlign];
+
   if (isEditing) {
     return (
       <div
         ref={containerRef}
-        className={`h-full w-full flex items-center ${containerAlignClass} overflow-hidden`}
+        className={`h-full w-full flex ${containerVerticalAlignClass} ${containerAlignClass} overflow-hidden`}
       >
         <textarea
           ref={textareaRef}
@@ -271,6 +288,7 @@ export default function TextComponent({
           onKeyDown={handleKeyDown}
           className={`w-full bg-transparent border-b-2 border-primary outline-none resize-none min-h-[1.5em] ${textClasses} ${textAlignClasses[align]}`}
           style={{
+            fontFamily: fontFamilyCSS,
             color: color || undefined,
             opacity: opacity / 100,
             fontSize: `${baseFontSizePx}px`,
@@ -284,7 +302,7 @@ export default function TextComponent({
   return (
     <div
       ref={containerRef}
-      className={`h-full w-full flex items-center cursor-text ${containerAlignClass} hover:bg-muted/30 transition-colors overflow-hidden`}
+      className={`h-full w-full flex ${containerVerticalAlignClass} cursor-text ${containerAlignClass} hover:bg-muted/30 transition-colors overflow-hidden`}
       onDoubleClick={handleDoubleClick}
       title="Double-click to edit | Ctrl+B: Bold | Ctrl+I: Italic | Ctrl+U: Underline | Ctrl+Enter: Save"
     >

@@ -1,25 +1,29 @@
 /**
  * Component Inspector Panel
- * Right sidebar for configuring selected components
+ * Figma-style right sidebar for configuring selected components
  */
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/shared/components/ui/accordion';
 import { Button } from '@/shared/components/ui/button';
 import PanelHeader from '@/shared/components/ui/panel-header';
 import { ScrollArea } from '@/shared/components/ui/scroll-area';
+import { Separator } from '@/shared/components/ui/separator';
 import { useArtboardContext } from '@/core/context/ArtboardContext';
 import type { ConfigFieldSchema, DataSource } from '@/features/data-sources/types/component-config';
 import { CONFIG_GROUPS, getConfigSchema, type ConfigGroupId } from '@/features/data-sources/types/config-schemas';
-import type { ArtboardComponent } from '@/features/dashboard/types/dashboard';
+import type { ArtboardComponent, ComponentPosition } from '@/features/dashboard/types/dashboard';
 import * as Icons from 'lucide-react';
-import { Settings2, X } from 'lucide-react';
+import { Settings2, X, Move } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 import { ConfigField } from './ConfigField';
 import { DataSourceConfig } from './DataSourceConfig';
+import { PositionSection } from './PositionSection';
+import { FillSection } from './FillSection';
 
 interface ComponentInspectorProps {
     component: ArtboardComponent | null;
     onConfigChange: (instanceId: string, config: Record<string, unknown>) => void;
+    onPositionChange?: (instanceId: string, position: Partial<ComponentPosition>) => void;
     onClose: () => void;
 }
 
@@ -86,10 +90,11 @@ function getIcon(iconName: string) {
     return IconComponent || Icons.Settings;
 }
 
-export function ComponentInspector({ component, onConfigChange, onClose }: ComponentInspectorProps) {
+export function ComponentInspector({ component, onConfigChange, onPositionChange, onClose }: ComponentInspectorProps) {
     const schema = component ? getConfigSchema(component.componentType) : null;
 
     const config = useMemo(() => (component?.config || {}) as Record<string, unknown>, [component?.config]);
+    const position = component?.position;
     const { artboards } = useArtboardContext();
 
     // Group fields by their group property
@@ -129,6 +134,15 @@ export function ComponentInspector({ component, onConfigChange, onClose }: Compo
             onConfigChange(component.instanceId, newConfig);
         },
         [component, config, onConfigChange],
+    );
+
+    // Handle position change
+    const handlePositionChange = useCallback(
+        (updates: Partial<ComponentPosition>) => {
+            if (!component || !onPositionChange) return;
+            onPositionChange(component.instanceId, updates);
+        },
+        [component, onPositionChange],
     );
 
     // No component selected
@@ -178,8 +192,11 @@ export function ComponentInspector({ component, onConfigChange, onClose }: Compo
         return aIndex - bIndex;
     });
 
-    // Get default open groups
-    const defaultOpenGroups = sortedGroups.slice(0, 2).map(([id]) => id);
+    // Get default open groups. Always include Position.
+    const defaultOpenGroups = ['Position', ...sortedGroups.slice(0, 3).map(([id]) => id)];
+
+    // Check if this is a text component for special Fill handling
+    const isTextComponent = component.componentType === 'text' || component.componentType === 'heading';
 
     return (
         <div className="flex h-full w-80 flex-col border-l bg-background">
@@ -198,9 +215,26 @@ export function ComponentInspector({ component, onConfigChange, onClose }: Compo
                 }
             />
 
-            {/* Config Fields */}
+            {/* Scrollable Content */}
             <ScrollArea className="min-h-0 flex-1">
                 <Accordion type="multiple" defaultValue={defaultOpenGroups} className="w-full">
+                    {/* Position Section - First Accordion Item */}
+                    {position && onPositionChange && (
+                        <AccordionItem value="Position" className="border-b">
+                            <AccordionTrigger className="px-4 py-2 hover:bg-muted/50 hover:no-underline">
+                                <div className="flex items-center gap-2">
+                                    <Move className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-sm font-medium">Position</span>
+                                </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="px-4 pt-1 pb-3">
+                                <PositionSection
+                                    position={position}
+                                    onChange={handlePositionChange}
+                                />
+                            </AccordionContent>
+                        </AccordionItem>
+                    )}
                     {sortedGroups.map(([groupId, fields]) => {
                         const groupInfo = CONFIG_GROUPS.find((g) => g.id === groupId);
                         if (!groupInfo) return null;
@@ -210,17 +244,39 @@ export function ComponentInspector({ component, onConfigChange, onClose }: Compo
 
                         if (visibleFields.length === 0) return null;
 
+                        // Special handling for Fill group - use FillSection
+                        if (groupId === 'Fill' && isTextComponent) {
+                            return (
+                                <AccordionItem key={groupId} value={groupId} className="border-b">
+                                    <AccordionTrigger className="px-4 py-2 hover:bg-muted/50 hover:no-underline">
+                                        <div className="flex items-center gap-2">
+                                            <IconComponent className="h-4 w-4 text-muted-foreground" />
+                                            <span className="text-sm font-medium">{groupInfo.label}</span>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="px-4 pt-1 pb-3">
+                                        <FillSection
+                                            color={String(config.color || '#000000')}
+                                            opacity={Number(config.opacity ?? 100)}
+                                            onColorChange={(color) => handleFieldChange('color', color)}
+                                            onOpacityChange={(opacity) => handleFieldChange('opacity', opacity)}
+                                        />
+                                    </AccordionContent>
+                                </AccordionItem>
+                            );
+                        }
+
                         return (
                             <AccordionItem key={groupId} value={groupId} className="border-b">
-                                <AccordionTrigger className="px-4 py-3 hover:bg-muted/50 hover:no-underline">
+                                <AccordionTrigger className="px-4 py-2 hover:bg-muted/50 hover:no-underline">
                                     <div className="flex items-center gap-2">
                                         <IconComponent className="h-4 w-4 text-muted-foreground" />
                                         <span className="text-sm font-medium">{groupInfo.label}</span>
                                         <span className="text-xs text-muted-foreground">({visibleFields.length})</span>
                                     </div>
                                 </AccordionTrigger>
-                                <AccordionContent className="px-4 pt-1 pb-4">
-                                    <div className="space-y-4">
+                                <AccordionContent className="px-4 pt-1 pb-3">
+                                    <div className="space-y-3">
                                         {visibleFields.map((field) => {
                                             // Dynamically populate options for linkedChartId
                                             if (field.key === 'linkedChartId') {
@@ -263,6 +319,8 @@ export function ComponentInspector({ component, onConfigChange, onClose }: Compo
                                                     field={field}
                                                     value={getNestedValue(config, field.key)}
                                                     onChange={(value) => handleFieldChange(field.key, value)}
+                                                    config={config}
+                                                    onConfigChange={handleFieldChange}
                                                 />
                                             );
                                         })}
