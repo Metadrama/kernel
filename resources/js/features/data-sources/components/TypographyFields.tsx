@@ -72,14 +72,19 @@ export function TypographyFields({ config, onChange, disabled }: TypographyField
     const currentWeight = String(config.fontWeight || 'normal');
     const isBoldWeight = ['bold', 'semibold', 'extrabold'].includes(currentWeight);
     
-    if (hasBold && !isBoldWeight) {
-      onChange('fontWeight', 'bold');
-    } else if (!hasBold && isBoldWeight) {
-      onChange('fontWeight', 'normal');
-    }
-
     // Handle italic
-    onChange('fontStyle', values.includes('italic') ? 'italic' : 'normal');
+    const hasItalic = values.includes('italic');
+    const currentStyle = String(config.fontStyle || 'normal');
+    const isItalic = currentStyle === 'italic';
+    
+    // Only fire onChange for values that actually changed
+    if (hasBold !== isBoldWeight) {
+      onChange('fontWeight', hasBold ? 'bold' : 'normal');
+    }
+    
+    if (hasItalic !== isItalic) {
+      onChange('fontStyle', hasItalic ? 'italic' : 'normal');
+    }
   };
 
   return (

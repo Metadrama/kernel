@@ -286,7 +286,7 @@ export default function TextComponent({
           onChange={handleChange}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
-          className={`w-full bg-transparent border-b-2 border-primary outline-none resize-none min-h-[1.5em] ${textClasses} ${textAlignClasses[align]}`}
+          className={`w-full bg-transparent border-none outline-none resize-none min-h-[1.5em] focus:ring-1 focus:ring-primary/50 rounded ${textClasses} ${textAlignClasses[align]}`}
           style={{
             fontFamily: fontFamilyCSS,
             color: color || undefined,
@@ -302,13 +302,13 @@ export default function TextComponent({
   return (
     <div
       ref={containerRef}
-      className={`h-full w-full flex ${containerVerticalAlignClass} cursor-text ${containerAlignClass} hover:bg-muted/30 transition-colors overflow-hidden`}
+      className={`h-full w-full flex ${containerVerticalAlignClass} cursor-text ${containerAlignClass} transition-colors overflow-hidden`}
       onDoubleClick={handleDoubleClick}
       title="Double-click to edit | Ctrl+B: Bold | Ctrl+I: Italic | Ctrl+U: Underline | Ctrl+Enter: Save"
     >
       <span
         ref={textRef}
-        className={`${textClasses} text-foreground whitespace-nowrap`}
+        className={`${textClasses} text-foreground whitespace-pre-wrap break-words`}
         style={textStyles}
       >
         {currentText || 'Text'}
