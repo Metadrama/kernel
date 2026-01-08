@@ -9,7 +9,6 @@ export const AVAILABLE_COMPONENTS: ComponentCard[] = [
         icon: 'TrendingUp',
         category: 'charts',
         subcategory: 'basic',
-        isFavorite: true,
     },
     {
         id: 'chart-bar',
@@ -50,7 +49,6 @@ export const AVAILABLE_COMPONENTS: ComponentCard[] = [
         icon: 'Hash',
         category: 'data',
         subcategory: 'basic',
-        isFavorite: true,
     },
     {
         id: 'table',

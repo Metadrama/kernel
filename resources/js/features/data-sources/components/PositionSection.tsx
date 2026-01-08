@@ -16,7 +16,7 @@ interface PositionSectionProps {
 
 export function PositionSection({ position, onChange, disabled }: PositionSectionProps) {
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <div className="grid grid-cols-2 gap-1.5">
       {/* X */}
       <InlineScrubInput
         label="X"
@@ -62,8 +62,6 @@ export function PositionSection({ position, onChange, disabled }: PositionSectio
         max={360}
         disabled={disabled}
       />
-      {/* Empty slot for balance (or Corner Radius in future) */}
-      <div className="min-h-[28px]" />
     </div>
   );
 }

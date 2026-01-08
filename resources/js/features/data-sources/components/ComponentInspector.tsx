@@ -199,7 +199,7 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
     const isTextComponent = component.componentType === 'text' || component.componentType === 'heading';
 
     return (
-        <div className="flex h-full w-80 flex-col border-l bg-background">
+        <div className="flex h-full w-72 flex-col border-l bg-background">
             {/* Header */}
             <PanelHeader
                 left={
@@ -221,13 +221,13 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
                     {/* Position Section - First Accordion Item */}
                     {position && onPositionChange && (
                         <AccordionItem value="Position" className="border-b">
-                            <AccordionTrigger className="px-4 py-2 hover:bg-muted/50 hover:no-underline">
+                            <AccordionTrigger className="px-3 py-1.5 hover:bg-muted/50 hover:no-underline">
                                 <div className="flex items-center gap-2">
                                     <Move className="h-4 w-4 text-muted-foreground" />
                                     <span className="text-sm font-medium">Position</span>
                                 </div>
                             </AccordionTrigger>
-                            <AccordionContent className="px-4 pt-1 pb-3">
+                            <AccordionContent className="px-3 pt-1 pb-2">
                                 <PositionSection
                                     position={position}
                                     onChange={handlePositionChange}
@@ -248,13 +248,13 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
                         if (groupId === 'Fill' && isTextComponent) {
                             return (
                                 <AccordionItem key={groupId} value={groupId} className="border-b">
-                                    <AccordionTrigger className="px-4 py-2 hover:bg-muted/50 hover:no-underline">
+                                    <AccordionTrigger className="px-3 py-1.5 hover:bg-muted/50 hover:no-underline">
                                         <div className="flex items-center gap-2">
                                             <IconComponent className="h-4 w-4 text-muted-foreground" />
                                             <span className="text-sm font-medium">{groupInfo.label}</span>
                                         </div>
                                     </AccordionTrigger>
-                                    <AccordionContent className="px-4 pt-1 pb-3">
+                                    <AccordionContent className="px-3 pt-1 pb-2">
                                         <FillSection
                                             color={String(config.color || '#000000')}
                                             opacity={Number(config.opacity ?? 100)}
@@ -268,15 +268,14 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
 
                         return (
                             <AccordionItem key={groupId} value={groupId} className="border-b">
-                                <AccordionTrigger className="px-4 py-2 hover:bg-muted/50 hover:no-underline">
+                                <AccordionTrigger className="px-3 py-1.5 hover:bg-muted/50 hover:no-underline">
                                     <div className="flex items-center gap-2">
                                         <IconComponent className="h-4 w-4 text-muted-foreground" />
                                         <span className="text-sm font-medium">{groupInfo.label}</span>
-                                        <span className="text-xs text-muted-foreground">({visibleFields.length})</span>
                                     </div>
                                 </AccordionTrigger>
-                                <AccordionContent className="px-4 pt-1 pb-3">
-                                    <div className="space-y-3">
+                                <AccordionContent className="px-3 pt-1 pb-2">
+                                    <div className="space-y-2.5">
                                         {visibleFields.map((field) => {
                                             // Dynamically populate options for linkedChartId
                                             if (field.key === 'linkedChartId') {
@@ -333,7 +332,7 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
             </ScrollArea>
 
             {/* Footer with component ID */}
-            <div className="shrink-0 border-t p-3">
+            <div className="shrink-0 border-t p-2">
                 <p className="truncate font-mono text-xs text-muted-foreground">{component.instanceId}</p>
             </div>
         </div>

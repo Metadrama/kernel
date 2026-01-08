@@ -86,7 +86,7 @@ export function TypographyFields({ config, onChange, disabled }: TypographyField
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       {/* Font Family */}
       <FontPicker
         value={String(config.fontFamily || 'inter')}
@@ -95,16 +95,16 @@ export function TypographyFields({ config, onChange, disabled }: TypographyField
       />
 
       {/* Font Weight + Size Row */}
-      <div className="flex gap-2">
+      <div className="flex gap-1.5">
         <Select
           value={String(config.fontWeight || 'normal')}
           onValueChange={(v) => onChange('fontWeight', v)}
           disabled={disabled}
         >
-          <SelectTrigger className="flex-1 h-7 bg-muted/50 border-0 text-sm">
+          <SelectTrigger className="h-7 w-[140px] bg-muted/50 border-0 text-sm">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="w-[180px]">
             {FONT_WEIGHTS.map((w) => (
               <SelectItem key={w.value} value={w.value}>
                 {w.label}
@@ -125,8 +125,8 @@ export function TypographyFields({ config, onChange, disabled }: TypographyField
       </div>
 
       {/* Line Height + Letter Spacing Row */}
-      <div className="flex gap-2">
-        <div className="flex-1 flex flex-col gap-1">
+      <div className="flex gap-1.5">
+        <div className="flex-1 flex flex-col gap-1 max-w-[170px]">
           <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">
             Line height
           </Label>
@@ -137,10 +137,10 @@ export function TypographyFields({ config, onChange, disabled }: TypographyField
               onValueChange={(v) => onChange('lineHeight', v)}
               disabled={disabled}
             >
-              <SelectTrigger className="h-6 border-0 bg-transparent p-0 text-sm shadow-none focus:ring-0">
+              <SelectTrigger className="h-6 w-[120px] border-0 bg-transparent p-0 text-sm shadow-none focus:ring-0">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="w-[140px]">
                 <SelectItem value="tight">Tight</SelectItem>
                 <SelectItem value="snug">Snug</SelectItem>
                 <SelectItem value="normal">Auto</SelectItem>
@@ -151,7 +151,7 @@ export function TypographyFields({ config, onChange, disabled }: TypographyField
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col gap-1">
+        <div className="flex-1 flex flex-col gap-1 max-w-[170px]">
           <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">
             Letter spacing
           </Label>
@@ -162,10 +162,10 @@ export function TypographyFields({ config, onChange, disabled }: TypographyField
               onValueChange={(v) => onChange('letterSpacing', v)}
               disabled={disabled}
             >
-              <SelectTrigger className="h-6 border-0 bg-transparent p-0 text-sm shadow-none focus:ring-0">
+              <SelectTrigger className="h-6 w-[120px] border-0 bg-transparent p-0 text-sm shadow-none focus:ring-0">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="w-[140px]">
                 <SelectItem value="tighter">-2%</SelectItem>
                 <SelectItem value="tight">-1%</SelectItem>
                 <SelectItem value="normal">0%</SelectItem>
@@ -182,7 +182,7 @@ export function TypographyFields({ config, onChange, disabled }: TypographyField
         <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">
           Alignment
         </Label>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-1.5 items-center">
           {/* Horizontal Alignment */}
           <ToggleGroup
             value={String(config.align || 'left')}

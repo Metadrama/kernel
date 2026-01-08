@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { useDragDrop } from '@/core/context/DragDropContext';
 import type { ComponentCard } from '@/features/dashboard/types/dashboard';
-import { BarChart3, Code, Database, FileText, FlaskConical, Layers, LayoutTemplate, Star, Table, Type, Webhook, TrendingUp, BarChart2, PieChart, Gauge, Hash, Image, List } from 'lucide-react';
+import { BarChart3, Code, Database, FileText, FlaskConical, Layers, LayoutTemplate, Table, Type, Webhook, TrendingUp, BarChart2, PieChart, Gauge, Hash, Image, List } from 'lucide-react';
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
     Database,
@@ -82,11 +82,6 @@ export default function DraggableComponentCard({ component }: DraggableComponent
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                         <span className="truncate text-sm font-medium">{component.name}</span>
-                        <Star
-                            className={`h-4 w-4 shrink-0 transition-all duration-150 ${
-                                component.isFavorite ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground opacity-0 group-hover:opacity-100'
-                            }`}
-                        />
                     </div>
                     <p className="line-clamp-2 text-xs text-muted-foreground">{component.description}</p>
                 </div>
