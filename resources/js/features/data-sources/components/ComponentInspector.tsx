@@ -9,6 +9,7 @@ import PanelHeader from '@/shared/components/ui/panel-header';
 import { ScrollArea } from '@/shared/components/ui/scroll-area';
 import { Separator } from '@/shared/components/ui/separator';
 import { useArtboardContext } from '@/core/context/ArtboardContext';
+import { useResizable } from '@/shared/hooks/useResizable';
 import type { ConfigFieldSchema, DataSource } from '@/features/data-sources/types/component-config';
 import { CONFIG_GROUPS, getConfigSchema, type ConfigGroupId } from '@/features/data-sources/types/config-schemas';
 import type { ArtboardComponent, ComponentPosition } from '@/features/dashboard/types/dashboard';
@@ -97,6 +98,15 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
     const position = component?.position;
     const { artboards } = useArtboardContext();
 
+    // Resizable panel
+    const { width, isResizing, handleProps } = useResizable({
+        defaultWidth: 288,
+        minWidth: 240,
+        maxWidth: 400,
+        storageKey: 'inspector-width',
+        direction: 'left',
+    });
+
     // Group fields by their group property
     const groupedFields = useMemo(() => {
         if (!schema) return new Map<ConfigGroupId, ConfigFieldSchema[]>();
@@ -148,7 +158,13 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
     // No component selected
     if (!component) {
         return (
-            <div className="flex h-full flex-col border-l bg-background">
+            <div 
+                className="relative flex h-full flex-col border-l bg-background"
+                style={{ width: `${width}px` }}
+            >
+                {/* Resize Handle */}
+                <div {...handleProps} />
+                
                 <PanelHeader title="Inspector" />
                 <div className="flex flex-1 items-center justify-center p-4">
                     <div className="text-center text-muted-foreground">
@@ -163,7 +179,13 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
     // No schema for this component type
     if (!schema) {
         return (
-            <div className="flex h-full flex-col border-l bg-background">
+            <div 
+                className="relative flex h-full flex-col border-l bg-background"
+                style={{ width: `${width}px` }}
+            >
+                {/* Resize Handle */}
+                <div {...handleProps} />
+                
                 <PanelHeader
                     left={
                         <div className="flex items-center gap-2">
@@ -199,7 +221,13 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
     const isTextComponent = component.componentType === 'text' || component.componentType === 'heading';
 
     return (
-        <div className="flex h-full w-72 flex-col border-l bg-background">
+        <div 
+            className="relative flex h-full flex-col border-l bg-background"
+            style={{ width: `${width}px` }}
+        >
+            {/* Resize Handle */}
+            <div {...handleProps} />
+            
             {/* Header */}
             <PanelHeader
                 left={

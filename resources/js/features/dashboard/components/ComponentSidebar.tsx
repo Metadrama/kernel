@@ -4,6 +4,7 @@
 
 import { Button } from '@/shared/components/ui/button';
 import { useArtboardContext } from '@/core/context/ArtboardContext';
+import { useResizable } from '@/shared/hooks/useResizable';
 import { PanelLeft, PanelLeftClose } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ComponentsPanel, LayersPanel } from '.';
@@ -14,6 +15,15 @@ export default function ComponentSidebar() {
 
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [activePanel, setActivePanel] = useState<'components' | 'layers'>('components');
+
+    // Resizable panel
+    const { width, isResizing, handleProps } = useResizable({
+        defaultWidth: 320,
+        minWidth: 240,
+        maxWidth: 480,
+        storageKey: 'sidebar-width',
+        direction: 'right',
+    });
 
     // Persist collapsed state
     useEffect(() => {
@@ -58,7 +68,13 @@ export default function ComponentSidebar() {
     }
 
     return (
-        <div className="flex h-screen w-80 flex-col border-r bg-card shadow-sm">
+        <div 
+            className="relative flex h-screen flex-col border-r bg-card shadow-sm"
+            style={{ width: `${width}px` }}
+        >
+            {/* Resize Handle */}
+            <div {...handleProps} />
+            
             {/* Header */}
             <div className="flex h-14 shrink-0 items-center justify-between border-b px-4">
                 <h2 className="text-lg font-semibold">BM://</h2>
