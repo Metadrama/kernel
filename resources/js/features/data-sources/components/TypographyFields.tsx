@@ -14,16 +14,12 @@ import {
   AlignVerticalJustifyEnd,
   Bold,
   Italic,
-  Underline,
-  Strikethrough,
-  ChevronsLeftRightEllipsis,
 } from 'lucide-react';
 import { FontPicker } from '@/shared/components/ui/font-picker';
 import { ToggleGroup, ToggleButtonGroup } from '@/shared/components/ui/toggle-group';
 import { InlineScrubInput } from '@/shared/components/ui/number-scrub-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Label } from '@/shared/components/ui/label';
-import { cn } from '@/shared/lib/utils';
 
 interface TypographyFieldsProps {
   config: Record<string, unknown>;
@@ -41,6 +37,22 @@ const FONT_WEIGHTS = [
   { value: 'extrabold', label: 'ExtraBold' },
 ];
 
+const LINE_HEIGHTS = [
+  { value: 'tight', label: 'Tight' },
+  { value: 'snug', label: 'Snug' },
+  { value: 'normal', label: 'Auto' },
+  { value: 'relaxed', label: 'Relaxed' },
+  { value: 'loose', label: 'Loose' },
+];
+
+const LETTER_SPACINGS = [
+  { value: 'tighter', label: '-2%' },
+  { value: 'tight', label: '-1%' },
+  { value: 'normal', label: '0%' },
+  { value: 'wide', label: '+1%' },
+  { value: 'wider', label: '+2%' },
+];
+
 export function TypographyFields({ config, onChange, disabled }: TypographyFieldsProps) {
   // Build style toggles value array
   const getStyleToggles = (): string[] => {
@@ -50,12 +62,6 @@ export function TypographyFields({ config, onChange, disabled }: TypographyField
     }
     if (config.fontStyle === 'italic') {
       toggles.push('italic');
-    }
-    if (config.textDecoration === 'underline') {
-      toggles.push('underline');
-    }
-    if (config.textDecoration === 'line-through') {
-      toggles.push('strikethrough');
     }
     return toggles;
   };
@@ -74,154 +80,125 @@ export function TypographyFields({ config, onChange, disabled }: TypographyField
 
     // Handle italic
     onChange('fontStyle', values.includes('italic') ? 'italic' : 'normal');
-
-    // Handle text decoration (underline vs strikethrough - mutually exclusive for now)
-    if (values.includes('underline')) {
-      onChange('textDecoration', 'underline');
-    } else if (values.includes('strikethrough')) {
-      onChange('textDecoration', 'line-through');
-    } else {
-      onChange('textDecoration', 'none');
-    }
   };
 
   return (
-    <div className="space-y-2.5">
-      {/* Font Family */}
+    <div className="space-y-2">
+      {/* Row 1: Font Family (full width) */}
       <FontPicker
         value={String(config.fontFamily || 'inter')}
         onChange={(v) => onChange('fontFamily', v)}
         disabled={disabled}
+        className="w-full"
       />
 
-      {/* Font Weight + Size Row */}
-      <div className="flex gap-1.5">
-        <Select
-          value={String(config.fontWeight || 'normal')}
-          onValueChange={(v) => onChange('fontWeight', v)}
-          disabled={disabled}
-        >
-          <SelectTrigger className="h-7 w-[140px] bg-muted/50 border-0 text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="w-[180px]">
-            {FONT_WEIGHTS.map((w) => (
-              <SelectItem key={w.value} value={w.value}>
-                {w.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      {/* Row 2: Font Weight (full width) */}
+      <Select
+        value={String(config.fontWeight || 'normal')}
+        onValueChange={(v) => onChange('fontWeight', v)}
+        disabled={disabled}
+      >
+        <SelectTrigger className="h-7 w-full bg-muted/50 border-0 text-sm">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {FONT_WEIGHTS.map((w) => (
+            <SelectItem key={w.value} value={w.value}>
+              {w.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
-        <InlineScrubInput
-          value={(config.fontSizePx as number) || 16}
-          onChange={(v) => onChange('fontSizePx', v)}
-          min={8}
-          max={200}
-          step={1}
-          className="w-16"
-          disabled={disabled}
-        />
-      </div>
-
-      {/* Line Height + Letter Spacing Row */}
-      <div className="flex gap-1.5">
-        <div className="flex-1 flex flex-col gap-1 max-w-[170px]">
+      {/* Row 3: Line Height + Letter Spacing (2 columns) */}
+      <div className="grid grid-cols-2 gap-1.5">
+        <div className="flex flex-col gap-0.5">
           <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">
             Line height
           </Label>
-          <div className="flex items-center h-7 px-2 rounded-md bg-muted/50 text-sm">
-            <ChevronsLeftRightEllipsis className="w-3.5 h-3.5 text-muted-foreground mr-1.5 rotate-90" />
-            <Select
-              value={String(config.lineHeight || 'normal')}
-              onValueChange={(v) => onChange('lineHeight', v)}
-              disabled={disabled}
-            >
-              <SelectTrigger className="h-6 w-[120px] border-0 bg-transparent p-0 text-sm shadow-none focus:ring-0">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="w-[140px]">
-                <SelectItem value="tight">Tight</SelectItem>
-                <SelectItem value="snug">Snug</SelectItem>
-                <SelectItem value="normal">Auto</SelectItem>
-                <SelectItem value="relaxed">Relaxed</SelectItem>
-                <SelectItem value="loose">Loose</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <Select
+            value={String(config.lineHeight || 'normal')}
+            onValueChange={(v) => onChange('lineHeight', v)}
+            disabled={disabled}
+          >
+            <SelectTrigger className="h-7 w-full bg-muted/50 border-0 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {LINE_HEIGHTS.map((lh) => (
+                <SelectItem key={lh.value} value={lh.value}>
+                  {lh.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        <div className="flex-1 flex flex-col gap-1 max-w-[170px]">
+        <div className="flex flex-col gap-0.5">
           <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">
             Letter spacing
           </Label>
-          <div className="flex items-center h-7 px-2 rounded-md bg-muted/50 text-sm">
-            <span className="text-muted-foreground mr-1.5 text-xs font-mono">|A|</span>
-            <Select
-              value={String(config.letterSpacing || 'normal')}
-              onValueChange={(v) => onChange('letterSpacing', v)}
-              disabled={disabled}
-            >
-              <SelectTrigger className="h-6 w-[120px] border-0 bg-transparent p-0 text-sm shadow-none focus:ring-0">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="w-[140px]">
-                <SelectItem value="tighter">-2%</SelectItem>
-                <SelectItem value="tight">-1%</SelectItem>
-                <SelectItem value="normal">0%</SelectItem>
-                <SelectItem value="wide">+1%</SelectItem>
-                <SelectItem value="wider">+2%</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <Select
+            value={String(config.letterSpacing || 'normal')}
+            onValueChange={(v) => onChange('letterSpacing', v)}
+            disabled={disabled}
+          >
+            <SelectTrigger className="h-7 w-full bg-muted/50 border-0 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {LETTER_SPACINGS.map((ls) => (
+                <SelectItem key={ls.value} value={ls.value}>
+                  {ls.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
-      {/* Alignment Row */}
+      {/* Row 4: Alignment (stacked rows for clean fit) */}
       <div className="flex flex-col gap-1">
         <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">
           Alignment
         </Label>
-        <div className="flex gap-1.5 items-center">
+        <div className="flex items-center justify-between gap-1">
           {/* Horizontal Alignment */}
           <ToggleGroup
             value={String(config.align || 'left')}
             onChange={(v) => onChange('align', v)}
             disabled={disabled}
+            size="sm"
             options={[
-              { value: 'left', icon: <AlignLeft className="w-3.5 h-3.5" />, label: 'Align Left' },
-              { value: 'center', icon: <AlignCenter className="w-3.5 h-3.5" />, label: 'Align Center' },
-              { value: 'right', icon: <AlignRight className="w-3.5 h-3.5" />, label: 'Align Right' },
-              { value: 'justify', icon: <AlignJustify className="w-3.5 h-3.5" />, label: 'Justify' },
+              { value: 'left', icon: <AlignLeft className="w-3 h-3" />, label: 'Left' },
+              { value: 'center', icon: <AlignCenter className="w-3 h-3" />, label: 'Center' },
+              { value: 'right', icon: <AlignRight className="w-3 h-3" />, label: 'Right' },
+              { value: 'justify', icon: <AlignJustify className="w-3 h-3" />, label: 'Justify' },
             ]}
           />
-
-          <div className="w-px h-5 bg-border" />
 
           {/* Vertical Alignment */}
           <ToggleGroup
             value={String(config.verticalAlign || 'top')}
             onChange={(v) => onChange('verticalAlign', v)}
             disabled={disabled}
+            size="sm"
             options={[
-              { value: 'top', icon: <AlignVerticalJustifyStart className="w-3.5 h-3.5" />, label: 'Align Top' },
-              { value: 'middle', icon: <AlignVerticalJustifyCenter className="w-3.5 h-3.5" />, label: 'Align Middle' },
-              { value: 'bottom', icon: <AlignVerticalJustifyEnd className="w-3.5 h-3.5" />, label: 'Align Bottom' },
+              { value: 'top', icon: <AlignVerticalJustifyStart className="w-3 h-3" />, label: 'Top' },
+              { value: 'middle', icon: <AlignVerticalJustifyCenter className="w-3 h-3" />, label: 'Middle' },
+              { value: 'bottom', icon: <AlignVerticalJustifyEnd className="w-3 h-3" />, label: 'Bottom' },
             ]}
           />
 
-          <div className="w-px h-5 bg-border" />
-
-          {/* Style Toggles (B/I/U/S) */}
+          {/* Style Toggles (B/I only - simpler) */}
           <ToggleButtonGroup
             value={getStyleToggles()}
             onChange={handleStyleToggle}
             disabled={disabled}
+            size="sm"
             options={[
-              { value: 'bold', icon: <Bold className="w-3.5 h-3.5" />, label: 'Bold' },
-              { value: 'italic', icon: <Italic className="w-3.5 h-3.5" />, label: 'Italic' },
-              { value: 'underline', icon: <Underline className="w-3.5 h-3.5" />, label: 'Underline' },
-              { value: 'strikethrough', icon: <Strikethrough className="w-3.5 h-3.5" />, label: 'Strikethrough' },
+              { value: 'bold', icon: <Bold className="w-3 h-3" />, label: 'Bold' },
+              { value: 'italic', icon: <Italic className="w-3 h-3" />, label: 'Italic' },
             ]}
           />
         </div>

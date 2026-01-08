@@ -182,9 +182,7 @@ export function NumberScrubInput({
 }
 
 // Compact inline version without stacked label
-interface InlineScrubInputProps extends Omit<NumberScrubInputProps, 'labelClassName'> {
-  labelWidth?: string;
-}
+interface InlineScrubInputProps extends Omit<NumberScrubInputProps, 'labelClassName'> {}
 
 export function InlineScrubInput({
   value,
@@ -197,7 +195,6 @@ export function InlineScrubInput({
   prefix,
   disabled = false,
   className,
-  labelWidth = 'w-5',
 }: InlineScrubInputProps) {
   const [isDragging, setIsDragging] = React.useState(false);
   const [isEditing, setIsEditing] = React.useState(false);
@@ -293,8 +290,7 @@ export function InlineScrubInput({
       {label && (
         <span
           className={cn(
-            'text-muted-foreground select-none shrink-0',
-            labelWidth,
+            'text-muted-foreground text-xs select-none shrink-0',
             !disabled && !isEditing && 'cursor-ew-resize hover:text-foreground'
           )}
           onMouseDown={handleMouseDown}

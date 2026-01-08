@@ -39,22 +39,22 @@ export function ColorInput({
   return (
     <div
       className={cn(
-        'flex items-center gap-2 rounded-md bg-muted/50 px-2 h-8',
+        'flex items-center gap-1.5 rounded-md bg-muted/50 px-2 h-7',
         disabled && 'opacity-50 pointer-events-none',
         className
       )}
     >
       {/* Color Swatch */}
-      <div className="relative">
+      <div className="relative shrink-0">
         <input
           type="color"
           value={color || '#000000'}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
-          className="absolute inset-0 opacity-0 cursor-pointer w-6 h-6"
+          className="absolute inset-0 opacity-0 cursor-pointer w-5 h-5"
         />
         <div
-          className="w-5 h-5 rounded border border-border shadow-sm"
+          className="w-4 h-4 rounded border border-border shadow-sm"
           style={{ backgroundColor: color || '#000000' }}
         />
       </div>
@@ -78,7 +78,7 @@ export function ColorInput({
       {/* Opacity */}
       {showOpacity && onOpacityChange && (
         <>
-          <div className="w-px h-4 bg-border" />
+          <div className="w-px h-3.5 bg-border" />
           <input
             type="number"
             value={Math.round(opacity)}
@@ -87,25 +87,10 @@ export function ColorInput({
               onOpacityChange(val);
             }}
             disabled={disabled}
-            className="w-10 bg-transparent text-sm text-right outline-none"
+            className="w-8 bg-transparent text-sm text-right outline-none tabular-nums"
             min={0}
             max={100}
           />
-          <span className="text-muted-foreground text-sm">%</span>
-          
-          {/* Visibility Toggle */}
-          <button
-            type="button"
-            onClick={handleOpacityToggle}
-            disabled={disabled}
-            className="p-1 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {opacity > 0 ? (
-              <Eye className="w-3.5 h-3.5" />
-            ) : (
-              <EyeOff className="w-3.5 h-3.5" />
-            )}
-          </button>
         </>
       )}
     </div>

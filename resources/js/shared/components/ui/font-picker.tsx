@@ -45,7 +45,7 @@ export function FontPicker({ value, onChange, disabled, className }: FontPickerP
     <Select value={value || 'inter'} onValueChange={onChange} disabled={disabled}>
       <SelectTrigger
         className={cn(
-          'h-8 bg-muted/50 border-0 hover:bg-muted focus:ring-1 focus:ring-ring/20',
+          'h-7 w-full bg-muted/50 border-0 text-sm hover:bg-muted focus:ring-1 focus:ring-ring/20',
           className
         )}
       >
@@ -58,7 +58,7 @@ export function FontPicker({ value, onChange, disabled, className }: FontPickerP
           <SelectItem
             key={font.value}
             value={font.value}
-            className="py-2"
+            className="py-1.5"
           >
             <span style={{ fontFamily: font.fontFamily }}>{font.label}</span>
           </SelectItem>

@@ -46,7 +46,7 @@ export function ToggleGroup({
           title={option.label}
           className={cn(
             'inline-flex items-center justify-center rounded-sm transition-all',
-            size === 'sm' ? 'h-6 w-6' : 'h-7 w-7',
+            size === 'sm' ? 'h-5 w-5' : 'h-6 w-6',
             value === option.value
               ? 'bg-background text-foreground shadow-sm'
               : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
@@ -102,7 +102,7 @@ export function ToggleButtonGroup({
           title={option.label}
           className={cn(
             'inline-flex items-center justify-center rounded-sm transition-all',
-            size === 'sm' ? 'h-6 w-6' : 'h-7 w-7',
+            size === 'sm' ? 'h-5 w-5' : 'h-6 w-6',
             value.includes(option.value)
               ? 'bg-background text-foreground shadow-sm'
               : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
