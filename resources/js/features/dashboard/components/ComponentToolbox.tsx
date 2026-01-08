@@ -1,4 +1,18 @@
-﻿import { Database, Table, Webhook, Code, FileText, BarChart3 } from 'lucide-react';
+﻿import { 
+  Database, 
+  Table, 
+  Webhook, 
+  Code, 
+  FileText, 
+  BarChart3,
+  BarChart2,
+  PieChart,
+  Gauge,
+  Hash,
+  Image,
+  List,
+  TrendingUp,
+} from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -17,6 +31,13 @@ const ICON_MAP = {
   Code,
   FileText,
   BarChart3,
+  BarChart2,
+  PieChart,
+  Gauge,
+  Hash,
+  Image,
+  List,
+  TrendingUp,
 };
 
 interface ComponentToolboxProps {

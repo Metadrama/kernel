@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { useDragDrop } from '@/core/context/DragDropContext';
 import type { ComponentCard } from '@/features/dashboard/types/dashboard';
-import { BarChart3, Code, Database, FileText, FlaskConical, Layers, LayoutTemplate, Star, Table, Type, Webhook } from 'lucide-react';
+import { BarChart3, Code, Database, FileText, FlaskConical, Layers, LayoutTemplate, Star, Table, Type, Webhook, TrendingUp, BarChart2, PieChart, Gauge, Hash, Image, List } from 'lucide-react';
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
     Database,
@@ -14,10 +14,17 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
     Code,
     FileText,
     BarChart3,
+    BarChart2,
+    PieChart,
+    Gauge,
+    Hash,
+    Image,
+    List,
     Layers,
     LayoutTemplate,
     FlaskConical,
     Type,
+    TrendingUp,
 };
 
 interface DraggableComponentCardProps {

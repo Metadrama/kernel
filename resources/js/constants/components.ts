@@ -23,7 +23,7 @@ export const AVAILABLE_COMPONENTS: ComponentCard[] = [
         id: 'chart-combo',
         name: 'Combo Chart',
         description: 'Dual-axis bar and line chart',
-        icon: 'BarChart4',
+        icon: 'BarChart2',
         category: 'charts',
         subcategory: 'advanced',
     },
