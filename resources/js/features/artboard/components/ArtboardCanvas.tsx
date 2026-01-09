@@ -59,6 +59,9 @@ export default function ArtboardCanvas() {
         position: { x: number; y: number; width: number; height: number };
     } | null>(null);
 
+    // Clipboard for copy/paste
+    const [clipboard, setClipboard] = useState<{ component: ArtboardComponent; artboardId: string } | null>(null);
+
     const selectedArtboard = artboards.find((a) => a.id === selectedArtboardId) || null;
 
     // Hand tool panning
@@ -69,14 +72,19 @@ export default function ArtboardCanvas() {
         setPan,
     });
 
-    // Handle spacebar for temporary hand tool
+    // Handle keyboard shortcuts for tools and space key
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
+            // Check if user is editing text
+            const target = e.target as HTMLElement;
+            const isEditing = target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+
             if (e.key === ' ' && !isSpacePressed) {
                 setIsSpacePressed(true);
             }
-            // Tool shortcuts
-            if (!e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
+
+            // Tool shortcuts (only when not editing text)
+            if (!isEditing && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
                 if (e.key.toLowerCase() === 'v') setActiveTool('pointer');
                 if (e.key.toLowerCase() === 'h') setActiveTool('hand');
             }
@@ -225,6 +233,117 @@ export default function ArtboardCanvas() {
         setShowInspector(false);
         setSelectedComponent(null);
     }, []);
+
+    // Copy selected component to clipboard
+    const handleCopy = useCallback(() => {
+        if (selectedComponent) {
+            setClipboard({
+                component: JSON.parse(JSON.stringify(selectedComponent.component)),
+                artboardId: selectedComponent.artboardId,
+            });
+        }
+    }, [selectedComponent]);
+
+    // Paste from clipboard with offset
+    const handlePaste = useCallback(() => {
+        if (!clipboard) return;
+        // Paste to the same artboard as the source, or to selected component's artboard
+        const targetArtboardId = selectedComponent?.artboardId ?? clipboard.artboardId;
+        const newComponent: ArtboardComponent = {
+            ...clipboard.component,
+            instanceId: `${clipboard.component.componentType}-${Date.now()}`,
+            position: {
+                ...clipboard.component.position,
+                x: clipboard.component.position.x + 20,
+                y: clipboard.component.position.y + 20,
+            },
+        };
+        setArtboards((prev) =>
+            prev.map((a) =>
+                a.id === targetArtboardId
+                    ? { ...a, components: [...a.components, newComponent], updatedAt: new Date().toISOString() }
+                    : a
+            )
+        );
+        setSelectedComponent({ artboardId: targetArtboardId, component: newComponent });
+        setShowInspector(true);
+    }, [clipboard, selectedComponent, setArtboards]);
+
+    // Duplicate selected component (copy + paste in one action)
+    const handleDuplicate = useCallback(() => {
+        if (!selectedComponent) return;
+        const original = selectedComponent.component;
+        const newComponent: ArtboardComponent = {
+            ...JSON.parse(JSON.stringify(original)),
+            instanceId: `${original.componentType}-${Date.now()}`,
+            position: {
+                ...original.position,
+                x: original.position.x + 20,
+                y: original.position.y + 20,
+            },
+        };
+        setArtboards((prev) =>
+            prev.map((a) =>
+                a.id === selectedComponent.artboardId
+                    ? { ...a, components: [...a.components, newComponent], updatedAt: new Date().toISOString() }
+                    : a
+            )
+        );
+        setSelectedComponent({ artboardId: selectedComponent.artboardId, component: newComponent });
+    }, [selectedComponent, setArtboards]);
+
+    // Delete selected component
+    const handleDeleteComponent = useCallback(() => {
+        if (!selectedComponent) return;
+        setArtboards((prev) =>
+            prev.map((a) =>
+                a.id === selectedComponent.artboardId
+                    ? {
+                          ...a,
+                          components: a.components.filter((c) => c.instanceId !== selectedComponent.component.instanceId),
+                          updatedAt: new Date().toISOString(),
+                      }
+                    : a
+            )
+        );
+        setSelectedComponent(null);
+        setShowInspector(false);
+    }, [selectedComponent, setArtboards]);
+
+    // Handle keyboard shortcuts for copy/paste/duplicate/delete
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Check if user is editing text
+            const target = e.target as HTMLElement;
+            const isEditing = target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+
+            // Copy/Paste/Duplicate shortcuts (only when not editing text)
+            if (!isEditing && (e.ctrlKey || e.metaKey)) {
+                if (e.key.toLowerCase() === 'c') {
+                    e.preventDefault();
+                    handleCopy();
+                }
+                if (e.key.toLowerCase() === 'v') {
+                    e.preventDefault();
+                    handlePaste();
+                }
+                if (e.key.toLowerCase() === 'd') {
+                    e.preventDefault();
+                    handleDuplicate();
+                }
+            }
+
+            // Delete/Backspace to remove selected component (only when not editing)
+            if (!isEditing && (e.key === 'Delete' || e.key === 'Backspace')) {
+                e.preventDefault();
+                handleDeleteComponent();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [handleCopy, handlePaste, handleDuplicate, handleDeleteComponent]);
 
     // Click on empty canvas (outside artboards) to dismiss all panels
     const handleCanvasClick = useCallback(
