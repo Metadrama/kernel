@@ -26,6 +26,7 @@ interface DirectComponentProps {
     onGuidesChange?: (guides: AlignmentGuide[]) => void;
     onSelect: () => void;
     onPositionChange: (position: { x: number; y: number; width: number; height: number }) => void;
+    onLivePositionChange?: (position: { x: number; y: number; width: number; height: number } | null) => void;
     onConfigChange?: (config: Record<string, unknown>) => void;
     onDelete: () => void;
     onZOrderChange?: (operation: 'front' | 'forward' | 'back' | 'backward') => void;
@@ -40,6 +41,7 @@ export function DirectComponent({
     onGuidesChange,
     onSelect,
     onPositionChange,
+    onLivePositionChange,
     onConfigChange,
     onDelete,
     onZOrderChange,
@@ -56,6 +58,7 @@ export function DirectComponent({
         siblingBounds,
         onSelect,
         onPositionChange,
+        onLivePositionChange,
         onGuidesChange,
     });
 

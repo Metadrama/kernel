@@ -21,6 +21,7 @@ interface UseComponentInteractionOptions {
     siblingBounds?: ComponentBounds[];
     onSelect: () => void;
     onPositionChange: (position: Position) => void;
+    onLivePositionChange?: (position: Position | null) => void;
     onGuidesChange?: (guides: AlignmentGuide[]) => void;
 }
 
@@ -45,6 +46,7 @@ export function useComponentInteraction({
     siblingBounds,
     onSelect,
     onPositionChange,
+    onLivePositionChange,
     onGuidesChange,
 }: UseComponentInteractionOptions): UseComponentInteractionReturn {
     const [isDragging, setIsDragging] = useState(false);
@@ -60,6 +62,7 @@ export function useComponentInteraction({
     // Refs for latest props (avoid stale closures in event handlers)
     const siblingBoundsRef = useRef<ComponentBounds[] | undefined>(siblingBounds);
     const onGuidesChangeRef = useRef<((guides: AlignmentGuide[]) => void) | undefined>(onGuidesChange);
+    const onLivePositionChangeRef = useRef<((position: Position | null) => void) | undefined>(onLivePositionChange);
     const componentIdRef = useRef<string>(componentId);
 
     useEffect(() => {
@@ -69,6 +72,10 @@ export function useComponentInteraction({
     useEffect(() => {
         onGuidesChangeRef.current = onGuidesChange;
     }, [onGuidesChange]);
+
+    useEffect(() => {
+        onLivePositionChangeRef.current = onLivePositionChange;
+    }, [onLivePositionChange]);
 
     useEffect(() => {
         componentIdRef.current = componentId;
@@ -182,6 +189,7 @@ export function useComponentInteraction({
 
                 localRectRef.current = newRect;
                 setLocalRect(newRect);
+                onLivePositionChangeRef.current?.(newRect);
                 onGuidesChangeRef.current?.(snapResult.guides);
             } else if (isResizing && resizeStartRef.current && resizeHandle && interactionStartRectRef.current) {
                 const dx = (e.clientX - resizeStartRef.current.x) / scale;
@@ -240,6 +248,7 @@ export function useComponentInteraction({
 
                 localRectRef.current = finalRect;
                 setLocalRect(finalRect);
+                onLivePositionChangeRef.current?.(finalRect);
                 onGuidesChangeRef.current?.(snapResult.guides);
             }
         };
@@ -257,6 +266,7 @@ export function useComponentInteraction({
             interactionStartRectRef.current = null;
             dragStartRef.current = null;
             resizeStartRef.current = null;
+            onLivePositionChangeRef.current?.(null);
             onGuidesChangeRef.current?.([]);
         };
 

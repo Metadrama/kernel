@@ -53,6 +53,12 @@ export default function ArtboardCanvas() {
         component: ArtboardComponent;
     } | null>(null);
 
+    // Live position during drag/resize (for real-time inspector updates)
+    const [livePosition, setLivePosition] = useState<{
+        componentId: string;
+        position: { x: number; y: number; width: number; height: number };
+    } | null>(null);
+
     const selectedArtboard = artboards.find((a) => a.id === selectedArtboardId) || null;
 
     // Hand tool panning
@@ -355,6 +361,7 @@ export default function ArtboardCanvas() {
                                     selectedComponentId={
                                         selectedComponent?.artboardId === artboard.id ? selectedComponent.component.instanceId : undefined
                                     }
+                                    onLivePositionChange={setLivePosition}
                                 />
                             ))}
                     </div>
@@ -369,7 +376,14 @@ export default function ArtboardCanvas() {
             {/* Panels */}
             {showInspector && selectedComponent && (
                 <ComponentInspector
-                    component={selectedComponent.component}
+                    component={
+                        livePosition && livePosition.componentId === selectedComponent.component.instanceId
+                            ? {
+                                  ...selectedComponent.component,
+                                  position: { ...selectedComponent.component.position, ...livePosition.position },
+                              }
+                            : selectedComponent.component
+                    }
                     onConfigChange={handleComponentConfigChange}
                     onPositionChange={handleComponentPositionChange}
                     onClose={handleCloseInspector}

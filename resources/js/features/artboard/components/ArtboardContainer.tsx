@@ -27,6 +27,7 @@ interface ArtboardContainerProps {
     selectedComponentId?: string;
     onSelectComponent?: (componentId: string) => void;
     onDeselectComponent?: () => void;
+    onLivePositionChange?: (data: { componentId: string; position: { x: number; y: number; width: number; height: number } } | null) => void;
 }
 
 export default function ArtboardContainer({
@@ -41,6 +42,7 @@ export default function ArtboardContainer({
     selectedComponentId,
     onSelectComponent,
     onDeselectComponent,
+    onLivePositionChange,
 }: ArtboardContainerProps) {
     const HEADER_HEIGHT_PX = 52;
     const HEADER_GAP_PX = 8;
@@ -284,6 +286,13 @@ export default function ArtboardContainer({
                                         onSelectComponent?.(component.instanceId);
                                     }}
                                     onPositionChange={(pos) => updateComponentPosition(component.instanceId, pos)}
+                                    onLivePositionChange={(pos) => {
+                                        if (pos) {
+                                            onLivePositionChange?.({ componentId: component.instanceId, position: pos });
+                                        } else {
+                                            onLivePositionChange?.(null);
+                                        }
+                                    }}
                                     onConfigChange={(config) => updateComponentConfig(component.instanceId, config)}
                                     onDelete={() => deleteComponent(component.instanceId)}
                                     onZOrderChange={(op) => updateComponentZOrder(component.instanceId, op)}
