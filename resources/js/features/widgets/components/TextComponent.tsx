@@ -192,6 +192,16 @@ export default function TextComponent({
     }
   };
 
+  const handleContainerMouseDown = (e: React.MouseEvent) => {
+    // When in edit mode and clicking within container (but outside span),
+    // prevent default to stop the blur event from firing
+    if (isEditing && e.target === containerRef.current) {
+      e.preventDefault();
+      // Focus the text and place cursor at end
+      textRef.current?.focus();
+    }
+  };
+
   const handleBlur = (e: React.FocusEvent) => {
     // Only exit edit mode if focus is truly leaving the text element
     // Check if the new focus target is still within our component
@@ -304,6 +314,7 @@ export default function TextComponent({
       className={`h-full w-full flex ${containerVerticalAlignClass} cursor-text ${containerAlignClass} transition-colors overflow-hidden`}
       onDoubleClick={handleDoubleClick}
       onClick={handleClick}
+      onMouseDown={handleContainerMouseDown}
       title="Double-click to edit | Ctrl+B: Bold | Ctrl+I: Italic | Ctrl+U: Underline | Ctrl+Enter: Save"
     >
       <span
