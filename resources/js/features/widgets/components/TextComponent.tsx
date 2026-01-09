@@ -177,11 +177,29 @@ export default function TextComponent({
     }
   }, [isEditing]);
 
-  const handleDoubleClick = () => {
-    setIsEditing(true);
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isEditing) {
+      setIsEditing(true);
+    }
   };
 
-  const handleBlur = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    // When in edit mode, stop propagation and focus the text element
+    if (isEditing) {
+      e.stopPropagation();
+      textRef.current?.focus();
+    }
+  };
+
+  const handleBlur = (e: React.FocusEvent) => {
+    // Only exit edit mode if focus is truly leaving the text element
+    // Check if the new focus target is still within our component
+    const relatedTarget = e.relatedTarget as HTMLElement | null;
+    if (relatedTarget && containerRef.current?.contains(relatedTarget)) {
+      return; // Focus stayed within our component
+    }
+    
     if (!isEditing) return;
     setIsEditing(false);
     const newText = textRef.current?.textContent || '';
@@ -264,9 +282,6 @@ export default function TextComponent({
       align === 'center' ? 'center' : align === 'right' ? 'right' : 'left',
       verticalAlign === 'middle' ? 'center' : verticalAlign === 'bottom' ? 'bottom' : 'top',
     ].join(' '),
-    outline: isEditing ? '1px solid var(--primary)' : undefined,
-    borderRadius: isEditing ? '2px' : undefined,
-    minWidth: isEditing ? '1ch' : undefined,
   };
 
   // Container alignment classes for horizontal and vertical positioning
@@ -288,6 +303,7 @@ export default function TextComponent({
       ref={containerRef}
       className={`h-full w-full flex ${containerVerticalAlignClass} cursor-text ${containerAlignClass} transition-colors overflow-hidden`}
       onDoubleClick={handleDoubleClick}
+      onClick={handleClick}
       title="Double-click to edit | Ctrl+B: Bold | Ctrl+I: Italic | Ctrl+U: Underline | Ctrl+Enter: Save"
     >
       <span
@@ -296,6 +312,8 @@ export default function TextComponent({
         suppressContentEditableWarning
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
+        onMouseDown={(e) => isEditing && e.stopPropagation()}
+        onClick={(e) => isEditing && e.stopPropagation()}
         className={`${textClasses} text-foreground whitespace-pre-wrap break-words focus:outline-none`}
         style={textStyles}
       >
