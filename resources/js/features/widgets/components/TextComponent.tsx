@@ -120,16 +120,17 @@ export default function TextComponent({
   const fontFamilyCSS = FONT_FAMILIES.find((f) => f.value === fontFamily)?.fontFamily || 'Inter, system-ui, sans-serif';
 
   const [isEditing, setIsEditing] = useState(false);
-  const [currentText, setCurrentText] = useState(text);
   const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const [textSize, setTextSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLSpanElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Sync text from config
   useEffect(() => {
-    setCurrentText(text);
-  }, [text]);
+    if (textRef.current && !isEditing) {
+      textRef.current.textContent = text;
+    }
+  }, [text, isEditing]);
 
   // Track container size with ResizeObserver
   useLayoutEffect(() => {
@@ -151,7 +152,7 @@ export default function TextComponent({
   // Measure the natural text size (at base font size, scale=1)
   useLayoutEffect(() => {
     const textEl = textRef.current;
-    if (!textEl || isEditing) return;
+    if (!textEl) return;
 
     // Temporarily remove transform to measure natural size
     const prevTransform = textEl.style.transform;
@@ -161,43 +162,50 @@ export default function TextComponent({
     setTextSize({ width: rect.width, height: rect.height });
 
     textEl.style.transform = prevTransform;
-  }, [currentText, fontSize, fontWeight, fontStyle, letterSpacing, textTransform, isEditing]);
+  }, [text, fontSize, fontWeight, fontStyle, letterSpacing, textTransform, isEditing]);
 
+  // Focus and select text when entering edit mode
   useEffect(() => {
-    if (isEditing && textareaRef.current) {
-      textareaRef.current.focus();
-      textareaRef.current.select();
-      adjustTextareaHeight();
+    if (isEditing && textRef.current) {
+      textRef.current.focus();
+      // Select all text
+      const range = document.createRange();
+      range.selectNodeContents(textRef.current);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
     }
   }, [isEditing]);
-
-  const adjustTextareaHeight = () => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
-    }
-  };
 
   const handleDoubleClick = () => {
     setIsEditing(true);
   };
 
   const handleBlur = () => {
+    if (!isEditing) return;
     setIsEditing(false);
-    if (currentText !== text) {
-      onConfigChange?.({ ...config, text: currentText });
+    const newText = textRef.current?.textContent || '';
+    if (newText !== text) {
+      onConfigChange?.({ ...config, text: newText });
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
-      setCurrentText(text);
+      // Restore original text and exit
+      if (textRef.current) {
+        textRef.current.textContent = text;
+      }
       setIsEditing(false);
+      textRef.current?.blur();
     }
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      // Save and exit
+      const newText = textRef.current?.textContent || '';
       setIsEditing(false);
-      if (currentText !== text) {
-        onConfigChange?.({ ...config, text: currentText });
+      textRef.current?.blur();
+      if (newText !== text) {
+        onConfigChange?.({ ...config, text: newText });
       }
     }
 
@@ -219,11 +227,6 @@ export default function TextComponent({
         onConfigChange?.({ ...config, textDecoration: newDecoration });
       }
     }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setCurrentText(e.target.value);
-    adjustTextareaHeight();
   };
 
   // Calculate scale factor to fit text within container
@@ -257,7 +260,13 @@ export default function TextComponent({
     opacity: opacity / 100,
     fontSize: `${baseFontSizePx}px`,
     transform: `scale(${scaleFactor})`,
-    transformOrigin: align === 'center' ? 'center center' : align === 'right' ? 'right center' : 'left center',
+    transformOrigin: [
+      align === 'center' ? 'center' : align === 'right' ? 'right' : 'left',
+      verticalAlign === 'middle' ? 'center' : verticalAlign === 'bottom' ? 'bottom' : 'top',
+    ].join(' '),
+    outline: isEditing ? '1px solid var(--primary)' : undefined,
+    borderRadius: isEditing ? '2px' : undefined,
+    minWidth: isEditing ? '1ch' : undefined,
   };
 
   // Container alignment classes for horizontal and vertical positioning
@@ -274,31 +283,6 @@ export default function TextComponent({
     bottom: 'items-end',
   }[verticalAlign];
 
-  if (isEditing) {
-    return (
-      <div
-        ref={containerRef}
-        className={`h-full w-full flex ${containerVerticalAlignClass} ${containerAlignClass} overflow-hidden`}
-      >
-        <textarea
-          ref={textareaRef}
-          value={currentText}
-          onChange={handleChange}
-          onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
-          className={`w-full bg-transparent border-none outline-none resize-none min-h-[1.5em] focus:ring-1 focus:ring-primary/50 rounded ${textClasses} ${textAlignClasses[align]}`}
-          style={{
-            fontFamily: fontFamilyCSS,
-            color: color || undefined,
-            opacity: opacity / 100,
-            fontSize: `${baseFontSizePx}px`,
-          }}
-          placeholder="Enter text..."
-        />
-      </div>
-    );
-  }
-
   return (
     <div
       ref={containerRef}
@@ -308,10 +292,14 @@ export default function TextComponent({
     >
       <span
         ref={textRef}
-        className={`${textClasses} text-foreground whitespace-pre-wrap break-words`}
+        contentEditable={isEditing}
+        suppressContentEditableWarning
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        className={`${textClasses} text-foreground whitespace-pre-wrap break-words focus:outline-none`}
         style={textStyles}
       >
-        {currentText || 'Text'}
+        {text || 'Text'}
       </span>
     </div>
   );
