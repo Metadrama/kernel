@@ -14,7 +14,7 @@ import { createArtboard } from '@/features/artboard/lib/artboard-utils';
 import type { ArtboardSchema } from '@/features/artboard/types/artboard';
 import type { ArtboardComponent } from '@/features/dashboard/types/dashboard';
 import { usePage } from '@inertiajs/react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AddArtboardPanel from './AddArtboardPanel';
 import ArtboardContainer from './ArtboardContainer';
 import ArtboardInspector from './ArtboardInspector';
@@ -61,6 +61,12 @@ export default function ArtboardCanvas() {
 
     // Clipboard for copy/paste
     const [clipboard, setClipboard] = useState<{ component: ArtboardComponent; artboardId: string } | null>(null);
+
+    // Undo/Redo history stacks
+    const [history, setHistory] = useState<ArtboardSchema[][]>([]);
+    const [future, setFuture] = useState<ArtboardSchema[][]>([]);
+    const isUndoRedoRef = useRef(false);
+    const lastArtboardsRef = useRef<string>('');
 
     const selectedArtboard = artboards.find((a) => a.id === selectedArtboardId) || null;
 
@@ -310,14 +316,75 @@ export default function ArtboardCanvas() {
         setShowInspector(false);
     }, [selectedComponent, setArtboards]);
 
-    // Handle keyboard shortcuts for copy/paste/duplicate/delete
+    // Track artboard changes for undo/redo history
+    useEffect(() => {
+        // Skip if this change is from undo/redo
+        if (isUndoRedoRef.current) {
+            isUndoRedoRef.current = false;
+            return;
+        }
+
+        const currentSnapshot = JSON.stringify(artboards);
+        
+        // Skip if artboards haven't actually changed
+        if (currentSnapshot === lastArtboardsRef.current) {
+            return;
+        }
+
+        // If we have a previous state, push it to history
+        if (lastArtboardsRef.current !== '') {
+            const previousArtboards = JSON.parse(lastArtboardsRef.current) as ArtboardSchema[];
+            setHistory(prev => [...prev.slice(-49), previousArtboards]); // Keep max 50 history entries
+            setFuture([]); // Clear redo stack on new change
+        }
+
+        lastArtboardsRef.current = currentSnapshot;
+    }, [artboards]);
+
+    // Undo handler
+    const handleUndo = useCallback(() => {
+        if (history.length === 0) return;
+        
+        const previousState = history[history.length - 1];
+        const currentState = JSON.parse(JSON.stringify(artboards)) as ArtboardSchema[];
+        
+        isUndoRedoRef.current = true;
+        setHistory(prev => prev.slice(0, -1));
+        setFuture(prev => [...prev, currentState]);
+        setArtboards(previousState);
+        lastArtboardsRef.current = JSON.stringify(previousState);
+        
+        // Clear selection as the component might not exist anymore
+        setSelectedComponent(null);
+        setShowInspector(false);
+    }, [history, artboards, setArtboards]);
+
+    // Redo handler
+    const handleRedo = useCallback(() => {
+        if (future.length === 0) return;
+        
+        const nextState = future[future.length - 1];
+        const currentState = JSON.parse(JSON.stringify(artboards)) as ArtboardSchema[];
+        
+        isUndoRedoRef.current = true;
+        setFuture(prev => prev.slice(0, -1));
+        setHistory(prev => [...prev, currentState]);
+        setArtboards(nextState);
+        lastArtboardsRef.current = JSON.stringify(nextState);
+        
+        // Clear selection as the component might not exist anymore
+        setSelectedComponent(null);
+        setShowInspector(false);
+    }, [future, artboards, setArtboards]);
+
+    // Handle keyboard shortcuts for copy/paste/duplicate/delete/undo/redo
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             // Check if user is editing text
             const target = e.target as HTMLElement;
             const isEditing = target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
 
-            // Copy/Paste/Duplicate shortcuts (only when not editing text)
+            // Copy/Paste/Duplicate/Undo/Redo shortcuts (only when not editing text)
             if (!isEditing && (e.ctrlKey || e.metaKey)) {
                 if (e.key.toLowerCase() === 'c') {
                     e.preventDefault();
@@ -331,6 +398,14 @@ export default function ArtboardCanvas() {
                     e.preventDefault();
                     handleDuplicate();
                 }
+                if (e.key.toLowerCase() === 'z') {
+                    e.preventDefault();
+                    handleUndo();
+                }
+                if (e.key.toLowerCase() === 'y') {
+                    e.preventDefault();
+                    handleRedo();
+                }
             }
 
             // Delete/Backspace to remove selected component (only when not editing)
@@ -343,7 +418,7 @@ export default function ArtboardCanvas() {
         return () => {
             window.removeEventListener('keydown', handleKeyDown);
         };
-    }, [handleCopy, handlePaste, handleDuplicate, handleDeleteComponent]);
+    }, [handleCopy, handlePaste, handleDuplicate, handleDeleteComponent, handleUndo, handleRedo]);
 
     // Click on empty canvas (outside artboards) to dismiss all panels
     const handleCanvasClick = useCallback(
