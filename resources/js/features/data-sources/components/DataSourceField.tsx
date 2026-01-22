@@ -1,82 +1,63 @@
-
-import { useGoogleSheetsData } from '@/features/data-sources/hooks/useGoogleSheetsData';
-import { ColumnMappingConfig } from './ColumnMappingConfig';
-import { Button } from '@/shared/components/ui/button';
-import { Loader2, Database } from 'lucide-react';
 import type { DataSource, GoogleSheetsDataSource } from '@/features/data-sources/types/component-config';
-import { useEffect } from 'react';
+import { useMemo } from 'react';
+import { DataSourceConfig } from './DataSourceConfig';
 
 interface DataSourceFieldProps {
     globalConfig: DataSource | null;
-    localConfig: Partial<GoogleSheetsDataSource>;
-    onChange: (updates: Partial<GoogleSheetsDataSource>) => void;
+    localConfig: Partial<DataSource>;
+    onChange: (updates: Partial<DataSource>) => void;
 }
 
 export function DataSourceField({ globalConfig, localConfig, onChange }: DataSourceFieldProps) {
-    const { columns, loading, fetchColumns, error } = useGoogleSheetsData();
-
-    const isGoogleSheets = globalConfig?.type === 'google-sheets';
-    const sheetConfig = globalConfig as GoogleSheetsDataSource | undefined;
-
-    useEffect(() => {
-        if (isGoogleSheets && sheetConfig?.spreadsheetId && sheetConfig?.sheetName) {
-            fetchColumns(sheetConfig.spreadsheetId, sheetConfig.sheetName, sheetConfig.headerRow || 1);
+    const effectiveConfig = useMemo(() => {
+        // 1. If global is not set, just use local (defaulting to static if empty)
+        if (!globalConfig) {
+            return (localConfig as DataSource) || { type: 'static' };
         }
-    }, [isGoogleSheets, sheetConfig?.spreadsheetId, sheetConfig?.sheetName, sheetConfig?.headerRow, fetchColumns]);
 
-    if (!globalConfig || globalConfig.type === 'static') {
-        return (
-            <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
-                <p>No global data source configured.</p>
-                <p className="text-xs mt-1">Go to Workspace Settings to connect a data source.</p>
-            </div>
-        );
-    }
+        // 2. If local explicitly sets a type, and it matches global, we merge.
+        // If local has no type, we assume it inherits global's type.
+        const effectiveType = localConfig.type || globalConfig.type;
 
-    if (!isGoogleSheets) {
-        return (
-            <div className="rounded-md border p-3 text-sm text-muted-foreground">
-                <Database className="mb-2 h-4 w-4" />
-                <p>Global source type '{globalConfig.type}' is not yet supported for mapping.</p>
-            </div>
-        );
-    }
+        // 3. If types differ, Local overrides completely (no inheritance of fields)
+        if (effectiveType !== globalConfig.type) {
+            return (localConfig as DataSource) || { type: effectiveType };
+        }
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center p-4 text-muted-foreground">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                <span className="text-sm">Loading columns...</span>
-            </div>
-        );
-    }
+        // 4. Same Value Merging: Global defaults -> Local overrides
+        // We use a smart merge where "Empty String" in local does NOT override Global value.
+        // This allows "Reset to Global" behavior by clearing the field.
+        const merged = { ...globalConfig, ...localConfig };
 
-    if (error) {
-        return (
-            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                <p>Failed to load columns: {error}</p>
-            </div>
-        );
-    }
+        // Explicitly handle relevant fields for Google Sheets to implement "Empty means Inherit"
+        if (effectiveType === 'google-sheets') {
+            const g = globalConfig as GoogleSheetsDataSource;
+            const l = localConfig as Partial<GoogleSheetsDataSource>;
+            return {
+                ...merged,
+                spreadsheetId: l.spreadsheetId || g.spreadsheetId,
+                sheetName: l.sheetName || g.sheetName,
+            } as GoogleSheetsDataSource;
+        }
 
-    if (!columns || columns.headers.length === 0) {
-        return (
-            <div className="rounded-md border p-3 text-sm text-muted-foreground">
-                <p>No columns found in the connected sheet.</p>
-            </div>
-        );
-    }
+        return merged as DataSource;
+
+    }, [globalConfig, localConfig]);
 
     return (
         <div className="space-y-4">
-            <div className="rounded-md bg-muted/30 p-2 text-xs text-muted-foreground">
-                Connected to: <strong>{sheetConfig?.sheetName}</strong>
-            </div>
+            {/* Hint about inheritance */}
+            {globalConfig && (!localConfig.type || localConfig.type === globalConfig.type) && (
+                <div className="rounded-md bg-muted/40 p-2 text-xs text-muted-foreground">
+                    <p>Inheriting from Workspace Settings.</p>
+                    <p>Edit below to override for this widget.</p>
+                </div>
+            )}
 
-            <ColumnMappingConfig
-                columns={columns}
-                config={{ ...sheetConfig, ...localConfig } as GoogleSheetsDataSource}
-                onUpdate={onChange}
+            <DataSourceConfig
+                value={effectiveConfig}
+                onChange={onChange}
+                componentType="widget"
             />
         </div>
     );

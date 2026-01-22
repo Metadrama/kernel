@@ -94,15 +94,19 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
         // We prioritize Local for mapping, Global for connection.
         // If Global is Google Sheets, we treat it as base.
         if (globalDataSource.type === 'google-sheets') {
+            // Cast to GoogleSheetsDataSource for clearer access
+            const globalGS = globalDataSource as GoogleSheetsDataSource;
+            const localGS = localDataSource as Partial<GoogleSheetsDataSource>;
+
             return {
                 ...globalDataSource,
                 ...localDataSource,
-                // Ensure type remains Google Sheets if global is set
+                // Ensure type remains Google Sheets if global is set (unless local explicitly overrides? No, loop handles that)
                 type: 'google-sheets' as const,
-                // Ensure connection details are from global (unless local explicitly overrides? No, strict global)
-                spreadsheetId: (globalDataSource as GoogleSheetsDataSource).spreadsheetId,
-                sheetName: (globalDataSource as GoogleSheetsDataSource).sheetName,
-            };
+                // Smart Merge: Local || Global
+                spreadsheetId: localGS.spreadsheetId || globalGS.spreadsheetId,
+                sheetName: localGS.sheetName || globalGS.sheetName,
+            } as GoogleSheetsDataSource;
         }
         return localDataSource;
     }, [globalDataSource, localDataSource]);

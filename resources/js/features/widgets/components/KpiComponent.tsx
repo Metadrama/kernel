@@ -67,13 +67,16 @@ export default function KpiComponent({ config }: KpiComponentProps) {
     if (localDataSource.type === 'static') return globalDataSource;
 
     if (globalDataSource.type === 'google-sheets') {
+      const globalGS = globalDataSource as GoogleSheetsDataSource;
+      const localGS = localDataSource as Partial<GoogleSheetsDataSource>;
+
       return {
         ...globalDataSource,
         ...localDataSource,
         type: 'google-sheets' as const,
-        spreadsheetId: (globalDataSource as GoogleSheetsDataSource).spreadsheetId,
-        sheetName: (globalDataSource as GoogleSheetsDataSource).sheetName,
-      };
+        spreadsheetId: localGS.spreadsheetId || globalGS.spreadsheetId,
+        sheetName: localGS.sheetName || globalGS.sheetName,
+      } as GoogleSheetsDataSource;
     }
     return localDataSource;
   }, [globalDataSource, localDataSource]);
