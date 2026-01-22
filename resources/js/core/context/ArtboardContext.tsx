@@ -1,4 +1,5 @@
 ﻿import type { ArtboardSchema } from '@/features/artboard/types/artboard';
+import type { DataSource } from '@/features/data-sources/types/component-config';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { z } from 'zod';
 import { zArtboardSchema, zPersistedPayloadV1 } from '@/features/artboard/types/artboard-schemas';
@@ -26,6 +27,8 @@ interface ArtboardContextValue {
     bringArtboardToFront: (artboardId: string) => void;
     moveArtboardLayer: (artboardId: string, direction: 'up' | 'down') => void;
     duplicateArtboard: (artboardId: string, count: number) => void;
+    dataSourceConfig: DataSource | null;
+    setDataSourceConfig: React.Dispatch<React.SetStateAction<DataSource | null>>;
 }
 
 const ArtboardContext = createContext<ArtboardContextValue | undefined>(undefined);
@@ -34,6 +37,7 @@ interface InitialData {
     dashboardId?: string;
     dashboardName?: string;
     artboards?: ArtboardSchema[];
+    dataSourceConfig?: DataSource | null;
 }
 
 interface ArtboardProviderProps {
@@ -215,6 +219,8 @@ export function ArtboardProvider({ children, initialData }: ArtboardProviderProp
         });
     }, []);
 
+    const [dataSourceConfig, setDataSourceConfig] = useState<DataSource | null>(initialData?.dataSourceConfig || null);
+
     const value = useMemo<ArtboardContextValue>(
         () => ({
             artboards,
@@ -225,8 +231,18 @@ export function ArtboardProvider({ children, initialData }: ArtboardProviderProp
             bringArtboardToFront,
             moveArtboardLayer,
             duplicateArtboard,
+            dataSourceConfig,
+            setDataSourceConfig,
         }),
-        [artboards, selectedArtboardId, artboardStackOrder, bringArtboardToFront, moveArtboardLayer, duplicateArtboard],
+        [
+            artboards,
+            selectedArtboardId,
+            artboardStackOrder,
+            bringArtboardToFront,
+            moveArtboardLayer,
+            duplicateArtboard,
+            dataSourceConfig,
+        ],
     );
 
     return <ArtboardContext.Provider value={value}>{children}</ArtboardContext.Provider>;

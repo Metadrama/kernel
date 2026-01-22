@@ -55,8 +55,8 @@ export function DataSourceConfig({ value, onChange, disabled, componentType }: D
         spreadsheetId: '',
         sheetName: '',
         range: '',
-        headerRow: 2,
-        dataStartRow: 3,
+        headerRow: 1,
+        dataStartRow: 2,
       });
     } else {
       onChange({

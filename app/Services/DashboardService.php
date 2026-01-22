@@ -231,6 +231,7 @@ class DashboardService
             'id' => $id,
             'name' => $data['name'] ?? 'Untitled Dashboard',
             'artboards' => $data['content']['artboards'] ?? [],
+            'dataSourceConfig' => $data['content']['dataSourceConfig'] ?? null,
             'updatedAt' => now()->toIso8601String(),
         ];
 
@@ -319,6 +320,9 @@ class DashboardService
             // Remove archivedWidgets from response
             unset($dashboard['archivedWidgets']);
 
+            // Ensure data source config exists
+            $dashboard['dataSourceConfig'] = $dashboard['dataSourceConfig'] ?? null;
+
             return $dashboard;
         }
 
@@ -326,6 +330,7 @@ class DashboardService
             'id' => $id,
             'name' => 'Untitled Dashboard',
             'artboards' => [],
+            'dataSourceConfig' => null,
             'createdAt' => now()->toIso8601String(),
             'updatedAt' => now()->toIso8601String(),
         ];

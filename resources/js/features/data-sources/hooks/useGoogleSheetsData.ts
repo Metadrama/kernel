@@ -65,7 +65,7 @@ export function useGoogleSheetsData(): UseGoogleSheetsDataReturn {
         }
     }, []);
 
-    const fetchColumns = useCallback(async (spreadsheetId: string, sheetName: string, headerRow: number = 2) => {
+    const fetchColumns = useCallback(async (spreadsheetId: string, sheetName: string, headerRow: number = 1) => {
         if (!spreadsheetId || !sheetName) return;
 
         setLoading(true);

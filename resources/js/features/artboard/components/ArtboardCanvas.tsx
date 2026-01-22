@@ -27,7 +27,7 @@ export default function ArtboardCanvas() {
     const currentDashboardId = page.props.currentDashboard?.id ?? 'default';
     const currentDashboardName = page.props.currentDashboard?.name ?? 'Untitled Dashboard';
 
-    const { artboards, setArtboards, selectedArtboardId, setSelectedArtboardId, artboardStackOrder, bringArtboardToFront } = useArtboardContext();
+    const { artboards, setArtboards, selectedArtboardId, setSelectedArtboardId, artboardStackOrder, bringArtboardToFront, dataSourceConfig } = useArtboardContext();
 
     // Component transfer - simplified without widget archiving
     // Components are now placed directly on artboards
@@ -305,10 +305,10 @@ export default function ArtboardCanvas() {
             prev.map((a) =>
                 a.id === selectedComponent.artboardId
                     ? {
-                          ...a,
-                          components: a.components.filter((c) => c.instanceId !== selectedComponent.component.instanceId),
-                          updatedAt: new Date().toISOString(),
-                      }
+                        ...a,
+                        components: a.components.filter((c) => c.instanceId !== selectedComponent.component.instanceId),
+                        updatedAt: new Date().toISOString(),
+                    }
                     : a
             )
         );
@@ -325,7 +325,7 @@ export default function ArtboardCanvas() {
         }
 
         const currentSnapshot = JSON.stringify(artboards);
-        
+
         // Skip if artboards haven't actually changed
         if (currentSnapshot === lastArtboardsRef.current) {
             return;
@@ -344,16 +344,16 @@ export default function ArtboardCanvas() {
     // Undo handler
     const handleUndo = useCallback(() => {
         if (history.length === 0) return;
-        
+
         const previousState = history[history.length - 1];
         const currentState = JSON.parse(JSON.stringify(artboards)) as ArtboardSchema[];
-        
+
         isUndoRedoRef.current = true;
         setHistory(prev => prev.slice(0, -1));
         setFuture(prev => [...prev, currentState]);
         setArtboards(previousState);
         lastArtboardsRef.current = JSON.stringify(previousState);
-        
+
         // Clear selection as the component might not exist anymore
         setSelectedComponent(null);
         setShowInspector(false);
@@ -362,16 +362,16 @@ export default function ArtboardCanvas() {
     // Redo handler
     const handleRedo = useCallback(() => {
         if (future.length === 0) return;
-        
+
         const nextState = future[future.length - 1];
         const currentState = JSON.parse(JSON.stringify(artboards)) as ArtboardSchema[];
-        
+
         isUndoRedoRef.current = true;
         setFuture(prev => prev.slice(0, -1));
         setHistory(prev => [...prev, currentState]);
         setArtboards(nextState);
         lastArtboardsRef.current = JSON.stringify(nextState);
-        
+
         // Clear selection as the component might not exist anymore
         setSelectedComponent(null);
         setShowInspector(false);
@@ -462,6 +462,7 @@ export default function ArtboardCanvas() {
                     id: currentDashboardId,
                     name: currentDashboardName,
                     artboards: artboards,
+                    dataSourceConfig: dataSourceConfig,
                 }),
             });
             if (response.ok) {
@@ -573,9 +574,9 @@ export default function ArtboardCanvas() {
                     component={
                         livePosition && livePosition.componentId === selectedComponent.component.instanceId
                             ? {
-                                  ...selectedComponent.component,
-                                  position: { ...selectedComponent.component.position, ...livePosition.position },
-                              }
+                                ...selectedComponent.component,
+                                position: { ...selectedComponent.component.position, ...livePosition.position },
+                            }
                             : selectedComponent.component
                     }
                     onConfigChange={handleComponentConfigChange}

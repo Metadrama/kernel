@@ -1,5 +1,6 @@
 import { MOCK_CHART_DATA, useGoogleSheetsData } from '@/features/widgets/hooks/useGoogleSheetsChartData';
 import type { BarChartConfig, ChartConfig, ComboChartConfig, DoughnutChartConfig, GoogleSheetsDataSource, LineChartConfig } from '@/features/data-sources/types/component-config';
+import { useArtboardContext } from '@/core/context/ArtboardContext';
 import { Loader2 } from 'lucide-react';
 import { useMemo } from 'react';
 import {
@@ -80,7 +81,31 @@ interface ChartComponentProps {
 export default function ChartComponent({ config, isSelected }: ChartComponentProps) {
     // Validate config and provide safe defaults
     const safeConfig = config || { chartType: 'line', dataSource: { type: 'static' } };
-    const dataSource = safeConfig.dataSource || { type: 'static' };
+
+    // Merge Global Data Source
+    const { dataSourceConfig: globalDataSource } = useArtboardContext();
+    const localDataSource = safeConfig.dataSource || {};
+
+    const dataSource = useMemo(() => {
+        if (!globalDataSource) return localDataSource;
+        if (localDataSource.type === 'static') return globalDataSource;
+
+        // Merge: Global provides connection (ID, Sheet), Local provides mapping (Columns)
+        // We prioritize Local for mapping, Global for connection.
+        // If Global is Google Sheets, we treat it as base.
+        if (globalDataSource.type === 'google-sheets') {
+            return {
+                ...globalDataSource,
+                ...localDataSource,
+                // Ensure type remains Google Sheets if global is set
+                type: 'google-sheets' as const,
+                // Ensure connection details are from global (unless local explicitly overrides? No, strict global)
+                spreadsheetId: (globalDataSource as GoogleSheetsDataSource).spreadsheetId,
+                sheetName: (globalDataSource as GoogleSheetsDataSource).sheetName,
+            };
+        }
+        return localDataSource;
+    }, [globalDataSource, localDataSource]);
 
     // For Combo charts, we need to know the secondary column
     const secondValueColumn = safeConfig.chartType === 'combo' ? (safeConfig as ComboChartConfig).lineColumn : undefined;

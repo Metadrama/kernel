@@ -1,5 +1,6 @@
 import { MOCK_CHART_DATA, useGoogleSheetsData } from '@/features/widgets/hooks/useGoogleSheetsChartData';
-import type { TableConfig, TableColumnConfig } from '@/features/data-sources/types/component-config';
+import type { TableConfig, TableColumnConfig, GoogleSheetsDataSource } from '@/features/data-sources/types/component-config';
+import { useArtboardContext } from '@/core/context/ArtboardContext';
 import { Loader2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { cn } from '@/shared/lib/utils';
@@ -66,7 +67,26 @@ interface TableComponentProps {
 
 export default function TableComponent({ config }: TableComponentProps) {
   const safeConfig = config || { dataSource: { type: 'static' }, columns: [] };
-  const dataSource = safeConfig.dataSource || { type: 'static' };
+
+  // Merge Global Data Source
+  const { dataSourceConfig: globalDataSource } = useArtboardContext();
+  const localDataSource = safeConfig.dataSource || {};
+
+  const dataSource = useMemo(() => {
+    if (!globalDataSource) return localDataSource;
+    if (localDataSource.type === 'static') return globalDataSource;
+
+    if (globalDataSource.type === 'google-sheets') {
+      return {
+        ...globalDataSource,
+        ...localDataSource,
+        type: 'google-sheets' as const,
+        spreadsheetId: (globalDataSource as GoogleSheetsDataSource).spreadsheetId,
+        sheetName: (globalDataSource as GoogleSheetsDataSource).sheetName,
+      };
+    }
+    return localDataSource;
+  }, [globalDataSource, localDataSource]);
 
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = safeConfig.pageSize || 10;

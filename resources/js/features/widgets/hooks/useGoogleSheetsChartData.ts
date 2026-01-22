@@ -136,8 +136,8 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
       sheetName,
       labelColumn,
       valueColumn,
-      headerRow = 2,
-      dataStartRow = 3,
+      headerRow = 1,
+      dataStartRow = 2,
       filterColumn,
       filterValue
     } = dataSource;

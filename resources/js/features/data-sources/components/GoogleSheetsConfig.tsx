@@ -12,6 +12,7 @@ import { useSavedSpreadsheets, type SavedSpreadsheet } from '@/features/data-sou
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { Save } from 'lucide-react';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/shared/components/ui/accordion';
 
 interface GoogleSheetsConfigProps {
     value: GoogleSheetsDataSource;
@@ -38,7 +39,7 @@ export function GoogleSheetsConfig({ value, disabled, onChange, onSaveComplete }
     // Auto-fetch columns when sheet is selected
     useEffect(() => {
         if (value.spreadsheetId && value.sheetName) {
-            fetchColumns(value.spreadsheetId, value.sheetName, value.headerRow || 2);
+            fetchColumns(value.spreadsheetId, value.sheetName, value.headerRow ?? 1);
         }
     }, [value.spreadsheetId, value.sheetName, value.headerRow, fetchColumns]);
 
@@ -180,32 +181,41 @@ export function GoogleSheetsConfig({ value, disabled, onChange, onSaveComplete }
                 </div>
             )}
 
-            {/* Header Row Config */}
+            {/* Advanced Settings - Collapsible */}
             {value.sheetName && (
-                <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                        <Label className="text-xs">Header Row</Label>
-                        <Input
-                            type="number"
-                            value={value.headerRow || 2}
-                            onChange={(e) => onChange({ headerRow: Number(e.target.value) || 2 })}
-                            min={1}
-                            disabled={disabled}
-                            className="h-8 text-sm"
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label className="text-xs">Data Start Row</Label>
-                        <Input
-                            type="number"
-                            value={value.dataStartRow || 3}
-                            onChange={(e) => onChange({ dataStartRow: Number(e.target.value) || 3 })}
-                            min={1}
-                            disabled={disabled}
-                            className="h-8 text-sm"
-                        />
-                    </div>
-                </div>
+                <Accordion type="single" collapsible className="border rounded-md px-3">
+                    <AccordionItem value="advanced" className="border-0">
+                        <AccordionTrigger className="py-2 text-xs font-medium text-muted-foreground hover:no-underline">
+                            Advanced Settings
+                        </AccordionTrigger>
+                        <AccordionContent>
+                            <div className="grid grid-cols-2 gap-3 pt-2">
+                                <div className="space-y-2">
+                                    <Label className="text-xs">Header Row</Label>
+                                    <Input
+                                        type="number"
+                                        value={value.headerRow ?? 1}
+                                        onChange={(e) => onChange({ headerRow: Number(e.target.value) || 1 })}
+                                        min={1}
+                                        disabled={disabled}
+                                        className="h-8 text-sm"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-xs">Data Start Row</Label>
+                                    <Input
+                                        type="number"
+                                        value={value.dataStartRow ?? 2}
+                                        onChange={(e) => onChange({ dataStartRow: Number(e.target.value) || 2 })}
+                                        min={1}
+                                        disabled={disabled}
+                                        className="h-8 text-sm"
+                                    />
+                                </div>
+                            </div>
+                        </AccordionContent>
+                    </AccordionItem>
+                </Accordion>
             )}
 
             {/* Column Mappings */}

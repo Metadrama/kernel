@@ -395,6 +395,7 @@ export interface ConfigFieldSchema {
   defaultValue?: unknown;
   description?: string;
   group?: string; // For grouping in UI (e.g., 'Data', 'Display', 'Style')
+  hidden?: boolean; // Hide field from UI (use default value instead)
 
   // For select fields
   options?: Array<{ value: string; label: string }>;
@@ -413,7 +414,7 @@ export interface ConfigFieldSchema {
     operator: 'equals' | 'not-equals' | 'exists' | 'not-exists';
     value?: unknown;
   };
-}
+
 
 export interface ComponentConfigSchema {
   componentType: string;

@@ -19,6 +19,7 @@ import { cn } from '@/shared/lib/utils';
 import { router, usePage } from '@inertiajs/react';
 import { Check, ChevronDown, FolderOpen, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { WorkspaceSettingsDialog } from '@/features/dashboard/components/WorkspaceSettingsDialog';
 
 const SHOW_DEFAULT_WORKSPACE_IN_DROPDOWN = false;
 
@@ -381,6 +382,8 @@ export default function CanvasTopBar({
                         <span className="text-xs">1:1</span>
                     </Button>
                 </div>
+
+                <WorkspaceSettingsDialog />
 
                 <Button variant="outline" size="sm">
                     Export

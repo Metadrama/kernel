@@ -17,7 +17,8 @@ import * as Icons from 'lucide-react';
 import { Settings2, X, Move } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 import { ConfigField } from './ConfigField';
-import { DataSourceConfig } from './DataSourceConfig';
+// import { DataSourceConfig } from './DataSourceConfig'; // Deprecated in favor of global source
+import { DataSourceField } from './DataSourceField';
 import { PositionSection } from './PositionSection';
 import { FillSection } from './FillSection';
 
@@ -60,6 +61,11 @@ function setNestedValue(obj: Record<string, unknown>, path: string, value: unkno
 
 // Check if field should be visible based on showWhen condition and appliesTo constraint
 function isFieldVisible(field: ConfigFieldSchema, config: Record<string, unknown>, componentType: string): boolean {
+    // Check if field is explicitly hidden
+    if (field.hidden) {
+        return false;
+    }
+
     // Check appliesTo constraint first
     if (field.appliesTo && !field.appliesTo.includes(componentType)) {
         return false;
@@ -96,7 +102,7 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
 
     const config = useMemo(() => (component?.config || {}) as Record<string, unknown>, [component?.config]);
     const position = component?.position;
-    const { artboards } = useArtboardContext();
+    const { artboards, dataSourceConfig } = useArtboardContext();
 
     // Resizable panel
     const { width, isResizing, handleProps } = useResizable({
@@ -158,13 +164,13 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
     // No component selected
     if (!component) {
         return (
-            <div 
+            <div
                 className="relative flex h-full flex-col border-l bg-background"
                 style={{ width: `${width}px` }}
             >
                 {/* Resize Handle */}
                 <div {...handleProps} />
-                
+
                 <PanelHeader title="Inspector" />
                 <div className="flex flex-1 items-center justify-center p-4">
                     <div className="text-center text-muted-foreground">
@@ -179,13 +185,13 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
     // No schema for this component type
     if (!schema) {
         return (
-            <div 
+            <div
                 className="relative flex h-full flex-col border-l bg-background"
                 style={{ width: `${width}px` }}
             >
                 {/* Resize Handle */}
                 <div {...handleProps} />
-                
+
                 <PanelHeader
                     left={
                         <div className="flex items-center gap-2">
@@ -221,13 +227,13 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
     const isTextComponent = component.componentType === 'text' || component.componentType === 'heading';
 
     return (
-        <div 
+        <div
             className="relative flex h-full flex-col border-l bg-background"
             style={{ width: `${width}px` }}
         >
             {/* Resize Handle */}
             <div {...handleProps} />
-            
+
             {/* Header */}
             <PanelHeader
                 left={
@@ -323,14 +329,13 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
                                                 field = { ...field, options: charts };
                                             }
 
-                                            // Special handling for data source field
                                             if (field.type === 'data-source') {
                                                 return (
-                                                    <DataSourceConfig
+                                                    <DataSourceField
                                                         key={field.key}
-                                                        value={(config.dataSource as DataSource) || { type: 'static' }}
-                                                        onChange={handleDataSourceChange}
-                                                        componentType={component.componentType}
+                                                        globalConfig={dataSourceConfig}
+                                                        localConfig={(config.dataSource as any) || {}}
+                                                        onChange={(updates) => handleDataSourceChange({ ...(config.dataSource as any), ...updates })}
                                                     />
                                                 );
                                             }

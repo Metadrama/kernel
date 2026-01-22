@@ -54,6 +54,7 @@ class DashboardController extends Controller
             'id' => ['required', 'string'],
             'name' => ['required', 'string'],
             'artboards' => ['array'],
+            'dataSourceConfig' => ['nullable', 'array'],
         ]);
 
         $saved = $this->dashboardService->save([
@@ -61,6 +62,7 @@ class DashboardController extends Controller
             'name' => $data['name'],
             'content' => [
                 'artboards' => $data['artboards'] ?? [],
+                'dataSourceConfig' => $data['dataSourceConfig'] ?? null,
             ],
         ]);
 

@@ -15,6 +15,7 @@ const DATA_SOURCE_FIELD: ConfigFieldSchema = {
   type: 'data-source',
   group: 'Data',
   description: 'Select where the chart data comes from',
+  // hidden: true, // Now handled globally, but we still use the field for column mapping UI
 };
 
 const COMMON_DISPLAY_FIELDS: ConfigFieldSchema[] = [
