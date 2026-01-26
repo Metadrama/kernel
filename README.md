@@ -22,11 +22,11 @@ Think of it less like a static webpage and more like a **trading terminal** or a
 ### Current Features
 - 📐 **Multi-Format Artboards**: Create dashboards for print (A4, A3, A2), presentations (16:9, 4:3), web, display/TV (FHD, 4K), and mobile formats
 - 🧱 **Drag & Drop Widget System**: Powered by GridStack for smooth collision detection, snapping, and dragging
-- 📊 **Chart Components**: Line, Bar, and Doughnut charts using Chart.js with multiple color palettes
+- 📊 **Chart Components**: Line, Bar, and Doughnut charts using Nivo Charts with multiple color palettes
 - 📝 **Text Components**: Editable headings for dashboard titles and labels
 - 📋 **Google Sheets Integration**: Connect charts to live Google Sheets data sources
 - 🗂️ **Layer Management**: Organize and reorder artboards with a dedicated layers panel
-- 💾 **Auto-Save**: Dashboard layouts persist to session storage and localStorage
+- 💾 **Auto-Save**: Dashboard layouts persist to filesystem (JSON) and session storage
 
 ### Planned Features
 - User authentication and multi-user support
@@ -45,7 +45,7 @@ Think of it less like a static webpage and more like a **trading terminal** or a
 | **Frontend** | React 19 | UI rendering and interactivity |
 | **UI Components** | Radix UI + Tailwind CSS 4 | Polished, accessible component library |
 | **Grid Layout** | GridStack | Drag-and-drop, collision detection, widget positioning |
-| **Charts** | Chart.js + react-chartjs-2 | Data visualization |
+| **Charts** | @nivo/core (Pie, Bar, Line) | Data visualization |
 | **Build Tool** | Vite 7 | Fast development and production builds |
 | **Type Safety** | TypeScript | Static typing for React components |
 
@@ -170,13 +170,13 @@ This project is in **active development** (Work In Progress). Here's the current
 | Google Sheets integration | ✅ Complete |
 | Layer management | ✅ Complete |
 | User authentication | 🚧 Not started |
-| Database persistence | 🚧 Partial (session only) |
+| Database persistence | 🚧 FileSystem (JSON) / Session |
 | Export functionality | 🚧 Not started |
 | Multi-user collaboration | 🚧 Not started |
 
 ### Known Limitations
 
-- Dashboard layouts are stored in session/localStorage only (no permanent database storage yet)
+- Dashboard layouts are stored in filesystem (JSON) and session (no SQL database storage yet)
 - No user authentication - all visitors share the same session
 - Limited to predefined component types
 - No mobile-optimized editing experience
@@ -215,6 +215,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Laravel](https://laravel.com/) - The PHP framework
 - [Inertia.js](https://inertiajs.com/) - The modern monolith
 - [GridStack](https://gridstackjs.com/) - Dashboard layout engine
-- [Chart.js](https://www.chartjs.org/) - Charting library
+- [Nivo](https://nivo.rocks/) - Charting library
 - [Radix UI](https://www.radix-ui.com/) - Accessible component primitives
 - [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS
