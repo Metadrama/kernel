@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import '../css/app.css';
 
 import { createInertiaApp } from '@inertiajs/react';
@@ -8,7 +9,7 @@ const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
 createInertiaApp({
     title: (title) => title ? `${title} - ${appName}` : appName,
-    resolve: (name) => resolvePageComponent(`./pages/${name}.tsx`, import.meta.glob('./pages/**/*.tsx')),
+    resolve: (name) => resolvePageComponent(`./modules/${name}/pages/${name}Page.tsx`, import.meta.glob('./modules/**/pages/*.tsx')),
     setup({ el, App, props }) {
         const root = createRoot(el);
 
