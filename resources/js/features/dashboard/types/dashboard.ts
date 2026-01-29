@@ -5,7 +5,7 @@
  * Components are placed directly on artboards with absolute pixel positioning.
  */
 
-import type { ArtboardSchema } from '@/features/artboard/types/artboard';
+import type { Artboard } from '@/features/artboard/types/artboard';
 
 /**
  * Component card in sidebar (catalog of available components)
@@ -20,28 +20,7 @@ export interface ComponentCard {
   isFavorite?: boolean;
 }
 
-/**
- * Absolute position and size in pixels
- */
-export interface ComponentPosition {
-  x: number;           // Absolute X coordinate in pixels (relative to artboard)
-  y: number;           // Absolute Y coordinate in pixels (relative to artboard)
-  width: number;       // Width in pixels
-  height: number;      // Height in pixels
-  zIndex: number;      // Stacking order (higher = on top)
-  rotation?: number;   // Rotation in degrees (0-360) - reserved for future
-}
-
-/**
- * Component instance placed on an artboard
- */
-export interface ArtboardComponent {
-  instanceId: string;
-  componentType: string;
-  position: ComponentPosition;
-  config: Record<string, unknown>;
-  locked?: boolean;    // If true, prevents drag/resize
-}
+// Moved ComponentPosition and ArtboardComponent to @/features/artboard/types/artboard
 
 /**
  * Dashboard layout containing artboards
@@ -49,7 +28,7 @@ export interface ArtboardComponent {
 export interface DashboardLayout {
   id: string;
   name: string;
-  artboards: ArtboardSchema[];
+  artboards: Artboard[];
   createdAt: string;
   updatedAt: string;
 }

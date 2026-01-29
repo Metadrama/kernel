@@ -386,7 +386,8 @@ export type FieldType =
   | 'font-picker'     // Font family dropdown
   | 'alignment-icons' // Icon toggle group for alignment
   | 'style-toggles'   // B/I/U/S style buttons
-  | 'color-fill';     // Color with opacity
+  | 'color-fill'      // Color with opacity
+  | 'multi-select';   // Select multiple options
 
 export interface ConfigFieldSchema {
   key: string;
@@ -414,7 +415,7 @@ export interface ConfigFieldSchema {
     operator: 'equals' | 'not-equals' | 'exists' | 'not-exists';
     value?: unknown;
   };
-
+}
 
 export interface ComponentConfigSchema {
   componentType: string;

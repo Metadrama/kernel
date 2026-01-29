@@ -10,7 +10,8 @@
  * - Act as true format containers (A4, 16:9, etc.)
  */
 
-import type { ArtboardComponent } from '@/features/dashboard/types/dashboard';
+// Removed import from dashboard types
+
 
 /**
  * Supported artboard format presets
@@ -37,6 +38,29 @@ export type ArtboardFormat =
     | 'mobile-landscape' // 16:9
     // Custom
     | 'custom';
+
+/**
+ * Absolute position and size in pixels
+ */
+export interface ComponentPosition {
+    x: number;           // Absolute X coordinate in pixels (relative to artboard)
+    y: number;           // Absolute Y coordinate in pixels (relative to artboard)
+    width: number;       // Width in pixels
+    height: number;      // Height in pixels
+    zIndex: number;      // Stacking order (higher = on top)
+    rotation?: number;   // Rotation in degrees (0-360) - reserved for future
+}
+
+/**
+ * Component instance placed on an artboard
+ */
+export interface ArtboardComponent {
+    instanceId: string;
+    componentType: string;
+    position: ComponentPosition;
+    config: Record<string, unknown>;
+    locked?: boolean;    // If true, prevents drag/resize
+}
 
 /**
  * Artboard dimensions with physical and pixel measurements
@@ -85,7 +109,7 @@ export interface CanvasPosition {
 /**
  * Artboard schema - represents a single artboard instance
  */
-export interface ArtboardSchema {
+export interface Artboard {
     /** Unique identifier */
     id: string;
     /** User-defined name */

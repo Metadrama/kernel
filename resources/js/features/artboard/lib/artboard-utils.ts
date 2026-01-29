@@ -9,7 +9,7 @@
  */
 
 import { getArtboardPreset } from '@/constants/artboard-presets';
-import type { ArtboardDimensions, ArtboardFormat, ArtboardSchema, CanvasPosition, CreateArtboardOptions } from '@/features/artboard/types/artboard';
+import type { Artboard, ArtboardDimensions, ArtboardFormat, CanvasPosition, CreateArtboardOptions } from '@/features/artboard/types/artboard';
 
 /**
  * Generate unique artboard ID
@@ -40,7 +40,7 @@ export function getDefaultArtboardName(format: ArtboardFormat): string {
  * Calculate default position for new artboard
  * Places artboards in a horizontal flow layout (like Figma)
  */
-export function calculateDefaultPosition(existingArtboards: ArtboardSchema[], dimensions: ArtboardDimensions): CanvasPosition {
+export function calculateDefaultPosition(existingArtboards: Artboard[], dimensions: ArtboardDimensions): CanvasPosition {
     if (existingArtboards.length === 0) {
         // First artboard: start at top-left with padding
         return { x: 100, y: 100 };
@@ -59,7 +59,7 @@ export function calculateDefaultPosition(existingArtboards: ArtboardSchema[], di
 /**
  * Create a new artboard with defaults
  */
-export function createArtboard(options: CreateArtboardOptions, existingArtboards: ArtboardSchema[] = []): ArtboardSchema {
+export function createArtboard(options: CreateArtboardOptions, existingArtboards: Artboard[] = []): Artboard {
     const preset = getArtboardPreset(options.format);
 
     if (!preset) {
@@ -104,7 +104,7 @@ export interface ArtboardBounds {
     height: number;
 }
 
-export function getArtboardBounds(artboard: ArtboardSchema): ArtboardBounds {
+export function getArtboardBounds(artboard: Artboard): ArtboardBounds {
     const { position, dimensions } = artboard;
 
     return {
@@ -120,7 +120,7 @@ export function getArtboardBounds(artboard: ArtboardSchema): ArtboardBounds {
 /**
  * Check if a point is within artboard bounds
  */
-export function isPointInArtboard(point: CanvasPosition, artboard: ArtboardSchema): boolean {
+export function isPointInArtboard(point: CanvasPosition, artboard: Artboard): boolean {
     const bounds = getArtboardBounds(artboard);
 
     return point.x >= bounds.left && point.x <= bounds.right && point.y >= bounds.top && point.y <= bounds.bottom;
@@ -129,7 +129,7 @@ export function isPointInArtboard(point: CanvasPosition, artboard: ArtboardSchem
 /**
  * Check if two artboards overlap
  */
-export function doArtboardsOverlap(artboard1: ArtboardSchema, artboard2: ArtboardSchema): boolean {
+export function doArtboardsOverlap(artboard1: Artboard, artboard2: Artboard): boolean {
     const bounds1 = getArtboardBounds(artboard1);
     const bounds2 = getArtboardBounds(artboard2);
 
@@ -140,7 +140,7 @@ export function doArtboardsOverlap(artboard1: ArtboardSchema, artboard2: Artboar
  * Find artboard at canvas position
  * Returns topmost artboard if multiple overlap
  */
-export function findArtboardAtPosition(position: CanvasPosition, artboards: ArtboardSchema[]): ArtboardSchema | null {
+export function findArtboardAtPosition(position: CanvasPosition, artboards: Artboard[]): Artboard | null {
     // Check in reverse order (topmost first)
     for (let i = artboards.length - 1; i >= 0; i--) {
         const artboard = artboards[i];
@@ -167,7 +167,7 @@ export function validateArtboardPosition(position: CanvasPosition, canvasSize: {
 /**
  * Convert canvas coordinates to artboard-relative coordinates
  */
-export function canvasToArtboardCoords(point: CanvasPosition, artboard: ArtboardSchema): CanvasPosition {
+export function canvasToArtboardCoords(point: CanvasPosition, artboard: Artboard): CanvasPosition {
     return {
         x: point.x - artboard.position.x,
         y: point.y - artboard.position.y
@@ -177,7 +177,7 @@ export function canvasToArtboardCoords(point: CanvasPosition, artboard: Artboard
 /**
  * Convert artboard-relative coordinates to canvas coordinates
  */
-export function artboardToCanvasCoords(point: CanvasPosition, artboard: ArtboardSchema): CanvasPosition {
+export function artboardToCanvasCoords(point: CanvasPosition, artboard: Artboard): CanvasPosition {
     return {
         x: point.x + artboard.position.x,
         y: point.y + artboard.position.y
@@ -187,7 +187,7 @@ export function artboardToCanvasCoords(point: CanvasPosition, artboard: Artboard
 /**
  * Calculate grid configuration for an artboard
  */
-export function calculateArtboardGridConfig(artboard: ArtboardSchema) {
+export function calculateArtboardGridConfig(artboard: Artboard) {
     // This could be enhanced to support per-artboard grid settings
     return {
         gridSize: 20,
@@ -198,7 +198,7 @@ export function calculateArtboardGridConfig(artboard: ArtboardSchema) {
 /**
  * Calculate effective grid configuration
  */
-export function calculateEffectiveGridConfig(artboard: ArtboardSchema) {
+export function calculateEffectiveGridConfig(artboard: Artboard) {
     return calculateArtboardGridConfig(artboard);
 }
 
@@ -221,7 +221,7 @@ export function scaleDimensions(dimensions: ArtboardDimensions, scale: number): 
 /**
  * Export artboard to JSON file
  */
-export function exportArtboardToJson(artboard: ArtboardSchema): void {
+export function exportArtboardToJson(artboard: Artboard): void {
     const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(artboard, null, 2));
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute('href', dataStr);
@@ -235,7 +235,7 @@ export function exportArtboardToJson(artboard: ArtboardSchema): void {
  * Export artboard to PDF
  * Requires html2canvas and jspdf
  */
-export async function exportArtboardToPdf(artboard: ArtboardSchema): Promise<void> {
+export async function exportArtboardToPdf(artboard: Artboard): Promise<void> {
     try {
         const html2canvas = (await import('html2canvas')).default;
         const { jsPDF } = await import('jspdf');

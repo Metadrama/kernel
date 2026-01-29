@@ -6,7 +6,7 @@
 
 import { RotateCw } from 'lucide-react';
 import { InlineScrubInput } from '@/shared/components/ui/number-scrub-input';
-import type { ComponentPosition } from '@/features/dashboard/types/dashboard';
+import type { ComponentPosition } from '@/features/artboard/types/artboard';
 
 interface PositionSectionProps {
   position: ComponentPosition;

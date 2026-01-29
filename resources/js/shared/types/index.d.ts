@@ -22,7 +22,7 @@ export interface User {
 
 // Re-export artboard types for convenience
 export type {
-    ArtboardSchema,
+    Artboard,
     ArtboardFormat,
     ArtboardDimensions,
     ArtboardPreset,
@@ -30,4 +30,4 @@ export type {
     CanvasPosition,
     CreateArtboardOptions,
     UpdateArtboardOptions,
-} from './artboard';
+} from '@/features/artboard/types/artboard';

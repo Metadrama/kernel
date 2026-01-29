@@ -14,11 +14,11 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/shared/components/ui/dropdown-menu';
-import type { ArtboardSchema } from '@/features/artboard/types/artboard';
+import type { Artboard } from '@/features/artboard/types/artboard';
 import { exportArtboardToJson, exportArtboardToPdf } from '@/features/artboard/lib/artboard-utils';
 
 interface ArtboardHeaderOverlayProps {
-    artboards: ArtboardSchema[];
+    artboards: Artboard[];
     canvasScale: number;
     canvasPan: { x: number; y: number };
     selectedArtboardId: string | null;
@@ -29,7 +29,7 @@ interface ArtboardHeaderOverlayProps {
             position: { x: number; y: number } | null;
         };
     };
-    onUpdate: (artboardId: string, updates: Partial<ArtboardSchema>) => void;
+    onUpdate: (artboardId: string, updates: Partial<Artboard>) => void;
     onDelete: (artboardId: string) => void;
     onSelect: (artboardId: string) => void;
     onAddWidget: (artboardId: string) => void;
@@ -63,7 +63,7 @@ export default function ArtboardHeaderOverlay({
         <div className="pointer-events-none absolute inset-0 z-[100]">
             {artboardStackOrder
                 .map(id => artboards.find(a => a.id === id))
-                .filter((artboard): artboard is ArtboardSchema => artboard !== undefined && artboard.visible)
+                .filter((artboard): artboard is Artboard => artboard !== undefined && artboard.visible)
                 .map((artboard, index) => {
                     const screenPos = canvasToScreen(artboard.position.x, artboard.position.y);
                     const screenWidth = artboard.dimensions.widthPx * canvasScale;

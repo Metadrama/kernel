@@ -8,20 +8,19 @@ import { useDraggedComponentRef } from '@/core/context/DragDropContext';
 import { useArtboardDrag } from '@/features/artboard/hooks/useArtboardDrag';
 import { useDragDropHandler } from '@/features/artboard/hooks/useDragDropHandler';
 import { getDefaultSize } from '@/shared/lib/component-sizes';
-import type { ArtboardSchema } from '@/features/artboard/types/artboard';
-import type { ArtboardComponent } from '@/features/dashboard/types/dashboard';
+import type { Artboard, ArtboardComponent } from '@/features/artboard/types/artboard';
 import { Lock, Trash2, Unlock } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import AlignmentGuidesOverlay from './AlignmentGuidesOverlay';
 import { ArtboardHeader } from './ArtboardHeader';
 
 interface ArtboardContainerProps {
-    artboard: ArtboardSchema;
+    artboard: Artboard;
     isSelected: boolean;
     canvasScale: number;
     scaleWithZoom: boolean;
     zIndex: number;
-    onUpdate: (artboardId: string, updates: Partial<ArtboardSchema>) => void;
+    onUpdate: (artboardId: string, updates: Partial<Artboard>) => void;
     onDelete: (artboardId: string) => void;
     onSelect: () => void;
     selectedComponentId?: string;

@@ -10,13 +10,13 @@ import {
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
-import type { ArtboardSchema } from '@/features/artboard/types/artboard';
+import type { Artboard } from '@/features/artboard/types/artboard';
 
 interface ArtboardSettingsDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    artboard: ArtboardSchema;
-    onUpdate: (artboardId: string, updates: Partial<ArtboardSchema>) => void;
+    artboard: Artboard;
+    onUpdate: (artboardId: string, updates: Partial<Artboard>) => void;
 }
 
 import { ARTBOARD_CONTAINER_PADDING } from '@/features/artboard/lib/artboard-utils';

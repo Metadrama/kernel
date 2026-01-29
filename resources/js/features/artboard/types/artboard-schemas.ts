@@ -63,7 +63,7 @@ export const zCanvasPosition = z
     })
     .passthrough();
 
-export const zArtboardSchema = z
+export const zArtboard = z
     .object({
         id: z.string(),
         name: z.string(),
@@ -87,7 +87,7 @@ export const zArtboardSchema = z
 
 export const zPersistedPayloadV1 = z.object({
     version: z.literal(1),
-    artboards: z.array(zArtboardSchema),
+    artboards: z.array(zArtboard),
 });
 
 export type ArtboardFormat = (typeof ARTBOARD_FORMATS)[number];

@@ -10,7 +10,7 @@
 
 import { useState } from 'react';
 import { cn } from '@/shared/lib/utils';
-import type { ArtboardComponent } from '@/features/dashboard/types/dashboard';
+import type { ArtboardComponent } from '@/features/artboard/types/artboard';
 import type { ComponentBounds, AlignmentGuide } from '@/features/artboard/lib/alignment-helpers';
 import { useComponentInteraction } from '@/features/artboard/hooks/useComponentInteraction';
 import { ResizeHandles } from '@/shared/components/ResizeHandles';

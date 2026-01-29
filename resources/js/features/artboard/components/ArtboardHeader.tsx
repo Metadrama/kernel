@@ -7,18 +7,18 @@ import {
     DropdownMenuTrigger,
 } from '@/shared/components/ui/dropdown-menu';
 import { exportArtboardToJson, exportArtboardToPdf } from '@/features/artboard/lib/artboard-utils';
-import type { ArtboardSchema } from '@/features/artboard/types/artboard';
+import type { Artboard } from '@/features/artboard/types/artboard';
 import { FileJson, FileType, Lock, MoreVertical, Trash2, Unlock } from 'lucide-react';
 
 interface ArtboardHeaderProps {
-    artboard: ArtboardSchema;
+    artboard: Artboard;
     canvasScale: number;
     displayPosition: { x: number; y: number };
     zIndex: number;
     isDragging: boolean;
     headerOffset: number;
     onMouseDown: (e: React.MouseEvent) => void;
-    onUpdate: (updates: Partial<ArtboardSchema>) => void;
+    onUpdate: (updates: Partial<Artboard>) => void;
     onDelete: () => void;
 }
 

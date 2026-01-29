@@ -11,8 +11,7 @@ import { useArtboardContext } from '@/core/context/ArtboardContext';
 import { useCanvasPan } from '@/features/artboard/hooks/useCanvasPan';
 import { useCanvasZoom } from '@/features/artboard/hooks/useCanvasZoom';
 import { createArtboard } from '@/features/artboard/lib/artboard-utils';
-import type { ArtboardSchema } from '@/features/artboard/types/artboard';
-import type { ArtboardComponent } from '@/features/dashboard/types/dashboard';
+import type { Artboard, ArtboardComponent } from '@/features/artboard/types/artboard';
 import { usePage } from '@inertiajs/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AddArtboardPanel from './AddArtboardPanel';
@@ -63,8 +62,8 @@ export default function ArtboardCanvas() {
     const [clipboard, setClipboard] = useState<{ component: ArtboardComponent; artboardId: string } | null>(null);
 
     // Undo/Redo history stacks
-    const [history, setHistory] = useState<ArtboardSchema[][]>([]);
-    const [future, setFuture] = useState<ArtboardSchema[][]>([]);
+    const [history, setHistory] = useState<Artboard[][]>([]);
+    const [future, setFuture] = useState<Artboard[][]>([]);
     const isUndoRedoRef = useRef(false);
     const lastArtboardsRef = useRef<string>('');
 
@@ -151,7 +150,7 @@ export default function ArtboardCanvas() {
 
     // Artboard CRUD
     const handleUpdateArtboard = useCallback(
-        (id: string, updates: Partial<ArtboardSchema>) => {
+        (id: string, updates: Partial<Artboard>) => {
             setArtboards((prev) => prev.map((a) => (a.id === id ? { ...a, ...updates, updatedAt: new Date().toISOString() } : a)));
         },
         [setArtboards],
@@ -333,7 +332,7 @@ export default function ArtboardCanvas() {
 
         // If we have a previous state, push it to history
         if (lastArtboardsRef.current !== '') {
-            const previousArtboards = JSON.parse(lastArtboardsRef.current) as ArtboardSchema[];
+            const previousArtboards = JSON.parse(lastArtboardsRef.current) as Artboard[];
             setHistory(prev => [...prev.slice(-49), previousArtboards]); // Keep max 50 history entries
             setFuture([]); // Clear redo stack on new change
         }
@@ -346,7 +345,7 @@ export default function ArtboardCanvas() {
         if (history.length === 0) return;
 
         const previousState = history[history.length - 1];
-        const currentState = JSON.parse(JSON.stringify(artboards)) as ArtboardSchema[];
+        const currentState = JSON.parse(JSON.stringify(artboards)) as Artboard[];
 
         isUndoRedoRef.current = true;
         setHistory(prev => prev.slice(0, -1));
@@ -364,7 +363,7 @@ export default function ArtboardCanvas() {
         if (future.length === 0) return;
 
         const nextState = future[future.length - 1];
-        const currentState = JSON.parse(JSON.stringify(artboards)) as ArtboardSchema[];
+        const currentState = JSON.parse(JSON.stringify(artboards)) as Artboard[];
 
         isUndoRedoRef.current = true;
         setFuture(prev => prev.slice(0, -1));
@@ -529,7 +528,7 @@ export default function ArtboardCanvas() {
                         {/* Artboards */}
                         {artboardStackOrder
                             .map((id) => artboards.find((a) => a.id === id))
-                            .filter((a): a is ArtboardSchema => !!a)
+                            .filter((a): a is Artboard => !!a)
                             .map((artboard, index) => (
                                 <ArtboardContainer
                                     key={artboard.id}

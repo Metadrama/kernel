@@ -1,26 +1,26 @@
-﻿import type { ArtboardSchema } from '@/features/artboard/types/artboard';
+﻿import type { Artboard } from '@/features/artboard/types/artboard';
 import type { DataSource } from '@/features/data-sources/types/component-config';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { z } from 'zod';
-import { zArtboardSchema, zPersistedPayloadV1 } from '@/features/artboard/types/artboard-schemas';
+import { zArtboard, zPersistedPayloadV1 } from '@/features/artboard/types/artboard-schemas';
 
 const ENABLE_LOCALSTORAGE_FALLBACK = false;
 const ENABLE_LOCALSTORAGE_PERSIST = false;
 
-function withArtboardDefaults(a: ArtboardSchema): ArtboardSchema {
+function withArtboardDefaults(a: Artboard): Artboard {
     return {
         ...a,
         clipContent: typeof a.clipContent === 'boolean' ? a.clipContent : true,
     };
 }
 
-function withArtboardsDefaults(artboards: ArtboardSchema[]): ArtboardSchema[] {
+function withArtboardsDefaults(artboards: Artboard[]): Artboard[] {
     return artboards.map(withArtboardDefaults);
 }
 
 interface ArtboardContextValue {
-    artboards: ArtboardSchema[];
-    setArtboards: React.Dispatch<React.SetStateAction<ArtboardSchema[]>>;
+    artboards: Artboard[];
+    setArtboards: React.Dispatch<React.SetStateAction<Artboard[]>>;
     selectedArtboardId: string | null;
     setSelectedArtboardId: React.Dispatch<React.SetStateAction<string | null>>;
     artboardStackOrder: string[];
@@ -36,7 +36,7 @@ const ArtboardContext = createContext<ArtboardContextValue | undefined>(undefine
 interface InitialData {
     dashboardId?: string;
     dashboardName?: string;
-    artboards?: ArtboardSchema[];
+    artboards?: Artboard[];
     dataSourceConfig?: DataSource | null;
 }
 
@@ -50,10 +50,10 @@ const STORAGE_VERSION = 1;
 
 type PersistedArtboardsPayloadV1 = {
     version: 1;
-    artboards: ArtboardSchema[];
+    artboards: Artboard[];
 };
 
-const loadArtboards = (initialData?: InitialData): ArtboardSchema[] => {
+const loadArtboards = (initialData?: InitialData): Artboard[] => {
     // Prefer server data if provided
     if (initialData?.artboards && initialData.artboards.length > 0) {
         return withArtboardsDefaults(initialData.artboards);
@@ -72,9 +72,9 @@ const loadArtboards = (initialData?: InitialData): ArtboardSchema[] => {
 
         const parsed: unknown = JSON.parse(saved);
 
-        // Backward-compatible: old format was just ArtboardSchema[]
+        // Backward-compatible: old format was just Artboard[]
         if (Array.isArray(parsed)) {
-            const result = z.array(zArtboardSchema).safeParse(parsed);
+            const result = z.array(zArtboard).safeParse(parsed);
             if (result.success) return withArtboardsDefaults(result.data);
             console.warn('Invalid persisted artboards (legacy array format). Resetting to empty.', result.error);
             return [];
@@ -95,7 +95,7 @@ const loadArtboards = (initialData?: InitialData): ArtboardSchema[] => {
 };
 
 export function ArtboardProvider({ children, initialData }: ArtboardProviderProps) {
-    const [artboards, setArtboards] = useState<ArtboardSchema[]>(() => loadArtboards(initialData));
+    const [artboards, setArtboards] = useState<Artboard[]>(() => loadArtboards(initialData));
     const [selectedArtboardId, setSelectedArtboardId] = useState<string | null>(null);
     const [artboardStackOrder, setArtboardStackOrder] = useState<string[]>([]);
 
@@ -177,7 +177,7 @@ export function ArtboardProvider({ children, initialData }: ArtboardProviderProp
             const source = prev.find((a) => a.id === artboardId);
             if (!source) return prev;
 
-            const newArtboards: ArtboardSchema[] = [];
+            const newArtboards: Artboard[] = [];
             const now = new Date().toISOString();
 
             // Find the rightmost position to append the duplicates
@@ -196,7 +196,7 @@ export function ArtboardProvider({ children, initialData }: ArtboardProviderProp
                     instanceId: `component - ${Date.now()} -${Math.random().toString(36).substr(2, 9)} `,
                 }));
 
-                const newArtboard: ArtboardSchema = {
+                const newArtboard: Artboard = {
                     ...source,
                     id: `artboard - ${Date.now()} -${Math.random().toString(36).substr(2, 9)} `,
                     name: `${source.name} Copy${count > 1 ? ` ${i + 1}` : ''} `,

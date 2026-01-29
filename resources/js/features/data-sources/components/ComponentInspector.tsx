@@ -12,7 +12,7 @@ import { useArtboardContext } from '@/core/context/ArtboardContext';
 import { useResizable } from '@/shared/hooks/useResizable';
 import type { ConfigFieldSchema, DataSource } from '@/features/data-sources/types/component-config';
 import { CONFIG_GROUPS, getConfigSchema, type ConfigGroupId } from '@/features/data-sources/types/config-schemas';
-import type { ArtboardComponent, ComponentPosition } from '@/features/dashboard/types/dashboard';
+import type { ArtboardComponent, ComponentPosition } from '@/features/artboard/types/artboard';
 import * as Icons from 'lucide-react';
 import { Settings2, X, Move } from 'lucide-react';
 import { useCallback, useMemo } from 'react';

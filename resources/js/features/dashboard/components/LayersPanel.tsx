@@ -6,11 +6,11 @@ import { useMemo } from 'react';
 import { ArrowUp, ArrowDown, Eye, EyeOff, Lock, Unlock } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { ScrollArea } from '@/shared/components/ui/scroll-area';
-import type { ArtboardSchema } from '@/features/artboard/types/artboard';
+import type { Artboard } from '@/features/artboard/types/artboard';
 import { AVAILABLE_COMPONENTS } from '@/constants/components';
 
 interface LayersPanelProps {
-    artboards: ArtboardSchema[];
+    artboards: Artboard[];
     artboardStackOrder: string[];
     selectedArtboardId: string | null;
     onSelectArtboard: (id: string) => void;
@@ -43,7 +43,7 @@ export default function LayersPanel({
     const orderedArtboards = useMemo(() => {
         return artboardOrder
             .map((id) => artboards.find((a) => a.id === id))
-            .filter((a): a is ArtboardSchema => !!a)
+            .filter((a): a is Artboard => !!a)
             .reverse();
     }, [artboards, artboardOrder]);
 

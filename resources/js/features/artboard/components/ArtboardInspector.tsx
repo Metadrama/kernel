@@ -7,12 +7,12 @@ import { Label } from '@/shared/components/ui/label';
 import PanelHeader from '@/shared/components/ui/panel-header';
 import { Separator } from '@/shared/components/ui/separator';
 import { Switch } from '@/shared/components/ui/switch';
-import type { ArtboardSchema } from '@/features/artboard/types/artboard';
+import type { Artboard } from '@/features/artboard/types/artboard';
 import { useMemo } from 'react';
 
 interface Props {
-    artboard: ArtboardSchema | null;
-    onUpdate: (updates: Partial<ArtboardSchema>) => void;
+    artboard: Artboard | null;
+    onUpdate: (updates: Partial<Artboard>) => void;
     onClose: () => void;
 }
 
