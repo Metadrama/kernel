@@ -48,7 +48,7 @@ export function SavedSourcesSection({
         <div className="space-y-2">
             <Label className="text-sm font-medium flex items-center gap-2">
                 <FolderOpen className="h-4 w-4" />
-                Saved Sources
+                Presets
             </Label>
             <div className="space-y-1 max-h-[160px] min-h-[72px] overflow-y-auto pr-1">
                 {loading && (
@@ -60,7 +60,7 @@ export function SavedSourcesSection({
                 )}
                 {showEmptyState && (
                     <div className="text-xs text-muted-foreground bg-muted/20 rounded-md p-2">
-                        No saved sources yet.
+                        No presets yet.
                     </div>
                 )}
                 {hasSources && (

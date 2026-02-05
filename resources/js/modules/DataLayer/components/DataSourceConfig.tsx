@@ -42,11 +42,14 @@ export function DataSourceConfig({ value, onChange, disabled, componentType }: D
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [saveName, setSaveName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [selectedSourceType, setSelectedSourceType] = useState<DataSource['type'] | 'saved' | ''>(value.type ?? '');
 
-  const sourceType = value.type;
+  const sourceType = selectedSourceType;
   const gsConfig = value.type === 'google-sheets' ? value : null;
 
-  const handleTypeChange = (newType: DataSource['type']) => {
+  const handleTypeChange = (newType: DataSource['type'] | 'saved') => {
+    setSelectedSourceType(newType);
+    if (newType === 'saved') return;
     if (newType === 'static') {
       onChange({ type: 'static' });
     } else if (newType === 'google-sheets') {
@@ -87,11 +90,13 @@ export function DataSourceConfig({ value, onChange, disabled, componentType }: D
         type: 'google-sheets',
         ...config,
       });
+      setSelectedSourceType('google-sheets');
     } else if (savedSource.type === 'api') {
       onChange({
         type: 'api',
         ...savedSource.config,
       } as DataSource);
+      setSelectedSourceType('api');
     }
   };
 
@@ -116,64 +121,83 @@ export function DataSourceConfig({ value, onChange, disabled, componentType }: D
   };
 
   const canSave = value.type === 'google-sheets' && gsConfig?.spreadsheetId && gsConfig?.sheetName;
+  const showSavedSources = sourceType === 'saved';
+  const showGoogleSheets = sourceType === 'google-sheets' && gsConfig;
+  const showStaticInfo = sourceType === 'static';
+  const hasDetails = showSavedSources || showGoogleSheets || showStaticInfo;
 
   return (
     <div className="space-y-4">
-      {/* Saved Data Sources */}
-      <SavedSourcesSection
-        savedSources={savedSources}
-        loading={savedLoading}
-        disabled={disabled}
-        onLoad={handleLoadSavedSource}
-        onDelete={handleDeleteSavedSource}
-      />
-
-      {/* Data Source Type */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Source Type</Label>
-        <Select value={sourceType} onValueChange={handleTypeChange} disabled={disabled}>
-          <SelectTrigger className="h-9">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="static">
-              <div className="flex items-center gap-2">
-                <Database className="h-4 w-4" />
-                <span>Static (Mock Data)</span>
-              </div>
-            </SelectItem>
-            <SelectItem value="google-sheets">
-              <div className="flex items-center gap-2">
-                <FileSpreadsheet className="h-4 w-4" />
-                <span>Google Sheets</span>
-              </div>
-            </SelectItem>
-            <SelectItem value="api" disabled>
-              <div className="flex items-center gap-2">
-                <Table className="h-4 w-4" />
-                <span>API (Coming Soon)</span>
-              </div>
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Google Sheets Configuration */}
-      {sourceType === 'google-sheets' && gsConfig && (
-        <GoogleSheetsConfig
-          value={gsConfig}
-          disabled={disabled}
-          onChange={updateGoogleSheets}
-          onSaveComplete={canSave ? () => setSaveDialogOpen(true) : undefined}
-        />
-      )}
-
-      {/* Static Data Info */}
-      {sourceType === 'static' && (
-        <div className="rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
-          Using built-in sample data. Select "Google Sheets" to connect to real data.
+      {/* Data Source Group */}
+      <div className="space-y-3 rounded-md border bg-muted/10 p-3">
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Source Type</Label>
+          <Select value={sourceType || undefined} onValueChange={handleTypeChange} disabled={disabled}>
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Select source type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="saved">
+                <div className="flex items-center gap-2">
+                  <Save className="h-4 w-4" />
+                  <span>Presets</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="static">
+                <div className="flex items-center gap-2">
+                  <Database className="h-4 w-4" />
+                  <span>Static (Mock Data)</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="google-sheets">
+                <div className="flex items-center gap-2">
+                  <FileSpreadsheet className="h-4 w-4" />
+                  <span>Google Sheets</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="api" disabled>
+                <div className="flex items-center gap-2">
+                  <Table className="h-4 w-4" />
+                  <span>API (Coming Soon)</span>
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-      )}
+
+        {/* Source Type Details */}
+        {hasDetails && (
+          <div className="space-y-4 border-t pt-3">
+            {/* Saved Data Sources */}
+            {showSavedSources && (
+              <SavedSourcesSection
+                savedSources={savedSources}
+                loading={savedLoading}
+                disabled={disabled}
+                onLoad={handleLoadSavedSource}
+                onDelete={handleDeleteSavedSource}
+              />
+            )}
+
+            {/* Google Sheets Configuration */}
+            {showGoogleSheets && (
+              <GoogleSheetsConfig
+                value={gsConfig}
+                disabled={disabled}
+                onChange={updateGoogleSheets}
+                onSaveComplete={canSave ? () => setSaveDialogOpen(true) : undefined}
+              />
+            )}
+
+            {/* Static Data Info */}
+            {showStaticInfo && (
+              <div className="rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
+                Using built-in sample data. Select "Google Sheets" to connect to real data.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Save Data Source Dialog */}
       <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>

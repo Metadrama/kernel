@@ -228,7 +228,7 @@ export function GoogleSheetsConfig({ value, disabled, onChange, onSaveComplete }
                         <div className="pt-2 border-t">
                             <Button variant="outline" size="sm" className="w-full" onClick={onSaveComplete} disabled={disabled}>
                                 <Save className="h-4 w-4 mr-2" />
-                                Save as Reusable Source
+                                Save as Presets
                             </Button>
                         </div>
                     )}
