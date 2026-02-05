@@ -7,7 +7,6 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Button } from '@/modules/DesignSystem/ui/button';
 import PanelHeader from '@/modules/DesignSystem/ui/panel-header';
 import { ScrollArea } from '@/modules/DesignSystem/ui/scroll-area';
-import { Separator } from '@/modules/DesignSystem/ui/separator';
 import { useArtboardContext } from '@/modules/Artboard/context/ArtboardContext';
 import { useResizable } from '@/modules/DesignSystem/hooks/useResizable';
 import type { ConfigFieldSchema } from '@/modules/DataLayer/types/component-config';
@@ -24,6 +23,10 @@ interface ComponentInspectorProps {
     onConfigChange: (instanceId: string, config: Record<string, unknown>) => void;
     onPositionChange?: (instanceId: string, position: Partial<ComponentPosition>) => void;
     onClose: () => void;
+    /** Optional title override (e.g., "Artboard Inspector") */
+    title?: string;
+    /** Optional children to render instead of component inspector (e.g., ArtboardInspectorContent) */
+    children?: React.ReactNode;
 }
 
 // Get nested value from object using dot notation
@@ -94,7 +97,7 @@ function getIcon(iconName: string) {
     return IconComponent || Icons.Settings;
 }
 
-export function ComponentInspector({ component, onConfigChange, onPositionChange, onClose }: ComponentInspectorProps) {
+export function ComponentInspector({ component, onConfigChange, onPositionChange, onClose, title, children }: ComponentInspectorProps) {
     const schema = component ? getConfigSchema(component.componentType) : null;
 
     const config = useMemo(() => (component?.config || {}) as Record<string, unknown>, [component?.config]);
@@ -147,58 +150,6 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
         [component, onPositionChange],
     );
 
-    // No component selected
-    if (!component) {
-        return (
-            <div
-                className="relative flex h-full flex-col border-l bg-background"
-                style={{ width: `${width}px` }}
-            >
-                {/* Resize Handle */}
-                <div {...handleProps} />
-
-                <PanelHeader title="Inspector" />
-                <div className="flex flex-1 items-center justify-center p-4">
-                    <div className="text-center text-muted-foreground">
-                        <Settings2 className="mx-auto mb-2 h-10 w-10 opacity-30" />
-                        <p className="text-sm">Select a component to configure</p>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    // No schema for this component type
-    if (!schema) {
-        return (
-            <div
-                className="relative flex h-full flex-col border-l bg-background"
-                style={{ width: `${width}px` }}
-            >
-                {/* Resize Handle */}
-                <div {...handleProps} />
-
-                <PanelHeader
-                    left={
-                        <div className="flex items-center gap-2">
-                            <h2 className="text-sm font-semibold">{component.componentType}</h2>
-                        </div>
-                    }
-                    right={
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
-                            <X className="h-4 w-4" />
-                        </Button>
-                    }
-                />
-                <div className="flex flex-1 items-center justify-center p-4">
-                    <div className="text-center text-muted-foreground">
-                        <p className="text-sm">No configuration available</p>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
     // Sort groups by CONFIG_GROUPS order
     const sortedGroups = Array.from(groupedFields.entries()).sort((a, b) => {
         const aIndex = CONFIG_GROUPS.findIndex((g) => g.id === a[0]);
@@ -209,6 +160,16 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
     // Get default open groups. Always include Position.
     const defaultOpenGroups = ['Position', ...sortedGroups.slice(0, 3).map(([id]) => id)];
 
+    // Determine header title
+    const headerTitle = title ?? schema?.label ?? component?.componentType ?? 'Inspector';
+    const showCloseButton = !!component || !!children;
+
+    // Content states
+    const hasChildren = !!children;
+    const isEmpty = !component && !children;
+    const hasNoSchema = component && !schema;
+    const hasContent = component && schema;
+
     return (
         <div
             className="relative flex h-full flex-col border-l bg-background"
@@ -217,24 +178,54 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
             {/* Resize Handle */}
             <div {...handleProps} />
 
-            {/* Header */}
+            {/* Header - Always present, content transitions */}
             <PanelHeader
                 left={
-                    <div className="flex min-w-0 items-center gap-2">
+                    <div className="flex min-w-0 items-center gap-2 transition-opacity duration-200">
                         <Settings2 className="h-4 w-4 shrink-0 text-muted-foreground" />
-                        <h2 className="truncate text-sm font-semibold">{schema.label}</h2>
+                        <h2 className="truncate text-sm font-semibold">{headerTitle}</h2>
                     </div>
                 }
                 right={
-                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={onClose}>
-                        <X className="h-4 w-4" />
-                    </Button>
+                    showCloseButton ? (
+                        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={onClose}>
+                            <X className="h-4 w-4" />
+                        </Button>
+                    ) : null
                 }
             />
 
-            {/* Scrollable Content */}
+            {/* Scrollable Content - Shell always present */}
             <ScrollArea className="min-h-0 flex-1">
-                <Accordion type="multiple" defaultValue={defaultOpenGroups} className="w-full">
+                {/* Children content (e.g., ArtboardInspectorContent) */}
+                {hasChildren && (
+                    <div className="animate-in fade-in duration-200">
+                        {children}
+                    </div>
+                )}
+
+                {/* Empty state */}
+                {isEmpty && (
+                    <div className="flex h-full min-h-48 items-center justify-center p-4 animate-in fade-in duration-200">
+                        <div className="text-center text-muted-foreground">
+                            <Settings2 className="mx-auto mb-2 h-10 w-10 opacity-30" />
+                            <p className="text-sm">Select a component to configure</p>
+                        </div>
+                    </div>
+                )}
+
+                {/* No schema state */}
+                {hasNoSchema && (
+                    <div className="flex h-full min-h-48 items-center justify-center p-4 animate-in fade-in duration-200">
+                        <div className="text-center text-muted-foreground">
+                            <p className="text-sm">No configuration available</p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Full inspector content */}
+                {hasContent && (
+                    <Accordion type="multiple" defaultValue={defaultOpenGroups} className="w-full animate-in fade-in duration-200">
                         {/* Position Section - First Accordion Item */}
                         {position && onPositionChange && (
                             <AccordionItem value="Position" className="border-b">
@@ -311,13 +302,16 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
                                 </AccordionItem>
                             );
                         })}
-                </Accordion>
+                    </Accordion>
+                )}
             </ScrollArea>
 
-            {/* Footer with component ID */}
-            <div className="shrink-0 border-t p-2">
-                <p className="truncate font-mono text-xs text-muted-foreground">{component.instanceId}</p>
-            </div>
+            {/* Footer with component ID - only when component selected (not for artboard inspector) */}
+            {component && !children && (
+                <div className="shrink-0 border-t p-2 animate-in fade-in duration-200">
+                    <p className="truncate font-mono text-xs text-muted-foreground">{component.instanceId}</p>
+                </div>
+            )}
         </div>
     );
 }

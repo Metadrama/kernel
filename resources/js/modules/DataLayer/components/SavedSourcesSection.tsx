@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Button } from '@/modules/DesignSystem/ui/button';
 import { Label } from '@/modules/DesignSystem/ui/label';
 import type { SavedDataSource } from '@/modules/DataLayer/types/component-config';
@@ -41,9 +42,29 @@ export function SavedSourcesSection({
     onLoad,
     onDelete,
 }: SavedSourcesSectionProps) {
-    if (savedSources.length === 0) {
-        return null;
-    }
+    const hasSources = savedSources.length > 0;
+    const [showLoading, setShowLoading] = useState(false);
+    const [showEmptyState, setShowEmptyState] = useState(false);
+
+    useEffect(() => {
+        if (!loading) {
+            setShowLoading(false);
+            return;
+        }
+
+        const timer = setTimeout(() => setShowLoading(true), 150);
+        return () => clearTimeout(timer);
+    }, [loading]);
+
+    useEffect(() => {
+        if (loading || hasSources) {
+            setShowEmptyState(false);
+            return;
+        }
+
+        const timer = setTimeout(() => setShowEmptyState(true), 200);
+        return () => clearTimeout(timer);
+    }, [loading, hasSources]);
 
     return (
         <div className="space-y-2">
@@ -51,41 +72,57 @@ export function SavedSourcesSection({
                 <FolderOpen className="h-4 w-4" />
                 Saved Sources
             </Label>
-            <div className="space-y-1 max-h-[160px] overflow-y-auto pr-1">
-                {savedSources.map((source) => {
-                    const ChartIcon = getChartTypeIcon(source.sourceChartType);
-                    const chartLabel = getChartTypeLabel(source.sourceChartType);
+            <div className="space-y-1 max-h-[160px] min-h-[72px] overflow-y-auto pr-1">
+                {loading && showLoading && (
+                    <div className="space-y-1">
+                        {[0, 1, 2].map((idx) => (
+                            <div key={idx} className="h-6 rounded-md bg-muted/40" />
+                        ))}
+                    </div>
+                )}
+                {showEmptyState && (
+                    <div className="text-xs text-muted-foreground bg-muted/20 rounded-md p-2">
+                        No saved sources yet.
+                    </div>
+                )}
+                {hasSources && (
+                    <div className="space-y-1">
+                        {savedSources.map((source) => {
+                            const ChartIcon = getChartTypeIcon(source.sourceChartType);
+                            const chartLabel = getChartTypeLabel(source.sourceChartType);
 
-                    return (
-                        <div
-                            key={source.id}
-                            className={`flex items-center justify-between text-xs p-2 rounded-md bg-muted/30 group ${disabled || loading
-                                ? 'opacity-50 cursor-not-allowed pointer-events-none'
-                                : 'hover:bg-muted/50 cursor-pointer'
-                                }`}
-                            onClick={() => !disabled && !loading && onLoad(source)}
-                        >
-                            <div className="flex items-center gap-2 truncate">
-                                <ChartIcon className="h-3 w-3 text-muted-foreground shrink-0" />
-                                <span className="truncate">{source.name}</span>
-                                {chartLabel && (
-                                    <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">
-                                        {chartLabel}
-                                    </span>
-                                )}
-                            </div>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={(e) => onDelete(source.id, e)}
-                                disabled={disabled || loading}
-                            >
-                                <Trash2 className="h-3 w-3 text-destructive" />
-                            </Button>
-                        </div>
-                    );
-                })}
+                            return (
+                                <div
+                                    key={source.id}
+                                    className={`flex items-center justify-between text-xs p-2 rounded-md bg-muted/30 group ${disabled || loading
+                                        ? 'opacity-50 cursor-not-allowed pointer-events-none'
+                                        : 'hover:bg-muted/50 cursor-pointer'
+                                        }`}
+                                    onClick={() => !disabled && !loading && onLoad(source)}
+                                >
+                                    <div className="flex items-center gap-2 truncate">
+                                        <ChartIcon className="h-3 w-3 text-muted-foreground shrink-0" />
+                                        <span className="truncate">{source.name}</span>
+                                        {chartLabel && (
+                                            <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">
+                                                {chartLabel}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        onClick={(e) => onDelete(source.id, e)}
+                                        disabled={disabled || loading}
+                                    >
+                                        <Trash2 className="h-3 w-3 text-destructive" />
+                                    </Button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -16,7 +16,7 @@ import { usePage } from '@inertiajs/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AddArtboardPanel from './AddArtboardPanel';
 import ArtboardContainer from './ArtboardContainer';
-import ArtboardInspector from './ArtboardInspector';
+import { ArtboardInspectorContent } from './ArtboardInspector';
 import CanvasEmptyState from './CanvasEmptyState';
 import CanvasScrollbars, { Universe } from './CanvasScrollbars';
 import CanvasTopBar from './CanvasTopBar';
@@ -568,28 +568,30 @@ export default function ArtboardCanvas() {
             </div>
 
             {/* Panels */}
-            {showInspector && selectedComponent && (
+            {(showInspector || selectedArtboard) && (
                 <ComponentInspector
                     component={
-                        livePosition && livePosition.componentId === selectedComponent.component.instanceId
-                            ? {
-                                ...selectedComponent.component,
-                                position: { ...selectedComponent.component.position, ...livePosition.position },
-                            }
-                            : selectedComponent.component
+                        showInspector && selectedComponent
+                            ? livePosition && livePosition.componentId === selectedComponent.component.instanceId
+                                ? {
+                                      ...selectedComponent.component,
+                                      position: { ...selectedComponent.component.position, ...livePosition.position },
+                                  }
+                                : selectedComponent.component
+                            : null
                     }
                     onConfigChange={handleComponentConfigChange}
                     onPositionChange={handleComponentPositionChange}
                     onClose={handleCloseInspector}
-                />
-            )}
-
-            {selectedArtboard && (
-                <ArtboardInspector
-                    artboard={selectedArtboard}
-                    onUpdate={(updates) => selectedArtboardId && handleUpdateArtboard(selectedArtboardId, updates)}
-                    onClose={() => setSelectedArtboardId(null)}
-                />
+                    title={!showInspector && selectedArtboard ? 'Artboard Inspector' : undefined}
+                >
+                    {!showInspector && selectedArtboard && (
+                        <ArtboardInspectorContent
+                            artboard={selectedArtboard}
+                            onUpdate={(updates) => selectedArtboardId && handleUpdateArtboard(selectedArtboardId, updates)}
+                        />
+                    )}
+                </ComponentInspector>
             )}
 
             {showAddArtboard && (
