@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { Button } from '@/modules/DesignSystem/ui/button';
 import { Label } from '@/modules/DesignSystem/ui/label';
 import type { SavedDataSource } from '@/modules/DataLayer/types/component-config';
@@ -43,28 +42,7 @@ export function SavedSourcesSection({
     onDelete,
 }: SavedSourcesSectionProps) {
     const hasSources = savedSources.length > 0;
-    const [showLoading, setShowLoading] = useState(false);
-    const [showEmptyState, setShowEmptyState] = useState(false);
-
-    useEffect(() => {
-        if (!loading) {
-            setShowLoading(false);
-            return;
-        }
-
-        const timer = setTimeout(() => setShowLoading(true), 150);
-        return () => clearTimeout(timer);
-    }, [loading]);
-
-    useEffect(() => {
-        if (loading || hasSources) {
-            setShowEmptyState(false);
-            return;
-        }
-
-        const timer = setTimeout(() => setShowEmptyState(true), 200);
-        return () => clearTimeout(timer);
-    }, [loading, hasSources]);
+    const showEmptyState = !loading && !hasSources;
 
     return (
         <div className="space-y-2">
@@ -73,8 +51,8 @@ export function SavedSourcesSection({
                 Saved Sources
             </Label>
             <div className="space-y-1 max-h-[160px] min-h-[72px] overflow-y-auto pr-1">
-                {loading && showLoading && (
-                    <div className="space-y-1">
+                {loading && (
+                    <div className="space-y-1 animate-pulse">
                         {[0, 1, 2].map((idx) => (
                             <div key={idx} className="h-6 rounded-md bg-muted/40" />
                         ))}
