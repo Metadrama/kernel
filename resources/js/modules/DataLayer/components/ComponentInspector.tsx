@@ -235,78 +235,82 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
             {/* Scrollable Content */}
             <ScrollArea className="min-h-0 flex-1">
                 <Accordion type="multiple" defaultValue={defaultOpenGroups} className="w-full">
-                    {/* Position Section - First Accordion Item */}
-                    {position && onPositionChange && (
-                        <AccordionItem value="Position" className="border-b">
-                            <AccordionTrigger className="px-3 py-1.5 hover:bg-muted/50 hover:no-underline">
-                                <div className="flex items-center gap-2">
-                                    <Move className="h-4 w-4 text-muted-foreground" />
-                                    <span className="text-sm font-medium">Position</span>
-                                </div>
-                            </AccordionTrigger>
-                            <AccordionContent className="px-3 pt-1 pb-2">
-                                <PositionSection
-                                    position={position}
-                                    onChange={handlePositionChange}
-                                />
-                            </AccordionContent>
-                        </AccordionItem>
-                    )}
-                    {sortedGroups.map(([groupId, fields]) => {
-                        const groupInfo = CONFIG_GROUPS.find((g) => g.id === groupId);
-                        if (!groupInfo) return null;
-
-                        const IconComponent = getIcon(groupInfo.icon);
-                        const visibleFields = fields.filter((f) => isFieldVisible(f, config, component.componentType));
-
-                        if (visibleFields.length === 0) return null;
-
-                        return (
-                            <AccordionItem key={groupId} value={groupId} className="border-b">
+                        {/* Position Section - First Accordion Item */}
+                        {position && onPositionChange && (
+                            <AccordionItem value="Position" className="border-b">
                                 <AccordionTrigger className="px-3 py-1.5 hover:bg-muted/50 hover:no-underline">
                                     <div className="flex items-center gap-2">
-                                        <IconComponent className="h-4 w-4 text-muted-foreground" />
-                                        <span className="text-sm font-medium">{groupInfo.label}</span>
+                                        <Move className="h-4 w-4 text-muted-foreground" />
+                                        <span className="text-sm font-medium">Position</span>
                                     </div>
                                 </AccordionTrigger>
                                 <AccordionContent className="px-3 pt-1 pb-2">
-                                    <div className="space-y-2.5">
-                                        {visibleFields.map((field) => {
-                                            // Dynamically populate options for linkedChartId
-                                            if (field.key === 'linkedChartId') {
-                                                const charts: { value: string; label: string }[] = [];
-                                                artboards.forEach((a) => {
-                                                    a.components.forEach((c: ArtboardComponent) => {
-                                                        if (c.componentType.startsWith('chart-') && c.componentType !== 'chart-legend') {
-                                                            const name = (c.config?.name as string) || c.componentType;
-                                                            charts.push({
-                                                                value: c.instanceId,
-                                                                label: `${name} (${a.name})`,
-                                                            });
-                                                        }
-                                                    });
-                                                });
-                                                // Use a shallow copy to avoid mutating strict schema if reused, though here we just pass prop
-                                                field = { ...field, options: charts };
-                                            }
-
-                                            return (
-                                                <FieldRenderer
-                                                    key={field.key}
-                                                    field={field}
-                                                    value={getNestedValue(config, field.key)}
-                                                    onChange={(value) => handleFieldChange(field.key, value)}
-                                                    config={config}
-                                                    onConfigChange={handleFieldChange}
-                                                    globalDataSource={dataSourceConfig}
-                                                />
-                                            );
-                                        })}
-                                    </div>
+                                    <PositionSection
+                                        position={position}
+                                        onChange={handlePositionChange}
+                                    />
                                 </AccordionContent>
                             </AccordionItem>
-                        );
-                    })}
+                        )}
+                        {sortedGroups.map(([groupId, fields]) => {
+                            const groupInfo = CONFIG_GROUPS.find((g) => g.id === groupId);
+                            if (!groupInfo) return null;
+
+                            const IconComponent = getIcon(groupInfo.icon);
+                            const visibleFields = fields.filter((f) => isFieldVisible(f, config, component.componentType));
+
+                            if (visibleFields.length === 0) return null;
+
+                            return (
+                                <AccordionItem key={groupId} value={groupId} className="border-b">
+                                    <AccordionTrigger className="px-3 py-1.5 hover:bg-muted/50 hover:no-underline">
+                                        <div className="flex items-center gap-2">
+                                            <IconComponent className="h-4 w-4 text-muted-foreground" />
+                                            <span className="text-sm font-medium">{groupInfo.label}</span>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="px-3 pt-1 pb-2">
+                                        <div className="space-y-2.5">
+                                            {visibleFields.map((field) => {
+                                                // Dynamically populate options for linkedChartId
+                                                if (field.key === 'linkedChartId') {
+                                                    const charts: { value: string; label: string }[] = [];
+                                                    artboards.forEach((a) => {
+                                                        a.components.forEach((c: ArtboardComponent) => {
+                                                            if (c.componentType.startsWith('chart-') && c.componentType !== 'chart-legend') {
+                                                                const name = (c.config?.name as string) || c.componentType;
+                                                                charts.push({
+                                                                    value: c.instanceId,
+                                                                    label: `${name} (${a.name})`,
+                                                                });
+                                                            }
+                                                        });
+                                                    });
+                                                    // Use a shallow copy to avoid mutating strict schema if reused, though here we just pass prop
+                                                    field = { ...field, options: charts };
+                                                }
+
+                                                return (
+                                                    <div
+                                                        key={field.key}
+                                                        className="animate-in fade-in slide-in-from-right-2 duration-300"
+                                                    >
+                                                        <FieldRenderer
+                                                            field={field}
+                                                            value={getNestedValue(config, field.key)}
+                                                            onChange={(value) => handleFieldChange(field.key, value)}
+                                                            config={config}
+                                                            onConfigChange={handleFieldChange}
+                                                            globalDataSource={dataSourceConfig}
+                                                        />
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            );
+                        })}
                 </Accordion>
             </ScrollArea>
 
