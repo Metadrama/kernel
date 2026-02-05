@@ -1,191 +1,67 @@
 ﻿/**
- * Config Field Components
- * Reusable form controls for component configuration
+ * DEPRECATED: ConfigField is now a backward-compatibility wrapper
+ * 
+ * This component existed to handle field-type dispatching in the inspector.
+ * That responsibility has been moved to FieldRenderer.tsx for centralization.
+ * 
+ * ConfigField now simply delegates to FieldRenderer. It's kept for backward
+ * compatibility in case any external code still imports it.
+ * 
+ * @deprecated Use FieldRenderer directly instead
  */
 
-import { Input } from '@/modules/DesignSystem/ui/input';
-import { Label } from '@/modules/DesignSystem/ui/label';
-import { Switch } from '@/modules/DesignSystem/ui/switch';
-import { Slider } from '@/modules/DesignSystem/ui/slider';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/modules/DesignSystem/ui/select';
-import { ColorInput } from '@/modules/DesignSystem/ui/color-input';
 import type { ConfigFieldSchema } from '@/modules/DataLayer/types/component-config';
-import { TypographyFields } from './TypographyFields';
+import { FieldRenderer } from './FieldRenderer';
 
 interface ConfigFieldProps {
   field: ConfigFieldSchema;
   value: unknown;
   onChange: (value: unknown) => void;
   disabled?: boolean;
-  // For composite fields like typography that need access to full config
   config?: Record<string, unknown>;
   onConfigChange?: (key: string, value: unknown) => void;
 }
 
-export function ConfigField({ field, value, onChange, disabled, config, onConfigChange }: ConfigFieldProps) {
-  const id = `config-${field.key}`;
-
-  // Typography composite field - renders the full typography panel
-  if (field.type === 'typography' && config && onConfigChange) {
-    return (
-      <TypographyFields
-        config={config}
-        onChange={onConfigChange}
-        disabled={disabled}
-      />
-    );
-  }
-
-  // Color-fill field - Figma-style color with opacity
-  if (field.type === 'color-fill' && config && onConfigChange) {
-    return (
-      <ColorInput
-        color={String(config.color || '#000000')}
-        opacity={Number(config.opacity ?? 100)}
-        onChange={(color) => onConfigChange('color', color)}
-        onOpacityChange={(opacity) => onConfigChange('opacity', opacity)}
-        showOpacity={true}
-        disabled={disabled}
-      />
-    );
-  }
-
+/**
+ * @deprecated Use FieldRenderer directly instead
+ */
+export function ConfigField({
+  field,
+  value,
+  onChange,
+  disabled,
+  config = {},
+  onConfigChange = () => {},
+}: ConfigFieldProps) {
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <Label htmlFor={id} className="text-sm font-medium">
-          {field.label}
-        </Label>
-        {field.type === 'boolean' && (
-          <Switch
-            id={id}
-            checked={Boolean(value ?? field.defaultValue)}
-            onCheckedChange={onChange}
-            disabled={disabled}
-          />
-        )}
-      </div>
-
-      {field.description && field.type !== 'boolean' && (
-        <p className="text-xs text-muted-foreground">{field.description}</p>
-      )}
-
-      {field.type === 'text' && (
-        <Input
-          id={id}
-          type="text"
-          value={String(value ?? field.defaultValue ?? '')}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={field.label}
-          disabled={disabled}
-          className="h-8 text-sm"
-        />
-      )}
-
-      {field.type === 'number' && (
-        <Input
-          id={id}
-          type="number"
-          value={value !== undefined ? Number(value) : (field.defaultValue as number) ?? ''}
-          onChange={(e) => onChange(e.target.value ? Number(e.target.value) : undefined)}
-          min={field.min}
-          max={field.max}
-          step={field.step ?? 1}
-          placeholder={field.label}
-          disabled={disabled}
-          className="h-8 text-sm"
-        />
-      )}
-
-      {field.type === 'select' && field.options && (
-        <Select
-          value={String(value ?? field.defaultValue ?? '')}
-          onValueChange={onChange}
-          disabled={disabled}
-        >
-          <SelectTrigger id={id} className="h-8 text-sm">
-            <SelectValue placeholder={`Select ${field.label.toLowerCase()}`} />
-          </SelectTrigger>
-          <SelectContent>
-            {field.options.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
-
-      {field.type === 'range' && (
-        <div className="flex items-center gap-3">
-          <Slider
-            id={id}
-            value={[Number(value ?? field.defaultValue ?? field.min ?? 0)]}
-            onValueChange={(values: number[]) => onChange(values[0])}
-            min={field.min ?? 0}
-            max={field.max ?? 100}
-            step={field.step ?? 1}
-            disabled={disabled}
-            className="flex-1"
-          />
-          <span className="text-xs text-muted-foreground w-8 text-right">
-            {Number(value ?? field.defaultValue ?? field.min ?? 0)}
-          </span>
-        </div>
-      )}
-
-      {field.type === 'color' && (
-        <div className="flex items-center gap-2">
-          <input
-            id={id}
-            type="color"
-            value={String(value ?? field.defaultValue ?? '#000000')}
-            onChange={(e) => onChange(e.target.value)}
-            disabled={disabled}
-            className="h-8 w-12 rounded border cursor-pointer disabled:opacity-50"
-          />
-          <Input
-            type="text"
-            value={String(value ?? field.defaultValue ?? '')}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder="#000000 or hsl(...)"
-            disabled={disabled}
-            className="h-8 text-sm flex-1"
-          />
-        </div>
-      )}
-    </div>
+    <FieldRenderer
+      field={field}
+      value={value}
+      onChange={onChange}
+      config={config}
+      onConfigChange={onConfigChange}
+      globalDataSource={null}
+      disabled={disabled}
+    />
   );
 }
 
-// Boolean field inline version (for more compact layouts)
+/**
+ * @deprecated ConfigSwitch is no longer needed; use FieldRenderer with boolean field type instead
+ */
 export function ConfigSwitch({ field, value, onChange, disabled }: ConfigFieldProps) {
-  const id = `config-${field.key}`;
-
   return (
-    <div className="flex items-center justify-between py-1">
-      <div className="space-y-0.5">
-        <Label htmlFor={id} className="text-sm font-medium cursor-pointer">
-          {field.label}
-        </Label>
-        {field.description && (
-          <p className="text-xs text-muted-foreground">{field.description}</p>
-        )}
-      </div>
-      <Switch
-        id={id}
-        checked={Boolean(value ?? field.defaultValue)}
-        onCheckedChange={onChange}
-        disabled={disabled}
-      />
-    </div>
+    <FieldRenderer
+      field={field}
+      value={value}
+      onChange={onChange}
+      config={{}}
+      onConfigChange={() => {}}
+      globalDataSource={null}
+      disabled={disabled}
+    />
   );
 }
+
 
 

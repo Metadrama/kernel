@@ -10,17 +10,14 @@ import { ScrollArea } from '@/modules/DesignSystem/ui/scroll-area';
 import { Separator } from '@/modules/DesignSystem/ui/separator';
 import { useArtboardContext } from '@/modules/Artboard/context/ArtboardContext';
 import { useResizable } from '@/modules/DesignSystem/hooks/useResizable';
-import type { ConfigFieldSchema, DataSource } from '@/modules/DataLayer/types/component-config';
+import type { ConfigFieldSchema } from '@/modules/DataLayer/types/component-config';
 import { CONFIG_GROUPS, getConfigSchema, type ConfigGroupId } from '@/modules/DataLayer/types/config-schemas';
 import type { ArtboardComponent, ComponentPosition } from '@/modules/Artboard/types/artboard';
 import * as Icons from 'lucide-react';
 import { Settings2, X, Move } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
-import { ConfigField } from './ConfigField';
-// import { DataSourceConfig } from './DataSourceConfig'; // Deprecated in favor of global source
-import { DataSourceField } from './DataSourceField';
+import { FieldRenderer } from './FieldRenderer';
 import { PositionSection } from './PositionSection';
-import { FillSection } from './FillSection';
 
 interface ComponentInspectorProps {
     component: ArtboardComponent | null;
@@ -141,17 +138,6 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
         [component, config, onConfigChange],
     );
 
-    // Handle data source change
-    const handleDataSourceChange = useCallback(
-        (dataSource: DataSource) => {
-            if (!component) return;
-
-            const newConfig = { ...config, dataSource };
-            onConfigChange(component.instanceId, newConfig);
-        },
-        [component, config, onConfigChange],
-    );
-
     // Handle position change
     const handlePositionChange = useCallback(
         (updates: Partial<ComponentPosition>) => {
@@ -223,9 +209,6 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
     // Get default open groups. Always include Position.
     const defaultOpenGroups = ['Position', ...sortedGroups.slice(0, 3).map(([id]) => id)];
 
-    // Check if this is a text component for special Fill handling
-    const isTextComponent = component.componentType === 'text' || component.componentType === 'heading';
-
     return (
         <div
             className="relative flex h-full flex-col border-l bg-background"
@@ -278,28 +261,6 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
 
                         if (visibleFields.length === 0) return null;
 
-                        // Special handling for Fill group - use FillSection
-                        if (groupId === 'Fill' && isTextComponent) {
-                            return (
-                                <AccordionItem key={groupId} value={groupId} className="border-b">
-                                    <AccordionTrigger className="px-3 py-1.5 hover:bg-muted/50 hover:no-underline">
-                                        <div className="flex items-center gap-2">
-                                            <IconComponent className="h-4 w-4 text-muted-foreground" />
-                                            <span className="text-sm font-medium">{groupInfo.label}</span>
-                                        </div>
-                                    </AccordionTrigger>
-                                    <AccordionContent className="px-3 pt-1 pb-2">
-                                        <FillSection
-                                            color={String(config.color || '#000000')}
-                                            opacity={Number(config.opacity ?? 100)}
-                                            onColorChange={(color) => handleFieldChange('color', color)}
-                                            onOpacityChange={(opacity) => handleFieldChange('opacity', opacity)}
-                                        />
-                                    </AccordionContent>
-                                </AccordionItem>
-                            );
-                        }
-
                         return (
                             <AccordionItem key={groupId} value={groupId} className="border-b">
                                 <AccordionTrigger className="px-3 py-1.5 hover:bg-muted/50 hover:no-underline">
@@ -329,30 +290,15 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
                                                 field = { ...field, options: charts };
                                             }
 
-                                            if (field.type === 'data-source') {
-                                                return (
-                                                    <DataSourceField
-                                                        key={field.key}
-                                                        globalConfig={dataSourceConfig}
-                                                        localConfig={(config.dataSource as any) || {}}
-                                                        onChange={(updates) => handleDataSourceChange({ ...(config.dataSource as any), ...updates })}
-                                                    />
-                                                );
-                                            }
-
-                                            // Skip column-picker fields (handled by DataSourceConfig)
-                                            if (field.type === 'column-picker') {
-                                                return null;
-                                            }
-
                                             return (
-                                                <ConfigField
+                                                <FieldRenderer
                                                     key={field.key}
                                                     field={field}
                                                     value={getNestedValue(config, field.key)}
                                                     onChange={(value) => handleFieldChange(field.key, value)}
                                                     config={config}
                                                     onConfigChange={handleFieldChange}
+                                                    globalDataSource={dataSourceConfig}
                                                 />
                                             );
                                         })}

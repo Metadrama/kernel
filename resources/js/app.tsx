@@ -7,9 +7,20 @@ import { createRoot } from 'react-dom/client';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
+// Map route names to page files when they don't follow the `{Name}Page` convention.
+// This fixes the home route `Inertia::render('welcome')` → modules/Core/pages/Welcome.tsx.
+const pageAliases: Record<string, string> = {
+    welcome: './modules/Core/pages/Welcome.tsx',
+};
+
+const pages = import.meta.glob('./modules/**/pages/*.{ts,tsx}');
+
 createInertiaApp({
     title: (title) => title ? `${title} - ${appName}` : appName,
-    resolve: (name) => resolvePageComponent(`./modules/${name}/pages/${name}Page.tsx`, import.meta.glob('./modules/**/pages/*.tsx')),
+    resolve: (name) => {
+        const target = pageAliases[name] ?? `./modules/${name}/pages/${name}Page.tsx`;
+        return resolvePageComponent(target, pages);
+    },
     setup({ el, App, props }) {
         const root = createRoot(el);
 

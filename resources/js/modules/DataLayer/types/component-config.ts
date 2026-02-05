@@ -196,7 +196,7 @@ export interface ComboChartConfig extends BaseChartConfig {
   lineColor?: string;
   barOpacity?: number;
   lineOpacity?: number;
-  lineTension?: number;
+  tension?: number;
   showPoints?: boolean;
 
   // Axis - Combo needs explicit left/right control
@@ -278,8 +278,6 @@ export interface KpiConfig {
 
   // Comparison
   showTrend?: boolean;
-  trendField?: string; // Field to compare against
-  trendPeriod?: 'day' | 'week' | 'month' | 'year';
 
   // Formatting
   aggregation?: AggregationType;
@@ -301,6 +299,7 @@ export interface GaugeChartConfig {
   valueField?: string;
   min?: number;
   max?: number;
+  aggregation?: AggregationType;
   formatType?: 'number' | 'currency' | 'percent';
   currencyCode?: string;
   colors?: { primary?: string; track?: string };
@@ -387,7 +386,8 @@ export type FieldType =
   | 'alignment-icons' // Icon toggle group for alignment
   | 'style-toggles'   // B/I/U/S style buttons
   | 'color-fill'      // Color with opacity
-  | 'multi-select';   // Select multiple options
+  | 'multi-select'    // Select multiple options
+  | 'table-columns';  // Table column configuration
 
 export interface ConfigFieldSchema {
   key: string;
@@ -488,7 +488,7 @@ export const DEFAULT_COMBO_CHART_CONFIG: ComboChartConfig = {
   enableAnimation: true,
   barOpacity: 1,
   lineOpacity: 1,
-  lineTension: 0.4,
+  tension: 0.4,
   showPoints: true,
   barRatio: 0.6,
   aggregation: 'sum',
@@ -522,6 +522,7 @@ export const DEFAULT_GAUGE_CHART_CONFIG: GaugeChartConfig = {
   dataSource: { type: 'static' },
   min: 0,
   max: 100,
+  aggregation: 'sum',
   formatType: 'number',
   showValue: true,
   showLabel: true,
@@ -547,6 +548,9 @@ export const DEFAULT_TABLE_CONFIG: TableConfig = {
   compact: false,
   pageSize: 10,
   showPagination: false,
+  sortable: false,
+  filterable: false,
+  searchable: false,
 };
 
 // ============================================================================

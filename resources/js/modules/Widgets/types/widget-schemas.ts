@@ -34,6 +34,7 @@ const COMMON_DISPLAY_FIELDS: ConfigFieldSchema[] = [
         type: 'boolean',
         defaultValue: false,
         group: 'Display',
+        description: 'Display the chart title above the visualization',
     },
     {
         key: 'showLegend',
@@ -41,6 +42,7 @@ const COMMON_DISPLAY_FIELDS: ConfigFieldSchema[] = [
         type: 'boolean',
         defaultValue: false,
         group: 'Display',
+        description: 'Display legend showing data series and colors',
     },
     {
         key: 'legendPosition',
@@ -62,6 +64,7 @@ const COMMON_DISPLAY_FIELDS: ConfigFieldSchema[] = [
         type: 'boolean',
         defaultValue: true,
         group: 'Display',
+        description: 'Show data values on hover',
     },
 ];
 
@@ -96,6 +99,38 @@ const COLOR_FIELDS: ConfigFieldSchema[] = [
         group: 'Display',
     },
 ];
+
+// Aggregation field variants for different chart families
+const AGGREGATION_FIELD_FULL: ConfigFieldSchema = {
+    key: 'aggregation',
+    label: 'Aggregation',
+    type: 'select',
+    defaultValue: 'sum',
+    group: 'Data',
+    description: 'How to combine multiple values',
+    options: [
+        { value: 'sum', label: 'Sum' },
+        { value: 'count', label: 'Count' },
+        { value: 'average', label: 'Average' },
+        { value: 'min', label: 'Minimum' },
+        { value: 'max', label: 'Maximum' },
+        { value: 'none', label: 'None (first value)' },
+    ],
+};
+
+const AGGREGATION_FIELD_SIMPLE: ConfigFieldSchema = {
+    key: 'aggregation',
+    label: 'Aggregation',
+    type: 'select',
+    defaultValue: 'sum',
+    group: 'Data',
+    description: 'How to combine multiple values',
+    options: [
+        { value: 'sum', label: 'Sum' },
+        { value: 'count', label: 'Count' },
+        { value: 'average', label: 'Average' },
+    ],
+};
 
 const AXIS_FORMAT_FIELDS: ConfigFieldSchema[] = [
     {
@@ -133,6 +168,7 @@ const COMMON_AXIS_FIELDS: ConfigFieldSchema[] = [
         type: 'boolean',
         defaultValue: false,
         group: 'Settings',
+        description: 'Show vertical grid lines for easier reading',
     },
     {
         key: 'yAxis.showGridLines',
@@ -140,6 +176,7 @@ const COMMON_AXIS_FIELDS: ConfigFieldSchema[] = [
         type: 'boolean',
         defaultValue: true,
         group: 'Settings',
+        description: 'Show horizontal grid lines for easier reading',
     },
     {
         key: 'xAxis.label',
@@ -156,40 +193,48 @@ const COMMON_AXIS_FIELDS: ConfigFieldSchema[] = [
     ...AXIS_FORMAT_FIELDS,
 ];
 
+// Reusable field fragments for transform/sort/limit functionality
+const SORT_FIELD: ConfigFieldSchema = {
+    key: 'sortBy',
+    label: 'Sort By',
+    type: 'select',
+    defaultValue: 'none',
+    group: 'Data',
+    options: [
+        { value: 'none', label: 'Original Order' },
+        { value: 'label', label: 'Label (A-Z)' },
+        { value: 'value', label: 'Value' },
+    ],
+};
+
+const SORT_ORDER_FIELD: ConfigFieldSchema = {
+    key: 'sortOrder',
+    label: 'Sort Order',
+    type: 'select',
+    defaultValue: 'desc',
+    group: 'Data',
+    options: [
+        { value: 'asc', label: 'Ascending' },
+        { value: 'desc', label: 'Descending' },
+    ],
+    showWhen: { field: 'sortBy', operator: 'not-equals', value: 'none' },
+};
+
+const LIMIT_FIELD: ConfigFieldSchema = {
+    key: 'limit',
+    label: 'Show Top N Items',
+    type: 'number',
+    defaultValue: 10,
+    min: 1,
+    max: 100,
+    group: 'Data',
+    description: 'Display only the top N items after sorting',
+};
+
 const COMMON_TRANSFORM_FIELDS: ConfigFieldSchema[] = [
-    {
-        key: 'sortBy',
-        label: 'Sort By',
-        type: 'select',
-        defaultValue: 'none',
-        group: 'Data',
-        options: [
-            { value: 'none', label: 'Original Order' },
-            { value: 'label', label: 'Label (A-Z)' },
-            { value: 'value', label: 'Value' },
-        ],
-    },
-    {
-        key: 'sortOrder',
-        label: 'Sort Order',
-        type: 'select',
-        defaultValue: 'desc',
-        group: 'Data',
-        options: [
-            { value: 'asc', label: 'Ascending' },
-            { value: 'desc', label: 'Descending' },
-        ],
-        showWhen: { field: 'sortBy', operator: 'not-equals', value: 'none' },
-    },
-    {
-        key: 'limit',
-        label: 'Show Top N',
-        type: 'number',
-        min: 1,
-        max: 100,
-        group: 'Data',
-        description: 'Limit to top N items',
-    },
+    SORT_FIELD,
+    SORT_ORDER_FIELD,
+    LIMIT_FIELD,
 ];
 
 export const LINE_CHART_SCHEMA: ComponentConfigSchema = {
@@ -202,7 +247,7 @@ export const LINE_CHART_SCHEMA: ComponentConfigSchema = {
             label: 'Label Column',
             type: 'column-picker',
             group: 'Data',
-            description: 'Column for X-axis labels',
+            description: 'Column for X-axis labels (dates, categories, ordered values)',
             showWhen: { field: 'dataSource.type', operator: 'not-equals', value: 'static' },
         },
         {
@@ -210,7 +255,7 @@ export const LINE_CHART_SCHEMA: ComponentConfigSchema = {
             label: 'Value Column',
             type: 'column-picker',
             group: 'Data',
-            description: 'Column for Y-axis values',
+            description: 'Column containing numeric values to plot',
             showWhen: { field: 'dataSource.type', operator: 'not-equals', value: 'static' },
         },
         ...COMMON_DISPLAY_FIELDS,
@@ -224,7 +269,6 @@ export const LINE_CHART_SCHEMA: ComponentConfigSchema = {
             step: 0.1,
             group: 'Settings',
             description: '0 = straight lines, 1 = very curved',
-            appliesTo: ['chart-line'],
         },
         {
             key: 'lineWidth',
@@ -243,7 +287,7 @@ export const LINE_CHART_SCHEMA: ComponentConfigSchema = {
             type: 'boolean',
             defaultValue: true,
             group: 'Settings',
-            appliesTo: ['chart-line'],
+            description: 'Fill the area under the line with color',
         },
         {
             key: 'showPoints',
@@ -251,7 +295,7 @@ export const LINE_CHART_SCHEMA: ComponentConfigSchema = {
             type: 'boolean',
             defaultValue: true,
             group: 'Settings',
-            appliesTo: ['chart-line'],
+            description: 'Show dots at each data point on the line',
         },
         {
             key: 'pointRadius',
@@ -266,21 +310,7 @@ export const LINE_CHART_SCHEMA: ComponentConfigSchema = {
             appliesTo: ['chart-line'],
         },
         ...COLOR_FIELDS,
-        {
-            key: 'aggregation',
-            label: 'Aggregation',
-            type: 'select',
-            defaultValue: 'sum',
-            group: 'Data',
-            options: [
-                { value: 'sum', label: 'Sum' },
-                { value: 'count', label: 'Count' },
-                { value: 'average', label: 'Average' },
-                { value: 'min', label: 'Minimum' },
-                { value: 'max', label: 'Maximum' },
-                { value: 'none', label: 'None (first value)' },
-            ],
-        },
+        AGGREGATION_FIELD_FULL,
         ...COMMON_AXIS_FIELDS,
     ],
 };
@@ -292,10 +322,10 @@ export const BAR_CHART_SCHEMA: ComponentConfigSchema = {
         DATA_SOURCE_FIELD,
         {
             key: 'dataSource.labelColumn',
-            label: 'Category Column',
+            label: 'Label Column',
             type: 'column-picker',
             group: 'Data',
-            description: 'Column for axis labels',
+            description: 'Column for bar labels (categories, regions, product names)',
             showWhen: { field: 'dataSource.type', operator: 'not-equals', value: 'static' },
         },
         {
@@ -303,7 +333,7 @@ export const BAR_CHART_SCHEMA: ComponentConfigSchema = {
             label: 'Value Column',
             type: 'column-picker',
             group: 'Data',
-            description: 'Column for values',
+            description: 'Column containing numeric values to display',
             showWhen: { field: 'dataSource.type', operator: 'not-equals', value: 'static' },
         },
         ...COMMON_DISPLAY_FIELDS,
@@ -314,7 +344,7 @@ export const BAR_CHART_SCHEMA: ComponentConfigSchema = {
             type: 'boolean',
             defaultValue: false,
             group: 'Settings',
-            appliesTo: ['chart-bar'],
+            description: 'Rotate bars 90° to display horizontally',
         },
         {
             key: 'stacked',
@@ -322,7 +352,7 @@ export const BAR_CHART_SCHEMA: ComponentConfigSchema = {
             type: 'boolean',
             defaultValue: false,
             group: 'Settings',
-            appliesTo: ['chart-bar'],
+            description: 'Stack bars on top of each other instead of side-by-side',
         },
         {
             key: 'borderRadius',
@@ -330,38 +360,25 @@ export const BAR_CHART_SCHEMA: ComponentConfigSchema = {
             type: 'range',
             min: 0,
             max: 20,
+            step: 1,
             defaultValue: 4,
             group: 'Settings',
-            appliesTo: ['chart-bar'],
+            description: 'Roundness of bar corners (0 = square, 20 = very rounded)',
         },
         {
             key: 'barRatio',
-            label: 'Bar Width (Ratio)',
+            label: 'Bar Width',
             type: 'range',
             min: 0.1,
             max: 1,
             step: 0.1,
             defaultValue: 0.6,
             group: 'Settings',
-            appliesTo: ['chart-bar'],
+            description: 'Width of bars relative to available space (0.1 = thin, 1 = full width)',
         },
         ...COLOR_FIELDS,
         // Aggregation & Sort
-        {
-            key: 'aggregation',
-            label: 'Aggregation',
-            type: 'select',
-            defaultValue: 'sum',
-            group: 'Data',
-            options: [
-                { value: 'sum', label: 'Sum' },
-                { value: 'count', label: 'Count' },
-                { value: 'average', label: 'Average' },
-                { value: 'min', label: 'Minimum' },
-                { value: 'max', label: 'Maximum' },
-                { value: 'none', label: 'None' },
-            ],
-        },
+        AGGREGATION_FIELD_FULL,
         ...COMMON_TRANSFORM_FIELDS,
         ...COMMON_AXIS_FIELDS,
     ],
@@ -374,10 +391,10 @@ export const COMBO_CHART_SCHEMA: ComponentConfigSchema = {
         DATA_SOURCE_FIELD,
         {
             key: 'dataSource.labelColumn',
-            label: 'X-Axis Column',
+            label: 'Label Column',
             type: 'column-picker',
             group: 'Data',
-            description: 'Label / Date column',
+            description: 'Column for X-axis labels (dates, time periods, categories)',
         },
         {
             key: 'barColumn',
@@ -402,13 +419,15 @@ export const COMBO_CHART_SCHEMA: ComponentConfigSchema = {
             type: 'range',
             min: 0.1, max: 1, step: 0.1, defaultValue: 0.6,
             group: 'Settings',
+            description: 'Width of bars relative to available space',
         },
         {
-            key: 'lineTension',
+            key: 'tension',
             label: 'Line Curve',
             type: 'range',
             min: 0, max: 1, step: 0.1, defaultValue: 0.4,
             group: 'Settings',
+            description: '0 = straight lines, 1 = very curved',
         },
         {
             key: 'showPoints',
@@ -416,6 +435,7 @@ export const COMBO_CHART_SCHEMA: ComponentConfigSchema = {
             type: 'boolean',
             defaultValue: true,
             group: 'Settings',
+            description: 'Show dots at each data point on the line series',
         },
 
         // Colors
@@ -446,18 +466,7 @@ export const COMBO_CHART_SCHEMA: ComponentConfigSchema = {
         },
 
         // Transform
-        {
-            key: 'aggregation',
-            label: 'Aggregation',
-            type: 'select',
-            defaultValue: 'sum',
-            group: 'Data',
-            options: [
-                { value: 'sum', label: 'Sum' },
-                { value: 'count', label: 'Count' },
-                { value: 'average', label: 'Average' },
-            ],
-        },
+        AGGREGATION_FIELD_SIMPLE,
         ...COMMON_TRANSFORM_FIELDS,
 
         ...COMMON_AXIS_FIELDS, // Maps to xAxis and yAxis (Left)
@@ -498,10 +507,10 @@ export const DOUGHNUT_CHART_SCHEMA: ComponentConfigSchema = {
         DATA_SOURCE_FIELD,
         {
             key: 'dataSource.labelColumn',
-            label: 'Category Column',
+            label: 'Label Column',
             type: 'column-picker',
             group: 'Data',
-            description: 'Column for segment labels',
+            description: 'Column for segment names (categories, product types, regions)',
             showWhen: { field: 'dataSource.type', operator: 'not-equals', value: 'static' },
         },
         {
@@ -509,12 +518,33 @@ export const DOUGHNUT_CHART_SCHEMA: ComponentConfigSchema = {
             label: 'Value Column',
             type: 'column-picker',
             group: 'Data',
-            description: 'Column for segment values',
+            description: 'Column containing numeric values for segment sizes',
             showWhen: { field: 'dataSource.type', operator: 'not-equals', value: 'static' },
         },
         ...COMMON_DISPLAY_FIELDS,
-
-        // Tailored Color Fields (No Primary Color for Doughnut)
+        
+        // Aggregation & Sort (using normalized fields)
+        AGGREGATION_FIELD_SIMPLE,
+        SORT_FIELD,
+        SORT_ORDER_FIELD,
+        // Limit field with doughnut-specific customization
+        {
+            ...LIMIT_FIELD,
+            label: 'Show Top N Segments',
+            defaultValue: 5,
+            max: 20,
+            description: 'Display only the top N segments',
+        },
+        {
+            key: 'showOther',
+            label: 'Show "Other"',
+            type: 'boolean',
+            defaultValue: true,
+            group: 'Data',
+            description: 'Combine remaining items into "Other" segment',
+            showWhen: { field: 'limit', operator: 'exists' },
+        },
+        // Colors (using normalized fields, no duplication)
         {
             key: 'colorPalette',
             label: 'Color Palette',
@@ -535,69 +565,14 @@ export const DOUGHNUT_CHART_SCHEMA: ComponentConfigSchema = {
             defaultValue: 'transparent',
             group: 'Display',
         },
-        {
-            key: 'aggregation',
-            label: 'Aggregation',
-            type: 'select',
-            defaultValue: 'sum',
-            group: 'Data',
-            options: [
-                { value: 'sum', label: 'Sum' },
-                { value: 'count', label: 'Count' },
-                { value: 'average', label: 'Average' },
-            ],
-        },
-        {
-            key: 'sortBy',
-            label: 'Sort By',
-            type: 'select',
-            defaultValue: 'value',
-            group: 'Data',
-            options: [
-                { value: 'none', label: 'Original Order' },
-                { value: 'label', label: 'Label (A-Z)' },
-                { value: 'value', label: 'Value' },
-            ],
-        },
-        {
-            key: 'sortOrder',
-            label: 'Sort Order',
-            type: 'select',
-            defaultValue: 'desc',
-            group: 'Data',
-            options: [
-                { value: 'asc', label: 'Ascending' },
-                { value: 'desc', label: 'Descending' },
-            ],
-            showWhen: { field: 'sortBy', operator: 'not-equals', value: 'none' },
-        },
-        {
-            key: 'limit',
-            label: 'Show Top N Segments',
-            type: 'number',
-            defaultValue: 5,
-            min: 1,
-            max: 20,
-            group: 'Data',
-            description: 'Number of segments to show',
-        },
-        {
-            key: 'showOther',
-            label: 'Show "Other"',
-            type: 'boolean',
-            defaultValue: true,
-            group: 'Data',
-            description: 'Combine remaining items into "Other" segment',
-            showWhen: { field: 'limit', operator: 'exists' },
-            appliesTo: ['chart-doughnut'],
-        },
+        // Doughnut-specific display options
         {
             key: 'showDataLabels',
             label: 'Show Data Labels',
             type: 'boolean',
             defaultValue: false,
             group: 'Display',
-            appliesTo: ['chart-doughnut'],
+            description: 'Display values or percentages directly on segments',
         },
         {
             key: 'dataLabelPosition',
@@ -605,12 +580,12 @@ export const DOUGHNUT_CHART_SCHEMA: ComponentConfigSchema = {
             type: 'select',
             defaultValue: 'outside',
             group: 'Display',
+            description: 'Where to display data labels relative to segments',
             options: [
                 { value: 'inside', label: 'Inside' },
                 { value: 'outside', label: 'Outside' },
             ],
             showWhen: { field: 'showDataLabels', operator: 'equals', value: true },
-            appliesTo: ['chart-doughnut'],
         },
         {
             key: 'dataLabelType',
@@ -618,6 +593,7 @@ export const DOUGHNUT_CHART_SCHEMA: ComponentConfigSchema = {
             type: 'select',
             defaultValue: 'value',
             group: 'Display',
+            description: 'What information to show in data labels',
             options: [
                 { label: 'Value', value: 'value' },
                 { label: 'Percentage', value: 'percent' },
@@ -625,40 +601,39 @@ export const DOUGHNUT_CHART_SCHEMA: ComponentConfigSchema = {
                 { label: 'All', value: 'all' },
             ],
             showWhen: { field: 'showDataLabels', operator: 'equals', value: true },
-            appliesTo: ['chart-doughnut'],
         },
         {
             key: 'innerRadius',
-            label: 'Inner Radius (0-1)',
-            type: 'number',
+            label: 'Inner Radius',
+            type: 'range',
             defaultValue: 0.6,
             min: 0,
             max: 0.95,
             step: 0.05,
             group: 'Settings',
-            appliesTo: ['chart-doughnut'],
+            description: 'Size of the inner hole (0 = pie chart, 0.95 = thin ring)',
         },
         {
             key: 'padAngle',
-            label: 'Padding Angle',
-            type: 'number',
-            defaultValue: 0.7,
+            label: 'Segment Spacing',
+            type: 'range',
+            defaultValue: 2,
             min: 0,
-            max: 45,
-            step: 0.1,
+            max: 10,
+            step: 0.5,
             group: 'Settings',
-            appliesTo: ['chart-doughnut'],
+            description: 'Space between segments (0 = no gap, 10 = large gaps)',
         },
         {
             key: 'cornerRadius',
             label: 'Corner Radius',
-            type: 'number',
+            type: 'range',
             defaultValue: 3,
             min: 0,
-            max: 45,
+            max: 20,
             step: 1,
             group: 'Settings',
-            appliesTo: ['chart-doughnut'],
+            description: 'Roundness of segment corners (0 = sharp, 20 = very rounded)',
         },
     ],
 };
@@ -670,7 +645,7 @@ export const TEXT_SCHEMA: ComponentConfigSchema = {
         // Content
         {
             key: 'text',
-            label: '',
+            label: 'Text Content',
             type: 'text',
             defaultValue: 'Text',
             group: 'Display',
@@ -746,20 +721,39 @@ export const KPI_SCHEMA: ComponentConfigSchema = {
             type: 'text',
             defaultValue: 'Metric',
             group: 'Display',
+            description: 'Label displayed above the metric value',
         },
         {
-            key: 'aggregation',
-            label: 'Aggregation',
-            type: 'select',
-            defaultValue: 'sum',
-            group: 'Data',
-            options: [
-                { value: 'sum', label: 'Sum' },
-                { value: 'count', label: 'Count' },
-                { value: 'average', label: 'Average' },
-                { value: 'min', label: 'Minimum' },
-                { value: 'max', label: 'Maximum' },
-            ],
+            key: 'showTrend',
+            label: 'Show Trend',
+            type: 'boolean',
+            defaultValue: false,
+            group: 'Display',
+            description: 'Display trend indicator (up/down arrow with percentage)',
+        },
+        AGGREGATION_FIELD_SIMPLE,
+        {
+            key: 'prefix',
+            label: 'Prefix',
+            type: 'text',
+            group: 'Display',
+            description: 'Text before value (e.g., "$", "RM")',
+        },
+        {
+            key: 'suffix',
+            label: 'Suffix',
+            type: 'text',
+            group: 'Display',
+            description: 'Text after value (e.g., "%", "units")',
+        },
+        {
+            key: 'decimals',
+            label: 'Decimal Places',
+            type: 'number',
+            defaultValue: 0,
+            min: 0,
+            max: 4,
+            group: 'Display',
         },
         {
             key: 'formatType',
@@ -794,6 +788,7 @@ export const KPI_SCHEMA: ComponentConfigSchema = {
             defaultValue: 0,
             group: 'Display',
             description: 'Manual trend override (optional)',
+            showWhen: { field: 'showTrend', operator: 'equals', value: true },
         },
         {
             key: 'trendType',
@@ -806,6 +801,7 @@ export const KPI_SCHEMA: ComponentConfigSchema = {
                 { value: 'down', label: 'Down (Bad)' },
                 { value: 'neutral', label: 'Neutral' },
             ],
+            showWhen: { field: 'showTrend', operator: 'equals', value: true },
         },
         ...COLOR_FIELDS,
     ],
@@ -837,6 +833,7 @@ export const GAUGE_SCHEMA: ComponentConfigSchema = {
             defaultValue: 100,
             group: 'Data',
         },
+        AGGREGATION_FIELD_FULL,
         {
             key: 'title',
             label: 'Title',
@@ -872,6 +869,7 @@ export const IMAGE_SCHEMA: ComponentConfigSchema = {
             type: 'select',
             defaultValue: 'contain',
             group: 'Settings',
+            description: 'How image scales within container (contain = full image visible, cover = fill container)',
             options: [
                 { value: 'contain', label: 'Contain' },
                 { value: 'cover', label: 'Cover' },
@@ -882,11 +880,13 @@ export const IMAGE_SCHEMA: ComponentConfigSchema = {
         {
             key: 'borderRadius',
             label: 'Border Radius',
-            type: 'number',
+            type: 'range',
             defaultValue: 0,
             min: 0,
-            max: 100,
+            max: 50,
+            step: 1,
             group: 'Settings',
+            description: 'Roundness of image corners (0 = rectangle, 50 = circle if square)',
         },
         {
             key: 'opacity',
@@ -897,6 +897,7 @@ export const IMAGE_SCHEMA: ComponentConfigSchema = {
             max: 100,
             step: 5,
             group: 'Settings',
+            description: 'Image transparency (0 = invisible, 100 = fully opaque)',
         },
     ],
 };
@@ -909,10 +910,97 @@ export const TABLE_SCHEMA: ComponentConfigSchema = {
         {
             key: 'columns',
             label: 'Columns',
-            type: 'multi-select', // Hypothetical type for selecting multiple columns
+            type: 'table-columns',
             group: 'Data',
-            description: 'Select columns to display',
+            description: 'Configure which columns to display and their formatting',
         },
-        ...COMMON_DISPLAY_FIELDS,
+        {
+            key: 'title',
+            label: 'Title',
+            type: 'text',
+            group: 'Display',
+            description: 'Table title text',
+        },
+        {
+            key: 'showTitle',
+            label: 'Show Title',
+            type: 'boolean',
+            defaultValue: false,
+            group: 'Display',
+        },
+        {
+            key: 'showHeader',
+            label: 'Show Header',
+            type: 'boolean',
+            defaultValue: true,
+            group: 'Display',
+            description: 'Display column names at the top of the table',
+        },
+        {
+            key: 'striped',
+            label: 'Striped Rows',
+            type: 'boolean',
+            defaultValue: false,
+            group: 'Display',
+            description: 'Alternate row background colors for easier reading',
+        },
+        {
+            key: 'bordered',
+            label: 'Bordered',
+            type: 'boolean',
+            defaultValue: false,
+            group: 'Display',
+            description: 'Show borders around table cells',
+        },
+        {
+            key: 'compact',
+            label: 'Compact Mode',
+            type: 'boolean',
+            defaultValue: false,
+            group: 'Display',
+            description: 'Reduce row height and padding for denser display',
+        },
+        {
+            key: 'showPagination',
+            label: 'Show Pagination',
+            type: 'boolean',
+            defaultValue: false,
+            group: 'Settings',
+            description: 'Split large tables into pages',
+        },
+        {
+            key: 'pageSize',
+            label: 'Page Size',
+            type: 'number',
+            defaultValue: 10,
+            min: 1,
+            max: 200,
+            group: 'Settings',
+            showWhen: { field: 'showPagination', operator: 'equals', value: true },
+        },
+        {
+            key: 'sortable',
+            label: 'Sortable',
+            type: 'boolean',
+            defaultValue: false,
+            group: 'Settings',
+            description: 'Enable column sorting',
+        },
+        {
+            key: 'filterable',
+            label: 'Filterable',
+            type: 'boolean',
+            defaultValue: false,
+            group: 'Settings',
+            description: 'Enable per-column filters',
+        },
+        {
+            key: 'searchable',
+            label: 'Searchable',
+            type: 'boolean',
+            defaultValue: false,
+            group: 'Settings',
+            description: 'Enable search box',
+        },
     ]
 };

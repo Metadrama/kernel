@@ -318,7 +318,7 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
                     {/* LINE SERIES */}
                     {(safeConfig.chartType === 'line' || safeConfig.chartType === 'combo') && (
                         <Line
-                            type={(safeConfig as any).lineTension > 0 || ((safeConfig as LineChartConfig).tension ?? 0) > 0 ? "monotone" : "linear"}
+                            type={((safeConfig as LineChartConfig).tension ?? 0) > 0 ? "monotone" : "linear"}
                             dataKey={safeConfig.chartType === 'combo' ? "secondaryValue" : "value"}
                             name={safeConfig.chartType === 'combo' ? "Trend" : "Value"}
                             stroke={safeConfig.chartType === 'combo' ? ((safeConfig as ComboChartConfig).lineColor || secondaryColor) : primaryColor}

@@ -91,7 +91,7 @@ export default function GaugeChartComponent({ config }: GaugeChartComponentProps
       dataSource.type === 'google-sheets'
         ? dataSource
         : { type: 'google-sheets', spreadsheetId: '', sheetName: '', range: '' },
-    aggregation: 'sum',
+    aggregation: safeConfig.aggregation || 'sum',
   });
 
   // Compute the gauge value

@@ -6,12 +6,22 @@ import ReactDOMServer from 'react-dom/server';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
+// Keep SSR resolution consistent with the client-side mapping.
+const pageAliases: Record<string, string> = {
+    welcome: './modules/Core/pages/Welcome.tsx',
+};
+
+const pages = import.meta.glob('./modules/**/pages/*.{ts,tsx}');
+
 createServer((page) =>
     createInertiaApp({
         page,
         render: ReactDOMServer.renderToString,
         title: (title) => title ? `${title} - ${appName}` : appName,
-        resolve: (name) => resolvePageComponent(`./modules/${name}/pages/${name}Page.tsx`, import.meta.glob('./modules/**/pages/*.tsx')),
+        resolve: (name) => {
+            const target = pageAliases[name] ?? `./modules/${name}/pages/${name}Page.tsx`;
+            return resolvePageComponent(target, pages);
+        },
         setup: ({ App, props }) => <App {...props} />,
     }),
 );

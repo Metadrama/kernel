@@ -4,6 +4,7 @@ import { useArtboardContext } from '@/modules/Artboard/context/ArtboardContext';
 import { Loader2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { cn } from '@/modules/DesignSystem/lib/utils';
+import { Input } from '@/modules/DesignSystem/ui/input';
 
 // ============================================================================
 // Helpers
@@ -92,6 +93,10 @@ export default function TableComponent({ config }: TableComponentProps) {
   }, [globalDataSource, localDataSource]);
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
   const pageSize = safeConfig.pageSize || 10;
 
   const {
@@ -169,12 +174,71 @@ export default function TableComponent({ config }: TableComponentProps) {
     );
   }
 
+  const processedRows = useMemo(() => {
+    let nextRows = [...rows];
+
+    if (safeConfig.searchable && searchTerm.trim()) {
+      const term = searchTerm.trim().toLowerCase();
+      nextRows = nextRows.filter((row) =>
+        columns.some((column) =>
+          String(row[column.field] ?? '')
+            .toLowerCase()
+            .includes(term)
+        )
+      );
+    }
+
+    if (safeConfig.filterable) {
+      const filters = Object.entries(columnFilters).filter(([, value]) => value.trim() !== '');
+      if (filters.length > 0) {
+        nextRows = nextRows.filter((row) =>
+          filters.every(([field, value]) =>
+            String(row[field] ?? '')
+              .toLowerCase()
+              .includes(value.trim().toLowerCase())
+          )
+        );
+      }
+    }
+
+    const activeSortColumn = sortField ? columns.find((col) => col.field === sortField) : undefined;
+    const canSort = Boolean(activeSortColumn?.sortable ?? safeConfig.sortable);
+
+    if (canSort && sortField) {
+      const direction = sortOrder === 'asc' ? 1 : -1;
+      nextRows.sort((a, b) => {
+        const aValue = a[sortField];
+        const bValue = b[sortField];
+        const aNumber = Number(aValue);
+        const bNumber = Number(bValue);
+
+        if (!Number.isNaN(aNumber) && !Number.isNaN(bNumber)) {
+          return (aNumber - bNumber) * direction;
+        }
+
+        return String(aValue ?? '').localeCompare(String(bValue ?? '')) * direction;
+      });
+    }
+
+    return nextRows;
+  }, [
+    rows,
+    columns,
+    safeConfig.searchable,
+    searchTerm,
+    safeConfig.filterable,
+    columnFilters,
+    safeConfig.sortable,
+    sortField,
+    sortOrder,
+  ]);
+
   // Pagination
-  const totalPages = Math.ceil(rows.length / pageSize);
+  const totalPages = Math.ceil(processedRows.length / pageSize);
   const startIndex = (currentPage - 1) * pageSize;
   const paginatedRows = safeConfig.showPagination
-    ? rows.slice(startIndex, startIndex + pageSize)
-    : rows;
+    ? processedRows.slice(startIndex, startIndex + pageSize)
+    : processedRows;
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
@@ -182,6 +246,21 @@ export default function TableComponent({ config }: TableComponentProps) {
       {safeConfig.showTitle && safeConfig.title && (
         <div className="px-3 py-2 text-sm font-semibold border-b">
           {safeConfig.title}
+        </div>
+      )}
+
+      {/* Search */}
+      {safeConfig.searchable && (
+        <div className="px-3 py-2 border-b">
+          <Input
+            value={searchTerm}
+            onChange={(event) => {
+              setCurrentPage(1);
+              setSearchTerm(event.target.value);
+            }}
+            placeholder="Search..."
+            className="h-8 text-sm"
+          />
         </div>
       )}
 
@@ -198,22 +277,71 @@ export default function TableComponent({ config }: TableComponentProps) {
           {(safeConfig.showHeader ?? true) && (
             <thead className="bg-muted/50 sticky top-0">
               <tr>
-                {columns.map((col, i) => (
-                  <th
-                    key={i}
-                    className={cn(
-                      'px-3 py-2 font-medium text-left text-muted-foreground',
-                      safeConfig.bordered && 'border border-border',
-                      safeConfig.compact && 'px-2 py-1',
-                      col.align === 'center' && 'text-center',
-                      col.align === 'right' && 'text-right'
-                    )}
-                    style={{ width: col.width }}
-                  >
-                    {col.header}
-                  </th>
-                ))}
+                {columns.map((col, i) => {
+                  const canSort = Boolean(col.sortable ?? safeConfig.sortable);
+
+                  return (
+                    <th
+                      key={i}
+                      className={cn(
+                        'px-3 py-2 font-medium text-left text-muted-foreground',
+                        safeConfig.bordered && 'border border-border',
+                        safeConfig.compact && 'px-2 py-1',
+                        col.align === 'center' && 'text-center',
+                        col.align === 'right' && 'text-right',
+                        canSort && 'cursor-pointer select-none'
+                      )}
+                      style={{ width: col.width }}
+                      onClick={() => {
+                        if (!canSort) return;
+                        setCurrentPage(1);
+                        setSortField((prev) => {
+                          if (prev === col.field) {
+                            setSortOrder((order) => (order === 'asc' ? 'desc' : 'asc'));
+                            return prev;
+                          }
+                          setSortOrder('asc');
+                          return col.field;
+                        });
+                      }}
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        {col.header}
+                        {canSort && sortField === col.field && (
+                          <span className="text-[10px] uppercase">
+                            {sortOrder}
+                          </span>
+                        )}
+                      </span>
+                    </th>
+                  );
+                })}
               </tr>
+              {safeConfig.filterable && (
+                <tr>
+                  {columns.map((col, i) => (
+                    <th
+                      key={`filter-${i}`}
+                      className={cn(
+                        'px-3 py-2',
+                        safeConfig.bordered && 'border border-border',
+                        safeConfig.compact && 'px-2 py-1'
+                      )}
+                    >
+                      <Input
+                        value={columnFilters[col.field] ?? ''}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setCurrentPage(1);
+                          setColumnFilters((prev) => ({ ...prev, [col.field]: value }));
+                        }}
+                        placeholder="Filter"
+                        className="h-7 text-xs"
+                      />
+                    </th>
+                  ))}
+                </tr>
+              )}
             </thead>
           )}
 
