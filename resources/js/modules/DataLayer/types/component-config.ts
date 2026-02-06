@@ -18,6 +18,7 @@ export interface GoogleSheetsDataSource {
   spreadsheetId: string;
   sheetName: string;
   range: string;
+  currencyCode?: string; // Optional display currency (e.g., 'MYR')
   // Column mappings (letter or header name)
   labelColumn?: string;
   valueColumn?: string;
@@ -92,6 +93,7 @@ export interface ChartAxisConfig {
   max?: number;
   formatType?: 'number' | 'currency' | 'percent';
   currencyCode?: string; // e.g., 'MYR', 'USD'
+  decimals?: number; // Explicit decimal places for formatting
 }
 
 export interface ChartColorsConfig {

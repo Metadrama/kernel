@@ -39,15 +39,21 @@ function getChartColors(count: number, paletteKey: keyof typeof COLOR_PALETTES =
 }
 
 function formatNumber(value: number, options?: { compact?: boolean; decimals?: number; style?: 'currency' | 'percent' | 'decimal'; currency?: string }): string {
-    const { compact = false, decimals = 0, style = 'decimal', currency = 'USD' } = options || {};
+    const { compact = false, decimals, style = 'decimal', currency = 'USD' } = options || {};
+    const autoDecimals = (() => {
+        if (style === 'currency') return 2;
+        if (style === 'percent') return 0;
+        return Number.isInteger(value) ? 0 : 2;
+    })();
+    const resolvedDecimals = decimals ?? autoDecimals;
 
     // Handle % expressly because Intl.NumberFormat percent expects 0.5 -> 50%
     // But our data usually comes as 50 -> 50%
     if (style === 'percent') {
         return new Intl.NumberFormat('en-US', {
             style: 'decimal',
-            minimumFractionDigits: decimals,
-            maximumFractionDigits: decimals,
+            minimumFractionDigits: resolvedDecimals,
+            maximumFractionDigits: resolvedDecimals,
         }).format(value) + '%';
     }
 
@@ -57,15 +63,15 @@ function formatNumber(value: number, options?: { compact?: boolean; decimals?: n
             compactDisplay: 'short',
             style: style === 'currency' ? 'currency' : 'decimal',
             currency,
-            maximumFractionDigits: 1,
+            maximumFractionDigits: Math.min(1, resolvedDecimals),
         }).format(value);
     }
 
     return new Intl.NumberFormat('en-US', {
         style: style === 'currency' ? 'currency' : 'decimal',
         currency,
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals,
+        minimumFractionDigits: resolvedDecimals,
+        maximumFractionDigits: resolvedDecimals,
     }).format(value);
 }
 
@@ -110,6 +116,10 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
         }
         return localDataSource;
     }, [globalDataSource, localDataSource]);
+
+    const dataSourceCurrency = (dataSource.type === 'google-sheets')
+        ? (dataSource as GoogleSheetsDataSource).currencyCode
+        : undefined;
 
     // For Combo charts, we need to know the secondary column
     const secondValueColumn = safeConfig.chartType === 'combo' ? (safeConfig as ComboChartConfig).lineColumn : undefined;
@@ -187,15 +197,20 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
     const isHorizontal = (safeConfig as BarChartConfig).horizontal;
 
     // Axis Formatters
-    const getAxisFormatter = (axisConfig?: { formatType?: string; currencyCode?: string }) => {
+    const getAxisFormatter = (axisConfig?: { formatType?: string; currencyCode?: string; decimals?: number }) => {
         return (value: number) => {
             if (axisConfig?.formatType === 'currency') {
-                return formatNumber(value, { compact: true, style: 'currency', currency: axisConfig.currencyCode || 'USD' });
+                return formatNumber(value, {
+                    compact: true,
+                    style: 'currency',
+                    currency: axisConfig.currencyCode || dataSourceCurrency || 'USD',
+                    decimals: axisConfig.decimals,
+                });
             }
             if (axisConfig?.formatType === 'percent') {
-                return formatNumber(value, { style: 'percent' });
+                return formatNumber(value, { style: 'percent', decimals: axisConfig.decimals });
             }
-            return formatNumber(value, { compact: true });
+            return formatNumber(value, { compact: true, decimals: axisConfig?.decimals });
         };
     };
 
@@ -227,7 +242,23 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
                             <div className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }} />
                             <span className="text-muted-foreground capitalize">{entry.name}:</span>
                             <span className="font-mono font-medium">
-                                {formatNumber(entry.value, { decimals: 0 })}
+                                {(() => {
+                                    const isSecondary = entry.dataKey === 'secondaryValue' || entry.name === 'Trend';
+                                    const axisConfig = isSecondary
+                                        ? (safeConfig as ComboChartConfig).rightAxis
+                                        : (safeConfig as any).yAxis;
+                                    const style = axisConfig?.formatType === 'currency'
+                                        ? 'currency'
+                                        : axisConfig?.formatType === 'percent'
+                                            ? 'percent'
+                                            : 'decimal';
+
+                                    return formatNumber(entry.value, {
+                                        style,
+                                        currency: axisConfig?.currencyCode || dataSourceCurrency || 'USD',
+                                        decimals: axisConfig?.decimals,
+                                    });
+                                })()}
                             </span>
                         </div>
                     ))}

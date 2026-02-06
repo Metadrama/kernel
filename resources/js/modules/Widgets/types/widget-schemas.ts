@@ -159,6 +159,15 @@ const AXIS_FORMAT_FIELDS: ConfigFieldSchema[] = [
         ],
         showWhen: { field: 'yAxis.formatType', operator: 'equals', value: 'currency' },
     },
+    {
+        key: 'yAxis.decimals',
+        label: 'Decimal Places',
+        type: 'number',
+        defaultValue: 0,
+        min: 0,
+        max: 4,
+        group: 'Settings',
+    },
 ];
 
 const COMMON_AXIS_FIELDS: ConfigFieldSchema[] = [
@@ -496,6 +505,29 @@ export const COMBO_CHART_SCHEMA: ComponentConfigSchema = {
                 { value: 'currency', label: 'Currency' },
                 { value: 'percent', label: 'Percentage' },
             ],
+        },
+        {
+            key: 'rightAxis.currencyCode',
+            label: 'Right Axis Currency',
+            type: 'select',
+            defaultValue: 'MYR',
+            group: 'Settings',
+            options: [
+                { value: 'MYR', label: 'MYR (RM)' },
+                { value: 'USD', label: 'USD ($)' },
+                { value: 'EUR', label: 'EUR (€)' },
+                { value: 'GBP', label: 'GBP (£)' },
+            ],
+            showWhen: { field: 'rightAxis.formatType', operator: 'equals', value: 'currency' },
+        },
+        {
+            key: 'rightAxis.decimals',
+            label: 'Right Axis Decimals',
+            type: 'number',
+            defaultValue: 0,
+            min: 0,
+            max: 4,
+            group: 'Settings',
         },
     ],
 };

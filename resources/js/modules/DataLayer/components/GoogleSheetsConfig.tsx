@@ -213,6 +213,24 @@ export function GoogleSheetsConfig({ value, disabled, onChange, onSaveComplete }
                                     />
                                 </div>
                             </div>
+                            <div className="space-y-2 pt-3">
+                                <Label className="text-xs">Currency</Label>
+                                <Select
+                                    value={value.currencyCode || 'MYR'}
+                                    onValueChange={(v) => onChange({ currencyCode: v })}
+                                    disabled={disabled}
+                                >
+                                    <SelectTrigger className="h-8 text-xs">
+                                        <SelectValue placeholder="Select currency" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="MYR">MYR (RM)</SelectItem>
+                                        <SelectItem value="USD">USD ($)</SelectItem>
+                                        <SelectItem value="EUR">EUR (EUR)</SelectItem>
+                                        <SelectItem value="GBP">GBP (GBP)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </AccordionContent>
                     </AccordionItem>
                 </Accordion>
