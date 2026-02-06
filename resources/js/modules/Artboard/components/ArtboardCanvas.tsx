@@ -26,7 +26,7 @@ export default function ArtboardCanvas() {
     const currentDashboardId = page.props.currentDashboard?.id ?? 'default';
     const currentDashboardName = page.props.currentDashboard?.name ?? 'Untitled Dashboard';
 
-    const { artboards, setArtboards, selectedArtboardId, setSelectedArtboardId, artboardStackOrder, bringArtboardToFront, dataSourceConfig } = useArtboardContext();
+    const { artboards, setArtboards, selectedArtboardId, setSelectedArtboardId, artboardStackOrder, bringArtboardToFront, dataSourceConfig, autosaveEnabled } = useArtboardContext();
 
     // Component transfer - simplified without widget archiving
     // Components are now placed directly on artboards
@@ -66,6 +66,9 @@ export default function ArtboardCanvas() {
     const [future, setFuture] = useState<Artboard[][]>([]);
     const isUndoRedoRef = useRef(false);
     const lastArtboardsRef = useRef<string>('');
+    const autosaveTimerRef = useRef<number | null>(null);
+    const autosaveReadyRef = useRef(false);
+    const autosaveInFlightRef = useRef(false);
 
     const selectedArtboard = artboards.find((a) => a.id === selectedArtboardId) || null;
 
@@ -434,9 +437,19 @@ export default function ArtboardCanvas() {
     );
 
     // Persistence - save to database
-    const handleSave = useCallback(async () => {
-        setIsSaving(true);
-        setSaveStatus('saving');
+    const handleSave = useCallback(async (options?: { silent?: boolean }) => {
+        const isSilent = options?.silent === true;
+
+        if (isSilent && autosaveInFlightRef.current) {
+            return;
+        }
+
+        if (isSilent) {
+            autosaveInFlightRef.current = true;
+        } else {
+            setIsSaving(true);
+            setSaveStatus('saving');
+        }
         try {
             // Get CSRF token from XSRF-TOKEN cookie (Laravel sets this automatically)
             const getCookie = (name: string) => {
@@ -465,22 +478,55 @@ export default function ArtboardCanvas() {
                 }),
             });
             if (response.ok) {
-                setSaveStatus('saved');
-                // Reset to idle after 2 seconds
-                setTimeout(() => setSaveStatus('idle'), 2000);
+                if (!isSilent) {
+                    setSaveStatus('saved');
+                    // Reset to idle after 2 seconds
+                    setTimeout(() => setSaveStatus('idle'), 2000);
+                }
             } else {
                 console.error('Save failed:', await response.text());
-                setSaveStatus('error');
-                setTimeout(() => setSaveStatus('idle'), 3000);
+                if (!isSilent) {
+                    setSaveStatus('error');
+                    setTimeout(() => setSaveStatus('idle'), 3000);
+                }
             }
         } catch (error) {
             console.error('Save error:', error);
-            setSaveStatus('error');
-            setTimeout(() => setSaveStatus('idle'), 3000);
+            if (!isSilent) {
+                setSaveStatus('error');
+                setTimeout(() => setSaveStatus('idle'), 3000);
+            }
         } finally {
-            setIsSaving(false);
+            if (isSilent) {
+                autosaveInFlightRef.current = false;
+            } else {
+                setIsSaving(false);
+            }
         }
-    }, [artboards, currentDashboardId, currentDashboardName]);
+    }, [artboards, currentDashboardId, currentDashboardName, dataSourceConfig]);
+
+    useEffect(() => {
+        if (!autosaveEnabled) return;
+
+        if (!autosaveReadyRef.current) {
+            autosaveReadyRef.current = true;
+            return;
+        }
+
+        if (autosaveTimerRef.current) {
+            window.clearTimeout(autosaveTimerRef.current);
+        }
+
+        autosaveTimerRef.current = window.setTimeout(() => {
+            handleSave({ silent: true });
+        }, 1200);
+
+        return () => {
+            if (autosaveTimerRef.current) {
+                window.clearTimeout(autosaveTimerRef.current);
+            }
+        };
+    }, [artboards, dataSourceConfig, autosaveEnabled, handleSave]);
 
     return (
         <div className="flex h-screen flex-1 overflow-hidden">

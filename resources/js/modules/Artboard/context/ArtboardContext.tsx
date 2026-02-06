@@ -29,6 +29,8 @@ interface ArtboardContextValue {
     duplicateArtboard: (artboardId: string, count: number) => void;
     dataSourceConfig: DataSource | null;
     setDataSourceConfig: React.Dispatch<React.SetStateAction<DataSource | null>>;
+    autosaveEnabled: boolean;
+    setAutosaveEnabled: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const ArtboardContext = createContext<ArtboardContextValue | undefined>(undefined);
@@ -47,6 +49,7 @@ interface ArtboardProviderProps {
 
 const STORAGE_KEY = 'artboards';
 const STORAGE_VERSION = 1;
+const AUTOSAVE_STORAGE_PREFIX = 'autosave-enabled:';
 
 type PersistedArtboardsPayloadV1 = {
     version: 1;
@@ -95,9 +98,16 @@ const loadArtboards = (initialData?: InitialData): Artboard[] => {
 };
 
 export function ArtboardProvider({ children, initialData }: ArtboardProviderProps) {
+    const dashboardId = initialData?.dashboardId ?? 'default';
     const [artboards, setArtboards] = useState<Artboard[]>(() => loadArtboards(initialData));
     const [selectedArtboardId, setSelectedArtboardId] = useState<string | null>(null);
     const [artboardStackOrder, setArtboardStackOrder] = useState<string[]>([]);
+    const [autosaveEnabled, setAutosaveEnabled] = useState<boolean>(() => {
+        if (typeof window === 'undefined') return true;
+        const stored = window.localStorage.getItem(`${AUTOSAVE_STORAGE_PREFIX}${dashboardId}`);
+        if (stored === null) return true;
+        return stored === 'true';
+    });
 
     useEffect(() => {
         setArtboardStackOrder((prev) => {
@@ -221,6 +231,11 @@ export function ArtboardProvider({ children, initialData }: ArtboardProviderProp
 
     const [dataSourceConfig, setDataSourceConfig] = useState<DataSource | null>(initialData?.dataSourceConfig || null);
 
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        window.localStorage.setItem(`${AUTOSAVE_STORAGE_PREFIX}${dashboardId}`, String(autosaveEnabled));
+    }, [autosaveEnabled, dashboardId]);
+
     const value = useMemo<ArtboardContextValue>(
         () => ({
             artboards,
@@ -233,6 +248,8 @@ export function ArtboardProvider({ children, initialData }: ArtboardProviderProp
             duplicateArtboard,
             dataSourceConfig,
             setDataSourceConfig,
+            autosaveEnabled,
+            setAutosaveEnabled,
         }),
         [
             artboards,
@@ -242,6 +259,7 @@ export function ArtboardProvider({ children, initialData }: ArtboardProviderProp
             moveArtboardLayer,
             duplicateArtboard,
             dataSourceConfig,
+            autosaveEnabled,
         ],
     );
 

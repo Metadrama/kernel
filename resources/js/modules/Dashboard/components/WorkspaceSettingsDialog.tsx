@@ -11,11 +11,12 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/modules/DesignSystem/ui/tabs';
 import { useArtboardContext } from '@/modules/Artboard/context/ArtboardContext';
 import { DataSourceConfig } from '@/modules/DataLayer/components/DataSourceConfig';
+import { Switch } from '@/modules/DesignSystem/ui/switch';
 import { Settings } from 'lucide-react';
 import { useState } from 'react';
 
 export function WorkspaceSettingsDialog() {
-    const { dataSourceConfig, setDataSourceConfig } = useArtboardContext();
+    const { dataSourceConfig, setDataSourceConfig, autosaveEnabled, setAutosaveEnabled } = useArtboardContext();
     const [open, setOpen] = useState(false);
 
     // Default to 'static' if not set
@@ -39,7 +40,7 @@ export function WorkspaceSettingsDialog() {
                 <Tabs defaultValue="data-source" className="flex-1 flex flex-col min-h-0">
                     <TabsList className="grid w-full grid-cols-2">
                         <TabsTrigger value="data-source">Data Source</TabsTrigger>
-                        <TabsTrigger value="general" disabled>General (Coming Soon)</TabsTrigger>
+                        <TabsTrigger value="general">General</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="data-source" className="flex-1 overflow-y-auto mt-4 pr-1">
@@ -59,8 +60,18 @@ export function WorkspaceSettingsDialog() {
                     </TabsContent>
 
                     <TabsContent value="general">
-                        <div className="flex bg-muted/20 h-full items-center justify-center rounded-lg border border-dashed">
-                            <p className="text-muted-foreground">General settings coming soon.</p>
+                        <div className="space-y-4">
+                            <div className="rounded-md border bg-muted/20 p-4">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="space-y-1">
+                                        <p className="text-sm font-medium">AutoSave</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            Automatically save workspace changes in the background.
+                                        </p>
+                                    </div>
+                                    <Switch checked={autosaveEnabled} onCheckedChange={setAutosaveEnabled} />
+                                </div>
+                            </div>
                         </div>
                     </TabsContent>
                 </Tabs>
