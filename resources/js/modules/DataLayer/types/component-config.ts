@@ -24,8 +24,10 @@ export interface GoogleSheetsDataSource {
   valueColumn?: string;
   // Optional filtering
   filterColumn?: string;
-  filterOperator?: 'equals' | 'contains' | 'greater' | 'less';
+  filterOperator?: 'equals' | 'contains' | 'greater' | 'less' | 'date-range';
   filterValue?: string;
+  filterStartDate?: string;
+  filterEndDate?: string;
   // Header row handling
   headerRow?: number; // 1-based row number (default: 1)
   dataStartRow?: number; // 1-based row number (default: 2)

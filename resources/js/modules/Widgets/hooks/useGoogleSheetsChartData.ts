@@ -99,6 +99,14 @@ function parseDateOnly(value: unknown): Date | null {
   return isNaN(parsed.getTime()) ? null : normalizeToLocalDate(parsed);
 }
 
+function normalizeDateInput(value?: string): Date | null {
+  if (!value) return null;
+  const parsed = parseDateOnly(value);
+  if (parsed) return parsed;
+  const raw = new Date(value);
+  return isNaN(raw.getTime()) ? null : normalizeToLocalDate(raw);
+}
+
 // Aggregate values by label
 function aggregateData(
   data: Array<{ label: string; value: number; secondaryValue?: number }>,
@@ -196,7 +204,10 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
       headerRow = 1,
       dataStartRow = 2,
       filterColumn,
-      filterValue
+      filterValue,
+      filterOperator,
+      filterStartDate,
+      filterEndDate
     } = dataSource;
 
     // Validate required fields (labelColumn only needed if mode is 'column' or undefined)
@@ -245,6 +256,9 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
         const filterColIndex = filterColumn
           ? headers.findIndex(h => h === filterColumn)
           : -1;
+
+        const dateRangeStart = normalizeDateInput(filterStartDate);
+        const dateRangeEnd = normalizeDateInput(filterEndDate);
 
         if (valueColIndex === -1 || (mode === 'column' && labelColIndex === -1)) {
           throw new Error('Could not find specified columns');
@@ -295,10 +309,45 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
           if ((mode === 'column' && !label) && value === 0) continue;
 
           // Apply filter if specified
-          if (filterColIndex !== -1 && filterValue) {
+          if (filterColIndex !== -1) {
             const filterCellValue = row[filterColIndex] || '';
-            if (!filterCellValue.toLowerCase().includes(filterValue.toLowerCase())) {
-              continue;
+            const filterCellNumeric = parseNumericValue(filterCellValue);
+
+            if (filterOperator === 'date-range') {
+              const filterDate = parseDateOnly(filterCellValue);
+
+              if (!filterDate) {
+                continue;
+              }
+
+              if (dateRangeStart && filterDate < dateRangeStart) {
+                continue;
+              }
+
+              if (dateRangeEnd && filterDate > dateRangeEnd) {
+                continue;
+              }
+            } else if (filterValue) {
+              const filterValueText = filterValue.toLowerCase();
+              const filterCellText = String(filterCellValue).toLowerCase();
+
+              if (filterOperator === 'equals') {
+                if (filterCellText !== filterValueText) {
+                  continue;
+                }
+              } else if (filterOperator === 'greater') {
+                if (filterCellNumeric <= parseNumericValue(filterValueText)) {
+                  continue;
+                }
+              } else if (filterOperator === 'less') {
+                if (filterCellNumeric >= parseNumericValue(filterValueText)) {
+                  continue;
+                }
+              } else {
+                if (!filterCellText.includes(filterValueText)) {
+                  continue;
+                }
+              }
             }
           }
 

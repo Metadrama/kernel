@@ -247,6 +247,41 @@ export function ColumnMappingConfig({ columns, config, disabled, onUpdate }: Col
                             ))}
                         </SelectContent>
                     </Select>
+                    <Select
+                        value={config.filterOperator || 'contains'}
+                        onValueChange={(v) => onUpdate({ filterOperator: v as typeof config.filterOperator })}
+                        disabled={disabled || !config.filterColumn}
+                    >
+                        <SelectTrigger className="h-9">
+                            <SelectValue placeholder="Filter type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="contains">Contains</SelectItem>
+                            <SelectItem value="equals">Equals</SelectItem>
+                            <SelectItem value="greater">Greater Than</SelectItem>
+                            <SelectItem value="less">Less Than</SelectItem>
+                            <SelectItem value="date-range">Date Range</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                {config.filterOperator === 'date-range' ? (
+                    <div className="grid grid-cols-2 gap-2">
+                        <Input
+                            type="date"
+                            value={config.filterStartDate || ''}
+                            onChange={(e) => onUpdate({ filterStartDate: e.target.value || undefined })}
+                            disabled={disabled || !config.filterColumn}
+                            className="h-9 text-sm"
+                        />
+                        <Input
+                            type="date"
+                            value={config.filterEndDate || ''}
+                            onChange={(e) => onUpdate({ filterEndDate: e.target.value || undefined })}
+                            disabled={disabled || !config.filterColumn}
+                            className="h-9 text-sm"
+                        />
+                    </div>
+                ) : (
                     <Input
                         value={config.filterValue || ''}
                         onChange={(e) => onUpdate({ filterValue: e.target.value || undefined })}
@@ -254,7 +289,7 @@ export function ColumnMappingConfig({ columns, config, disabled, onUpdate }: Col
                         disabled={disabled || !config.filterColumn}
                         className="h-9 text-sm"
                     />
-                </div>
+                )}
             </div>
         </>
     );
