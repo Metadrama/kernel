@@ -299,6 +299,14 @@ export const LINE_CHART_SCHEMA: ComponentConfigSchema = {
             description: 'Fill the area under the line with color',
         },
         {
+            key: 'swapAxes',
+            label: 'Swap Axes',
+            type: 'boolean',
+            defaultValue: false,
+            group: 'Settings',
+            description: 'Flip X and Y axes (horizontal line chart)',
+        },
+        {
             key: 'showPoints',
             label: 'Show Points',
             type: 'boolean',
@@ -320,6 +328,7 @@ export const LINE_CHART_SCHEMA: ComponentConfigSchema = {
         },
         ...COLOR_FIELDS,
         AGGREGATION_FIELD_FULL,
+        ...COMMON_TRANSFORM_FIELDS,
         ...COMMON_AXIS_FIELDS,
     ],
 };

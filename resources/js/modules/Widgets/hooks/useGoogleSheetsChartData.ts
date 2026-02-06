@@ -166,6 +166,9 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
     secondValueColumn
   } = options;
 
+  const effectiveSortBy = (limit && sortBy === 'none') ? 'value' : sortBy;
+  const effectiveSortOrder = (limit && sortBy === 'none') ? 'desc' : sortOrder;
+
   // Force aggregation to 'sum' if mode is generated and aggregation is 'none' (or undefined)
   // because binning requires aggregation to return a single value per bin.
   const effectiveAggregation = (dataSource.labelMode === 'generated' && (!aggregation || aggregation === 'none'))
@@ -512,15 +515,15 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
         // Convert to arrays and sort (using primary value)
         const entries = Array.from(primary.entries());
 
-        if (sortBy === 'label') {
+        if (effectiveSortBy === 'label') {
           entries.sort((a, b) => {
             const cmp = a[0].localeCompare(b[0]);
-            return sortOrder === 'desc' ? -cmp : cmp;
+            return effectiveSortOrder === 'desc' ? -cmp : cmp;
           });
-        } else if (sortBy === 'value') {
+        } else if (effectiveSortBy === 'value') {
           entries.sort((a, b) => {
             const cmp = a[1] - b[1];
-            return sortOrder === 'desc' ? -cmp : cmp;
+            return effectiveSortOrder === 'desc' ? -cmp : cmp;
           });
         }
 

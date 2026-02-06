@@ -131,9 +131,9 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
     } = useGoogleSheetsData({
         dataSource: (dataSource.type === 'google-sheets') ? dataSource : { type: 'google-sheets', spreadsheetId: '', sheetName: '', range: '' },
         aggregation: (safeConfig as any)?.aggregation,
-        sortBy: (safeConfig as BarChartConfig | DoughnutChartConfig)?.sortBy,
-        sortOrder: (safeConfig as BarChartConfig | DoughnutChartConfig)?.sortOrder as 'asc' | 'desc' | undefined,
-        limit: (safeConfig as BarChartConfig | DoughnutChartConfig)?.limit,
+        sortBy: (safeConfig as BarChartConfig | DoughnutChartConfig | LineChartConfig | ComboChartConfig)?.sortBy,
+        sortOrder: (safeConfig as BarChartConfig | DoughnutChartConfig | LineChartConfig | ComboChartConfig)?.sortOrder as 'asc' | 'desc' | undefined,
+        limit: (safeConfig as BarChartConfig | DoughnutChartConfig | LineChartConfig | ComboChartConfig)?.limit,
         showOther: (safeConfig as DoughnutChartConfig)?.showOther,
         secondValueColumn
     });
@@ -195,6 +195,7 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
 
     // Chart Type Specifics
     const isHorizontal = (safeConfig as BarChartConfig).horizontal;
+    const isLineSwapAxes = safeConfig.chartType === 'line' && (safeConfig as LineChartConfig).swapAxes;
 
     // Axis Formatters
     const getAxisFormatter = (axisConfig?: { formatType?: string; currencyCode?: string; decimals?: number }) => {
@@ -218,6 +219,9 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
     const yAxisFormatter = getAxisFormatter((safeConfig as any).yAxis);
     const rightAxisFormatter = getAxisFormatter((safeConfig as ComboChartConfig).rightAxis);
 
+    const xAxisLabelText = isLineSwapAxes ? (safeConfig as any).yAxis?.label : (safeConfig as any).xAxis?.label;
+    const yAxisLabelText = isLineSwapAxes ? (safeConfig as any).xAxis?.label : (safeConfig as any).yAxis?.label;
+
     // Legend Props
     const getLegendProps = (position: 'top' | 'bottom' | 'left' | 'right' = 'bottom') => {
         switch (position) {
@@ -234,9 +238,10 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
     // Common Tooltip
     const CustomTooltip = ({ active, payload, label }: any) => {
         if (active && payload && payload.length) {
+            const resolvedLabel = payload[0]?.payload?.label ?? label;
             return (
                 <div className="rounded-lg border bg-popover/95 px-3 py-2 shadow-xl backdrop-blur-sm">
-                    <p className="mb-2 text-xs font-semibold text-foreground">{label}</p>
+                    <p className="mb-2 text-xs font-semibold text-foreground">{resolvedLabel}</p>
                     {payload.map((entry: any, index: number) => (
                         <div key={index} className="flex items-center gap-2 text-xs">
                             <div className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }} />
@@ -246,7 +251,7 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
                                     const isSecondary = entry.dataKey === 'secondaryValue' || entry.name === 'Trend';
                                     const axisConfig = isSecondary
                                         ? (safeConfig as ComboChartConfig).rightAxis
-                                        : (safeConfig as any).yAxis;
+                                        : (isLineSwapAxes ? (safeConfig as any).xAxis : (safeConfig as any).yAxis);
                                     const style = axisConfig?.formatType === 'currency'
                                         ? 'currency'
                                         : axisConfig?.formatType === 'percent'
@@ -272,7 +277,17 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
     // RENDER: Cartesian Charts (Line, Bar, Combo, Area)
     // ------------------------------------------------------------------------
     if (['line', 'bar', 'combo', 'area'].includes(safeConfig.chartType)) {
-        const layout = isHorizontal ? 'vertical' : 'horizontal';
+        const layout = (isHorizontal || isLineSwapAxes) ? 'vertical' : 'horizontal';
+        const maxLabelLength = Math.max(0, ...displayData.map((item) => String(item.label ?? '').length));
+        const categoryAxisWidth = layout === 'vertical'
+            ? Math.min(200, Math.max(60, maxLabelLength * 7))
+            : 40;
+        const formatCategoryLabel = (value: unknown) => {
+            const text = String(value ?? '');
+            const maxChars = Math.max(6, Math.min(24, Math.floor(categoryAxisWidth / 7)));
+            if (text.length <= maxChars) return text;
+            return text.slice(0, Math.max(0, maxChars - 3)) + '...';
+        };
 
         const barRatio = (safeConfig as any).barRatio ?? 0.8;
         const barGapPercent = Math.max(0, Math.min(90, (1 - barRatio) * 100));
@@ -291,12 +306,17 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
                     <XAxis
                         dataKey={layout === 'vertical' ? 'value' : 'label'}
                         type={layout === 'vertical' ? 'number' : 'category'}
-                        hide={!(safeConfig as any).xAxis?.label && false}
+                        hide={false}
                         tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
                         tickLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
                         axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
                         dy={10}
-                        tickFormatter={layout === 'vertical' ? xAxisFormatter : undefined}
+                        tickFormatter={layout === 'vertical'
+                            ? (isLineSwapAxes ? yAxisFormatter : xAxisFormatter)
+                            : undefined}
+                        label={xAxisLabelText
+                            ? { value: xAxisLabelText, position: 'insideBottom', offset: 0, style: { fill: 'hsl(var(--muted-foreground))', fontSize: 10 } }
+                            : undefined}
                     />
 
                     {/* Y Axis (Left) */}
@@ -309,8 +329,13 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
                         tickLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
                         axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
                         dx={-10}
-                        width={40}
-                        tickFormatter={layout === 'vertical' ? undefined : yAxisFormatter}
+                        width={categoryAxisWidth}
+                        tickFormatter={layout === 'vertical'
+                            ? formatCategoryLabel
+                            : yAxisFormatter}
+                        label={yAxisLabelText
+                            ? { value: yAxisLabelText, angle: -90, position: 'insideLeft', offset: 10, style: { fill: 'hsl(var(--muted-foreground))', fontSize: 10 } }
+                            : undefined}
                     />
 
                     {/* Y Axis (Right - Combo Only) */}
@@ -369,7 +394,12 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
     // ------------------------------------------------------------------------
     if (safeConfig.chartType === 'doughnut' || (safeConfig.chartType as any) === 'pie') {
         const dConfig = safeConfig as DoughnutChartConfig;
-        const innerRadius = safeConfig.chartType === 'doughnut' ? (dConfig.cutout || '60%') : 0;
+        const resolvedInnerRadius = dConfig.innerRadius ?? dConfig.cutout;
+        const innerRadius = safeConfig.chartType === 'doughnut'
+            ? (typeof resolvedInnerRadius === 'number'
+                ? `${Math.round(resolvedInnerRadius * 100)}%`
+                : (resolvedInnerRadius ?? '60%'))
+            : 0;
 
         return (
             <ResponsiveContainer width="100%" height="100%">
@@ -382,8 +412,8 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
                         cy="50%"
                         innerRadius={innerRadius}
                         outerRadius="85%"
-                        paddingAngle={dConfig.padAngle || 2}
-                        cornerRadius={dConfig.cornerRadius || 4}
+                        paddingAngle={dConfig.padAngle ?? 2}
+                        cornerRadius={dConfig.cornerRadius ?? 4}
                         stroke="hsl(var(--background))"
                         strokeWidth={2}
                     >

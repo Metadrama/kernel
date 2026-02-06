@@ -132,9 +132,13 @@ export interface LineChartConfig extends BaseChartConfig {
   pointRadius?: number;
   showPoints?: boolean;
   lineWidth?: number;
+  swapAxes?: boolean;
 
   // Data transformation
   aggregation?: AggregationType;
+  sortBy?: 'label' | 'value' | 'none';
+  sortOrder?: SortOrder;
+  limit?: number;
 
   // Axis
   xAxis?: ChartAxisConfig;
@@ -443,6 +447,9 @@ export const DEFAULT_LINE_CHART_CONFIG: LineChartConfig = {
   fill: true,
   showPoints: true,
   pointRadius: 4,
+  swapAxes: false,
+  sortBy: 'none',
+  sortOrder: 'desc',
   xAxis: { showGridLines: false },
   yAxis: { showGridLines: true },
 };

@@ -5,6 +5,7 @@ import type {
     ChartConfig,
     BarChartConfig,
     DoughnutChartConfig,
+    LineChartConfig,
     GoogleSheetsDataSource
 } from '@/modules/DataLayer/types/component-config';
 
@@ -30,9 +31,9 @@ export function useChartData(
             ? dataSource as GoogleSheetsDataSource
             : { type: 'google-sheets', spreadsheetId: '', sheetName: '', range: '' },
         aggregation: (config as BarChartConfig | DoughnutChartConfig)?.aggregation,
-        sortBy: (config as BarChartConfig | DoughnutChartConfig)?.sortBy,
-        sortOrder: (config as BarChartConfig | DoughnutChartConfig)?.sortOrder as any,
-        limit: (config as BarChartConfig | DoughnutChartConfig)?.limit,
+        sortBy: (config as BarChartConfig | DoughnutChartConfig | LineChartConfig)?.sortBy,
+        sortOrder: (config as BarChartConfig | DoughnutChartConfig | LineChartConfig)?.sortOrder as any,
+        limit: (config as BarChartConfig | DoughnutChartConfig | LineChartConfig)?.limit,
         showOther: (config as DoughnutChartConfig)?.showOther,
     });
 
