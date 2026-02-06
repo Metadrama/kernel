@@ -42,6 +42,63 @@ function parseNumericValue(value: unknown): number {
   return isNaN(num) ? 0 : num;
 }
 
+// Normalize to local date (start-of-day) to avoid timezone shifts
+function normalizeToLocalDate(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+// Parse date-like values into local date (start-of-day)
+function parseDateOnly(value: unknown): Date | null {
+  if (!value) return null;
+
+  if (value instanceof Date) {
+    return isNaN(value.getTime()) ? null : normalizeToLocalDate(value);
+  }
+
+  if (typeof value === 'number') {
+    const excelEpoch = new Date(1899, 11, 30);
+    const date = new Date(excelEpoch.getTime() + value * 86400000);
+    return normalizeToLocalDate(date);
+  }
+
+  if (typeof value !== 'string') return null;
+
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (isoMatch) {
+    const year = Number(isoMatch[1]);
+    const month = Number(isoMatch[2]);
+    const day = Number(isoMatch[3]);
+    return new Date(year, month - 1, day);
+  }
+
+  const mdMatch = trimmed.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})/);
+  if (mdMatch) {
+    const part1 = Number(mdMatch[1]);
+    const part2 = Number(mdMatch[2]);
+    const year = Number(mdMatch[3]);
+    let month = part1;
+    let day = part2;
+
+    // Heuristic: if first part > 12, treat as DD/MM/YYYY
+    if (part1 > 12 && part2 <= 12) {
+      day = part1;
+      month = part2;
+    } else if (part2 > 12 && part1 <= 12) {
+      // Otherwise, if second part > 12, treat as MM/DD/YYYY
+      day = part2;
+      month = part1;
+    }
+
+    return new Date(year, month - 1, day);
+  }
+
+  const parsed = new Date(trimmed);
+  return isNaN(parsed.getTime()) ? null : normalizeToLocalDate(parsed);
+}
+
 // Aggregate values by label
 function aggregateData(
   data: Array<{ label: string; value: number; secondaryValue?: number }>,
@@ -247,8 +304,8 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
 
           let explicitDate: Date | undefined;
           if (dateColIndex !== -1 && row[dateColIndex]) {
-            const d = new Date(row[dateColIndex]);
-            if (!isNaN(d.getTime())) explicitDate = d;
+            const d = parseDateOnly(row[dateColIndex]);
+            if (d) explicitDate = d;
           }
 
           transformedData.push({ label, value, secondaryValue, explicitDate });
@@ -257,8 +314,10 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
         // Handle Generated Labels
         if (mode === 'generated' && dataSource.generatedLabels) {
           const { startDate, endDate, interval, mode: genMode = 'step' } = dataSource.generatedLabels;
-          const start = new Date(startDate);
-          const end = endDate ? new Date(endDate) : new Date();
+          const start = parseDateOnly(startDate) ?? normalizeToLocalDate(new Date(startDate));
+          const end = endDate
+            ? (parseDateOnly(endDate) ?? normalizeToLocalDate(new Date(endDate)))
+            : normalizeToLocalDate(new Date());
           const count = transformedData.length;
 
           if (genMode === 'fit' && count > 1) {

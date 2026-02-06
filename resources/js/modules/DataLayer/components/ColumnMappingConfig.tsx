@@ -228,7 +228,7 @@ export function ColumnMappingConfig({ columns, config, disabled, onUpdate }: Col
 
             {/* Filter */}
             <div className="space-y-2">
-                <Label className="text-sm font-medium">Filter (Optional)</Label>
+                <Label className="text-sm font-medium">Filter</Label>
                 <div className="grid grid-cols-2 gap-2">
                     <Select
                         value={config.filterColumn || '__none__'}
