@@ -149,31 +149,6 @@ export default function TableComponent({ config }: TableComponentProps) {
     return { rows: tableRows, columns: tableCols };
   }, [dataSource.type, fetchedData, safeConfig.columns]);
 
-  if (loading) {
-    return (
-      <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        <span className="text-xs">Loading...</span>
-      </div>
-    );
-  }
-
-  if (error && dataSource.type !== 'static') {
-    return (
-      <div className="flex h-full w-full items-center justify-center p-4 text-center text-xs text-destructive">
-        Error: {error}
-      </div>
-    );
-  }
-
-  if (rows.length === 0) {
-    return (
-      <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
-        No data available
-      </div>
-    );
-  }
-
   const processedRows = useMemo(() => {
     let nextRows = [...rows];
 
@@ -232,6 +207,31 @@ export default function TableComponent({ config }: TableComponentProps) {
     sortField,
     sortOrder,
   ]);
+
+  if (loading) {
+    return (
+      <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        <span className="text-xs">Loading...</span>
+      </div>
+    );
+  }
+
+  if (error && dataSource.type !== 'static') {
+    return (
+      <div className="flex h-full w-full items-center justify-center p-4 text-center text-xs text-destructive">
+        Error: {error}
+      </div>
+    );
+  }
+
+  if (rows.length === 0) {
+    return (
+      <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
+        No data available
+      </div>
+    );
+  }
 
   // Pagination
   const totalPages = Math.ceil(processedRows.length / pageSize);

@@ -279,18 +279,26 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
     if (['line', 'bar', 'combo', 'area'].includes(safeConfig.chartType)) {
         const layout = (isHorizontal || isLineSwapAxes) ? 'vertical' : 'horizontal';
         const maxLabelLength = Math.max(0, ...displayData.map((item) => String(item.label ?? '').length));
+
+        // Smarter width calculation: tighter cap for long labels in horizontal bars
         const categoryAxisWidth = layout === 'vertical'
-            ? Math.min(200, Math.max(60, maxLabelLength * 7))
+            ? Math.min(140, Math.max(32, maxLabelLength * 5.5))
             : 40;
+
         const formatCategoryLabel = (value: unknown) => {
             const text = String(value ?? '');
-            const maxChars = Math.max(6, Math.min(24, Math.floor(categoryAxisWidth / 7)));
+            const maxChars = Math.max(6, Math.min(28, Math.floor(categoryAxisWidth / 5.5)));
             if (text.length <= maxChars) return text;
             return text.slice(0, Math.max(0, maxChars - 3)) + '...';
         };
 
-        const barRatio = (safeConfig as any).barRatio ?? 0.8;
+        const barRatio = (safeConfig as any).barRatio ?? (layout === 'vertical' ? 0.9 : 0.8);
         const barGapPercent = Math.max(0, Math.min(90, (1 - barRatio) * 100));
+
+        const borderRadius = (safeConfig as BarChartConfig).borderRadius ?? 4;
+        const barRadius: [number, number, number, number] = layout === 'vertical'
+            ? [0, borderRadius, borderRadius, 0] // Horizontal bars: round the right ends
+            : [borderRadius, borderRadius, 0, 0]; // Vertical bars: round the top ends
 
         return (
             <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
@@ -298,19 +306,29 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
                     data={displayData}
                     layout={layout}
                     barCategoryGap={`${barGapPercent}%`}
-                    margin={{ top: 5, right: 5, left: 0, bottom: 0 }}
+                    margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
                 >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.4} />
+                    <CartesianGrid
+                        strokeDasharray="3 3"
+                        vertical={layout === 'vertical'} // Show vertical lines for horizontal bars to track value
+                        horizontal={layout === 'horizontal'} // Show horizontal lines for vertical bars
+                        stroke="hsl(var(--border))"
+                        opacity={0.4}
+                    />
 
                     {/* X Axis */}
                     <XAxis
                         dataKey={layout === 'vertical' ? 'value' : 'label'}
                         type={layout === 'vertical' ? 'number' : 'category'}
                         hide={false}
-                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
-                        tickLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
-                        axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
-                        dy={10}
+                        tick={{
+                            fill: 'hsl(var(--muted-foreground))',
+                            fontSize: 10,
+                            textAnchor: layout === 'vertical' ? 'end' : 'middle',
+                        }}
+                        tickLine={{ stroke: 'hsl(var(--border))', strokeWidth: 1 }}
+                        axisLine={{ stroke: 'hsl(var(--border))', strokeWidth: 1 }}
+                        dy={layout === 'vertical' ? 5 : 10}
                         tickFormatter={layout === 'vertical'
                             ? (isLineSwapAxes ? yAxisFormatter : xAxisFormatter)
                             : undefined}
@@ -326,9 +344,9 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
                         type={layout === 'vertical' ? 'category' : 'number'}
                         hide={false}
                         tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
-                        tickLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
-                        axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
-                        dx={-10}
+                        tickLine={{ stroke: 'hsl(var(--border))', strokeWidth: 1 }}
+                        axisLine={{ stroke: 'hsl(var(--border))', strokeWidth: 1 }}
+                        dx={layout === 'vertical' ? -5 : -10}
                         width={categoryAxisWidth}
                         tickFormatter={layout === 'vertical'
                             ? formatCategoryLabel
@@ -345,8 +363,8 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
                             orientation="right"
                             hide={!(safeConfig as ComboChartConfig).rightAxis?.showGridLines && !(safeConfig as ComboChartConfig).rightAxis?.label}
                             tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
-                            tickLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
-                            axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
+                            tickLine={{ stroke: 'hsl(var(--border))', strokeWidth: 1 }}
+                            axisLine={{ stroke: 'hsl(var(--border))', strokeWidth: 1 }}
                             tickFormatter={rightAxisFormatter}
                         />
                     )}
@@ -360,7 +378,7 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
                             dataKey="value"
                             name="Value"
                             fill={safeConfig.chartType === 'combo' ? ((safeConfig as ComboChartConfig).barColor || primaryColor) : primaryColor}
-                            radius={[(safeConfig as BarChartConfig).borderRadius ?? 4, (safeConfig as BarChartConfig).borderRadius ?? 4, 0, 0]}
+                            radius={barRadius}
                             stackId={(safeConfig as BarChartConfig).stacked ? "a" : undefined}
                             yAxisId="left"
                             isAnimationActive={false}
