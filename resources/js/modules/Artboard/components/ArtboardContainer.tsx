@@ -27,6 +27,10 @@ interface ArtboardContainerProps {
     onSelectComponent?: (componentId: string) => void;
     onDeselectComponent?: () => void;
     onLivePositionChange?: (data: { componentId: string; position: { x: number; y: number; width: number; height: number } } | null) => void;
+    // Context menu clipboard actions (lifted to ArtboardCanvas)
+    onCopyComponent?: (componentId: string) => void;
+    onPasteComponent?: (artboardId: string) => void;
+    hasClipboard?: boolean;
 }
 
 export default function ArtboardContainer({
@@ -42,6 +46,9 @@ export default function ArtboardContainer({
     onSelectComponent,
     onDeselectComponent,
     onLivePositionChange,
+    onCopyComponent,
+    onPasteComponent,
+    hasClipboard,
 }: ArtboardContainerProps) {
     const HEADER_HEIGHT_PX = 52;
     const HEADER_GAP_PX = 8;
@@ -149,6 +156,41 @@ export default function ArtboardContainer({
                 };
             });
 
+            onUpdate(artboard.id, { components: updatedComponents });
+        },
+        [artboard.components, artboard.id, onUpdate]
+    );
+
+    // Toggle component visibility
+    const toggleComponentVisibility = useCallback(
+        (instanceId: string) => {
+            const updatedComponents = artboard.components.map((c) =>
+                c.instanceId === instanceId ? { ...c, hidden: !c.hidden } : c
+            );
+            onUpdate(artboard.id, { components: updatedComponents });
+        },
+        [artboard.components, artboard.id, onUpdate]
+    );
+
+    // Toggle component lock
+    const toggleComponentLock = useCallback(
+        (instanceId: string) => {
+            const updatedComponents = artboard.components.map((c) =>
+                c.instanceId === instanceId ? { ...c, locked: !c.locked } : c
+            );
+            onUpdate(artboard.id, { components: updatedComponents });
+        },
+        [artboard.components, artboard.id, onUpdate]
+    );
+
+    // Flip component
+    const flipComponent = useCallback(
+        (instanceId: string, axis: 'x' | 'y') => {
+            const updatedComponents = artboard.components.map((c) =>
+                c.instanceId === instanceId
+                    ? { ...c, [axis === 'x' ? 'flipX' : 'flipY']: !(axis === 'x' ? c.flipX : c.flipY) }
+                    : c
+            );
             onUpdate(artboard.id, { components: updatedComponents });
         },
         [artboard.components, artboard.id, onUpdate]
@@ -295,6 +337,13 @@ export default function ArtboardContainer({
                                     onConfigChange={(config) => updateComponentConfig(component.instanceId, config)}
                                     onDelete={() => deleteComponent(component.instanceId)}
                                     onZOrderChange={(op) => updateComponentZOrder(component.instanceId, op)}
+                                    onCopy={() => onCopyComponent?.(component.instanceId)}
+                                    onPaste={() => onPasteComponent?.(artboard.id)}
+                                    onToggleVisibility={() => toggleComponentVisibility(component.instanceId)}
+                                    onToggleLock={() => toggleComponentLock(component.instanceId)}
+                                    onFlipHorizontal={() => flipComponent(component.instanceId, 'x')}
+                                    onFlipVertical={() => flipComponent(component.instanceId, 'y')}
+                                    hasClipboard={hasClipboard}
                                 />
                             ))}
                         </div>

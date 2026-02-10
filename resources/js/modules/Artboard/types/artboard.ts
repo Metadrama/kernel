@@ -60,6 +60,9 @@ export interface ArtboardComponent {
     position: ComponentPosition;
     config: Record<string, unknown>;
     locked?: boolean;    // If true, prevents drag/resize
+    hidden?: boolean;    // If true, component is hidden on canvas
+    flipX?: boolean;     // Horizontal flip
+    flipY?: boolean;     // Vertical flip
 }
 
 /**

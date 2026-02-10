@@ -26,7 +26,18 @@ export default function ArtboardCanvas() {
     const currentDashboardId = page.props.currentDashboard?.id ?? 'default';
     const currentDashboardName = page.props.currentDashboard?.name ?? 'Untitled Dashboard';
 
-    const { artboards, setArtboards, selectedArtboardId, setSelectedArtboardId, artboardStackOrder, bringArtboardToFront, dataSourceConfig, autosaveEnabled } = useArtboardContext();
+    const {
+        artboards,
+        setArtboards,
+        selectedArtboardId,
+        setSelectedArtboardId,
+        selectedComponentId,
+        setSelectedComponentId,
+        artboardStackOrder,
+        bringArtboardToFront,
+        dataSourceConfig,
+        autosaveEnabled
+    } = useArtboardContext();
 
     // Component transfer - simplified without widget archiving
     // Components are now placed directly on artboards
@@ -46,11 +57,17 @@ export default function ArtboardCanvas() {
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
-    // Component selection state
-    const [selectedComponent, setSelectedComponent] = useState<{
-        artboardId: string;
-        component: ArtboardComponent;
-    } | null>(null);
+    // Component selection state - derived from context
+    const selectedComponent = useMemo(() => {
+        if (!selectedComponentId) return null;
+        for (const artboard of artboards) {
+            const component = artboard.components.find((c) => c.instanceId === selectedComponentId);
+            if (component) {
+                return { artboardId: artboard.id, component };
+            }
+        }
+        return null;
+    }, [artboards, selectedComponentId]);
 
     // Live position during drag/resize (for real-time inspector updates)
     const [livePosition, setLivePosition] = useState<{
@@ -179,7 +196,7 @@ export default function ArtboardCanvas() {
             for (const artboard of artboards) {
                 const component = artboard.components.find((c: ArtboardComponent) => c.instanceId === componentId);
                 if (component) {
-                    setSelectedComponent({ artboardId: artboard.id, component });
+                    setSelectedComponentId(component.instanceId);
                     setShowInspector(true);
                     // Dismiss other panels - component inspector takes priority
                     setSelectedArtboardId(null);
@@ -188,7 +205,7 @@ export default function ArtboardCanvas() {
                 }
             }
         },
-        [artboards, setSelectedArtboardId],
+        [artboards, setSelectedArtboardId, setSelectedComponentId],
     );
 
     const handleComponentConfigChange = useCallback(
@@ -203,9 +220,6 @@ export default function ArtboardCanvas() {
                         updatedAt: new Date().toISOString(),
                     };
                 }),
-            );
-            setSelectedComponent((prev) =>
-                prev?.component.instanceId === instanceId ? { ...prev, component: { ...prev.component, config } } : prev,
             );
         },
         [selectedComponent, setArtboards],
@@ -228,19 +242,14 @@ export default function ArtboardCanvas() {
                     };
                 }),
             );
-            setSelectedComponent((prev) =>
-                prev?.component.instanceId === instanceId
-                    ? { ...prev, component: { ...prev.component, position: { ...prev.component.position, ...positionUpdates } } }
-                    : prev,
-            );
         },
         [selectedComponent, setArtboards],
     );
 
     const handleCloseInspector = useCallback(() => {
         setShowInspector(false);
-        setSelectedComponent(null);
-    }, []);
+        setSelectedComponentId(null);
+    }, [setSelectedComponentId]);
 
     // Copy selected component to clipboard
     const handleCopy = useCallback(() => {
@@ -273,9 +282,9 @@ export default function ArtboardCanvas() {
                     : a
             )
         );
-        setSelectedComponent({ artboardId: targetArtboardId, component: newComponent });
+        setSelectedComponentId(newComponent.instanceId);
         setShowInspector(true);
-    }, [clipboard, selectedComponent, setArtboards]);
+    }, [clipboard, selectedComponent, setArtboards, setSelectedComponentId]);
 
     // Duplicate selected component (copy + paste in one action)
     const handleDuplicate = useCallback(() => {
@@ -297,8 +306,8 @@ export default function ArtboardCanvas() {
                     : a
             )
         );
-        setSelectedComponent({ artboardId: selectedComponent.artboardId, component: newComponent });
-    }, [selectedComponent, setArtboards]);
+        setSelectedComponentId(newComponent.instanceId);
+    }, [selectedComponent, setArtboards, setSelectedComponentId]);
 
     // Delete selected component
     const handleDeleteComponent = useCallback(() => {
@@ -314,8 +323,136 @@ export default function ArtboardCanvas() {
                     : a
             )
         );
-        setSelectedComponent(null);
+        setSelectedComponentId(null);
         setShowInspector(false);
+    }, [selectedComponent, setArtboards, setSelectedComponentId]);
+
+    // Copy a specific component by id (called from context menu)
+    const handleCopyComponentById = useCallback(
+        (componentId: string) => {
+            for (const artboard of artboards) {
+                const component = artboard.components.find((c: ArtboardComponent) => c.instanceId === componentId);
+                if (component) {
+                    setClipboard({
+                        component: JSON.parse(JSON.stringify(component)),
+                        artboardId: artboard.id,
+                    });
+                    // Also select the component
+                    setSelectedComponentId(component.instanceId);
+                    setShowInspector(true);
+                    setSelectedArtboardId(null);
+                    setShowAddArtboard(false);
+                    return;
+                }
+            }
+        },
+        [artboards, setSelectedArtboardId, setSelectedComponentId],
+    );
+
+    // Paste clipboard into a specific artboard (called from context menu)
+    const handlePasteToArtboard = useCallback(
+        (artboardId: string) => {
+            if (!clipboard) return;
+            const newComponent: ArtboardComponent = {
+                ...clipboard.component,
+                instanceId: `${clipboard.component.componentType}-${Date.now()}`,
+                position: {
+                    ...clipboard.component.position,
+                    x: clipboard.component.position.x + 20,
+                    y: clipboard.component.position.y + 20,
+                },
+            };
+            setArtboards((prev) =>
+                prev.map((a) =>
+                    a.id === artboardId
+                        ? { ...a, components: [...a.components, newComponent], updatedAt: new Date().toISOString() }
+                        : a
+                )
+            );
+            setSelectedComponentId(newComponent.instanceId);
+            setShowInspector(true);
+        },
+        [clipboard, setArtboards, setSelectedComponentId],
+    );
+
+    // Toggle visibility for the currently selected component
+    const handleToggleSelectedVisibility = useCallback(() => {
+        if (!selectedComponent) return;
+        const { artboardId, component } = selectedComponent;
+        const newHidden = !component.hidden;
+        setArtboards((prev) =>
+            prev.map((a) =>
+                a.id === artboardId
+                    ? {
+                        ...a,
+                        components: a.components.map((c: ArtboardComponent) =>
+                            c.instanceId === component.instanceId ? { ...c, hidden: newHidden } : c
+                        ),
+                        updatedAt: new Date().toISOString(),
+                    }
+                    : a
+            )
+        );
+    }, [selectedComponent, setArtboards]);
+
+    // Toggle lock for the currently selected component
+    const handleToggleSelectedLock = useCallback(() => {
+        if (!selectedComponent) return;
+        const { artboardId, component } = selectedComponent;
+        const newLocked = !component.locked;
+        setArtboards((prev) =>
+            prev.map((a) =>
+                a.id === artboardId
+                    ? {
+                        ...a,
+                        components: a.components.map((c: ArtboardComponent) =>
+                            c.instanceId === component.instanceId ? { ...c, locked: newLocked } : c
+                        ),
+                        updatedAt: new Date().toISOString(),
+                    }
+                    : a
+            )
+        );
+    }, [selectedComponent, setArtboards]);
+
+    // Flip selected component horizontally
+    const handleFlipSelectedH = useCallback(() => {
+        if (!selectedComponent) return;
+        const { artboardId, component } = selectedComponent;
+        const newFlipX = !component.flipX;
+        setArtboards((prev) =>
+            prev.map((a) =>
+                a.id === artboardId
+                    ? {
+                        ...a,
+                        components: a.components.map((c: ArtboardComponent) =>
+                            c.instanceId === component.instanceId ? { ...c, flipX: newFlipX } : c
+                        ),
+                        updatedAt: new Date().toISOString(),
+                    }
+                    : a
+            )
+        );
+    }, [selectedComponent, setArtboards]);
+
+    // Flip selected component vertically
+    const handleFlipSelectedV = useCallback(() => {
+        if (!selectedComponent) return;
+        const { artboardId, component } = selectedComponent;
+        const newFlipY = !component.flipY;
+        setArtboards((prev) =>
+            prev.map((a) =>
+                a.id === artboardId
+                    ? {
+                        ...a,
+                        components: a.components.map((c: ArtboardComponent) =>
+                            c.instanceId === component.instanceId ? { ...c, flipY: newFlipY } : c
+                        ),
+                        updatedAt: new Date().toISOString(),
+                    }
+                    : a
+            )
+        );
     }, [selectedComponent, setArtboards]);
 
     // Track artboard changes for undo/redo history
@@ -357,9 +494,9 @@ export default function ArtboardCanvas() {
         lastArtboardsRef.current = JSON.stringify(previousState);
 
         // Clear selection as the component might not exist anymore
-        setSelectedComponent(null);
+        setSelectedComponentId(null);
         setShowInspector(false);
-    }, [history, artboards, setArtboards]);
+    }, [history, artboards, setArtboards, setSelectedComponentId]);
 
     // Redo handler
     const handleRedo = useCallback(() => {
@@ -375,11 +512,11 @@ export default function ArtboardCanvas() {
         lastArtboardsRef.current = JSON.stringify(nextState);
 
         // Clear selection as the component might not exist anymore
-        setSelectedComponent(null);
+        setSelectedComponentId(null);
         setShowInspector(false);
-    }, [future, artboards, setArtboards]);
+    }, [future, artboards, setArtboards, setSelectedComponentId]);
 
-    // Handle keyboard shortcuts for copy/paste/duplicate/delete/undo/redo
+    // Handle keyboard shortcuts for copy/paste/duplicate/delete/undo/redo + new shortcuts
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             // Check if user is editing text
@@ -388,25 +525,61 @@ export default function ArtboardCanvas() {
 
             // Copy/Paste/Duplicate/Undo/Redo shortcuts (only when not editing text)
             if (!isEditing && (e.ctrlKey || e.metaKey)) {
-                if (e.key.toLowerCase() === 'c') {
+                if (e.key.toLowerCase() === 'c' && !e.shiftKey && !e.altKey) {
                     e.preventDefault();
                     handleCopy();
                 }
-                if (e.key.toLowerCase() === 'v') {
+                if (e.key.toLowerCase() === 'v' && !e.shiftKey && !e.altKey) {
                     e.preventDefault();
                     handlePaste();
                 }
-                if (e.key.toLowerCase() === 'd') {
+                if (e.key.toLowerCase() === 'd' && !e.shiftKey && !e.altKey) {
                     e.preventDefault();
                     handleDuplicate();
                 }
-                if (e.key.toLowerCase() === 'z') {
+                if (e.key.toLowerCase() === 'z' && !e.shiftKey && !e.altKey) {
                     e.preventDefault();
                     handleUndo();
                 }
-                if (e.key.toLowerCase() === 'y') {
+                if (e.key.toLowerCase() === 'y' && !e.shiftKey && !e.altKey) {
                     e.preventDefault();
                     handleRedo();
+                }
+                // Ctrl+Shift+H: Toggle visibility
+                if (e.key.toLowerCase() === 'h' && e.shiftKey && !e.altKey) {
+                    e.preventDefault();
+                    handleToggleSelectedVisibility();
+                }
+                // Ctrl+Shift+L: Toggle lock
+                if (e.key.toLowerCase() === 'l' && e.shiftKey && !e.altKey) {
+                    e.preventDefault();
+                    handleToggleSelectedLock();
+                }
+            }
+
+            // Shift-only shortcuts (no Ctrl/Meta)
+            if (!isEditing && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                // Shift+H: Flip horizontal
+                if (e.key === 'H') {
+                    e.preventDefault();
+                    handleFlipSelectedH();
+                }
+                // Shift+V: Flip vertical
+                if (e.key === 'V') {
+                    e.preventDefault();
+                    handleFlipSelectedV();
+                }
+            }
+
+            // Z-order shortcuts: ] and [
+            if (!isEditing && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
+                if (e.key === ']') {
+                    e.preventDefault();
+                    // Bring to front via the container-level handler
+                    // (handled in useKeyboardShortcuts or inline)
+                }
+                if (e.key === '[') {
+                    e.preventDefault();
                 }
             }
 
@@ -420,20 +593,20 @@ export default function ArtboardCanvas() {
         return () => {
             window.removeEventListener('keydown', handleKeyDown);
         };
-    }, [handleCopy, handlePaste, handleDuplicate, handleDeleteComponent, handleUndo, handleRedo]);
+    }, [handleCopy, handlePaste, handleDuplicate, handleDeleteComponent, handleUndo, handleRedo, handleToggleSelectedVisibility, handleToggleSelectedLock, handleFlipSelectedH, handleFlipSelectedV]);
 
     // Click on empty canvas (outside artboards) to dismiss all panels
     const handleCanvasClick = useCallback(
         (e: React.MouseEvent) => {
             // Only dismiss if clicking directly on canvas background, not on artboards
             if (e.target === e.currentTarget) {
-                setSelectedComponent(null);
+                setSelectedComponentId(null);
                 setShowInspector(false);
                 setSelectedArtboardId(null);
                 setShowAddArtboard(false);
             }
         },
-        [setSelectedArtboardId],
+        [setSelectedArtboardId, setSelectedComponentId],
     );
 
     // Persistence - save to database
@@ -594,7 +767,7 @@ export default function ArtboardCanvas() {
                                     onSelectComponent={handleSelectComponent}
                                     onDeselectComponent={() => {
                                         // Close Component Inspector and Add Artboard panel when clicking empty artboard
-                                        setSelectedComponent(null);
+                                        setSelectedComponentId(null);
                                         setShowInspector(false);
                                         setShowAddArtboard(false);
                                     }}
@@ -602,6 +775,9 @@ export default function ArtboardCanvas() {
                                         selectedComponent?.artboardId === artboard.id ? selectedComponent.component.instanceId : undefined
                                     }
                                     onLivePositionChange={setLivePosition}
+                                    onCopyComponent={handleCopyComponentById}
+                                    onPasteComponent={handlePasteToArtboard}
+                                    hasClipboard={!!clipboard}
                                 />
                             ))}
                     </div>

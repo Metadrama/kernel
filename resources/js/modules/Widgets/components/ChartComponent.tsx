@@ -293,7 +293,7 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
         const barGapPercent = Math.max(0, Math.min(90, (1 - barRatio) * 100));
 
         return (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                 <ComposedChart
                     data={displayData}
                     layout={layout}
@@ -363,6 +363,7 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
                             radius={[(safeConfig as BarChartConfig).borderRadius ?? 4, (safeConfig as BarChartConfig).borderRadius ?? 4, 0, 0]}
                             stackId={(safeConfig as BarChartConfig).stacked ? "a" : undefined}
                             yAxisId="left"
+                            isAnimationActive={false}
                         >
                             {/* Individual Colors for Bar Chart only (not combo) */}
                             {safeConfig.chartType === 'bar' && !(safeConfig as BarChartConfig).stacked && displayData.map((entry, index) => (
@@ -382,6 +383,7 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
                             dot={(safeConfig as any).showPoints ?? true ? { r: 4, strokeWidth: 2 } : false}
                             activeDot={{ r: 6 }}
                             yAxisId={safeConfig.chartType === 'combo' ? "right" : "left"}
+                            isAnimationActive={false}
                         />
                     )}
                 </ComposedChart>
@@ -402,7 +404,7 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
             : 0;
 
         return (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                 <PieChart margin={{ top: 0, bottom: 0, left: 0, right: 0 }}>
                     <Pie
                         data={displayData}
@@ -416,6 +418,7 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
                         cornerRadius={dConfig.cornerRadius ?? 4}
                         stroke="hsl(var(--background))"
                         strokeWidth={2}
+                        isAnimationActive={false}
                     >
                         {displayData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />

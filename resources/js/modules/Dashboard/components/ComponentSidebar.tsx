@@ -6,12 +6,22 @@ import { Button } from '@/modules/DesignSystem/ui/button';
 import { useArtboardContext } from '@/modules/Artboard/context/ArtboardContext';
 import { useResizable } from '@/modules/DesignSystem/hooks/useResizable';
 import { PanelLeft, PanelLeftClose } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ComponentsPanel, LayersPanel } from '.';
+import { ComponentContextMenuActions } from './ComponentContextMenu';
 
 export default function ComponentSidebar() {
-    const { artboards, setArtboards, selectedArtboardId, setSelectedArtboardId, artboardStackOrder, bringArtboardToFront, moveArtboardLayer } =
-        useArtboardContext();
+    const {
+        artboards,
+        setArtboards,
+        selectedArtboardId,
+        setSelectedArtboardId,
+        selectedComponentId,
+        setSelectedComponentId,
+        artboardStackOrder,
+        bringArtboardToFront,
+        moveArtboardLayer
+    } = useArtboardContext();
 
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [activePanel, setActivePanel] = useState<'components' | 'layers'>('components');
@@ -54,6 +64,48 @@ export default function ComponentSidebar() {
     const handleMoveLayer = (id: string, direction: 'up' | 'down') => {
         moveArtboardLayer(id, direction);
     };
+
+    // Component actions for LayersPanel
+    const handleSelectComponent = useCallback((id: string) => {
+        setSelectedComponentId(id);
+        setSelectedArtboardId(null);
+    }, [setSelectedComponentId, setSelectedArtboardId]);
+
+    const getComponentActions = useCallback((componentId: string, artboardId: string): ComponentContextMenuActions => ({
+        onToggleVisibility: () => {
+            setArtboards((prev) => prev.map((a) => (a.id === artboardId ? {
+                ...a,
+                components: a.components.map((c) => c.instanceId === componentId ? { ...c, hidden: !c.hidden } : c)
+            } : a)));
+        },
+        onToggleLock: () => {
+            setArtboards((prev) => prev.map((a) => (a.id === artboardId ? {
+                ...a,
+                components: a.components.map((c) => c.instanceId === componentId ? { ...c, locked: !c.locked } : c)
+            } : a)));
+        },
+        onFlipHorizontal: () => {
+            setArtboards((prev) => prev.map((a) => (a.id === artboardId ? {
+                ...a,
+                components: a.components.map((c) => c.instanceId === componentId ? { ...c, flipX: !c.flipX } : c)
+            } : a)));
+        },
+        onFlipVertical: () => {
+            setArtboards((prev) => prev.map((a) => (a.id === artboardId ? {
+                ...a,
+                components: a.components.map((c) => c.instanceId === componentId ? { ...c, flipY: !c.flipY } : c)
+            } : a)));
+        },
+        onDelete: () => {
+            setArtboards((prev) => prev.map((a) => (a.id === artboardId ? {
+                ...a,
+                components: a.components.filter((c) => c.instanceId !== componentId),
+            } : a)));
+            // We need to check the current value from the callback or ref, but here we only have the closure value.
+            // Since we depend on selectedComponentId in the useCallback array, it's fine.
+             setSelectedComponentId((currentId) => currentId === componentId ? null : currentId);
+        },
+    }), [setArtboards, setSelectedComponentId]);
 
     if (isCollapsed) {
         return (
@@ -112,10 +164,13 @@ export default function ComponentSidebar() {
                     artboards={artboards}
                     artboardStackOrder={artboardStackOrder}
                     selectedArtboardId={selectedArtboardId}
+                    selectedComponentId={selectedComponentId}
                     onSelectArtboard={handleSelectArtboard}
                     onToggleVisibility={handleToggleVisibility}
                     onToggleLock={handleToggleLock}
                     onMoveLayer={handleMoveLayer}
+                    onSelectComponent={handleSelectComponent}
+                    getComponentActions={getComponentActions}
                 />
             )}
 

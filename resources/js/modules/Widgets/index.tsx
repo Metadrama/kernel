@@ -25,7 +25,11 @@ function ComponentLoader() {
 }
 
 // Component registry - maps component type IDs to renderers
-export const COMPONENT_REGISTRY: Record<string, React.ComponentType<{ config?: Record<string, unknown>; onConfigChange?: (config: Record<string, unknown>) => void }>> = {
+export const COMPONENT_REGISTRY: Record<string, React.ComponentType<{ 
+  config?: Record<string, unknown>; 
+  onConfigChange?: (config: Record<string, unknown>) => void;
+  onDimensionsChange?: (dimensions: { width?: number; height?: number }) => void;
+}>> = {
   'chart': ({ config }) => (
     <Suspense fallback={<ComponentLoader />}>
       <ChartComponent config={{ ...config, chartType: (config?.chartType as any) || 'line' } as any} />
@@ -56,9 +60,9 @@ export const COMPONENT_REGISTRY: Record<string, React.ComponentType<{ config?: R
       <GaugeChartComponent config={config as any} />
     </Suspense>
   ),
-  'text': ({ config, onConfigChange }) => (
+  'text': ({ config, onConfigChange, onDimensionsChange }) => (
     <Suspense fallback={<ComponentLoader />}>
-      <TextComponent config={config} onConfigChange={onConfigChange} />
+      <TextComponent config={config} onConfigChange={onConfigChange} onDimensionsChange={onDimensionsChange} />
     </Suspense>
   ),
   'chart-legend': ({ config }) => (
@@ -82,9 +86,9 @@ export const COMPONENT_REGISTRY: Record<string, React.ComponentType<{ config?: R
     </Suspense>
   ),
   // Legacy alias: 'heading' -> 'text' (heading is deprecated, use text with large fontSize)
-  'heading': ({ config, onConfigChange }) => (
+  'heading': ({ config, onConfigChange, onDimensionsChange }) => (
     <Suspense fallback={<ComponentLoader />}>
-      <TextComponent config={config} onConfigChange={onConfigChange} />
+      <TextComponent config={config} onConfigChange={onConfigChange} onDimensionsChange={onDimensionsChange} />
     </Suspense>
   ),
 };

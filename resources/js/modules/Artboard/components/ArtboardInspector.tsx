@@ -74,7 +74,7 @@ export function ArtboardInspectorContent({ artboard, onUpdate }: { artboard: Art
                     <div className="space-y-3">
                         <div className="space-y-2">
                             <Label htmlFor="bg">Background Color</Label>
-                            <Input id="bg" type="color" value={artboard.backgroundColor} onChange={(e) => onUpdate({ backgroundColor: e.target.value })} />
+                            <Input id="bg" type="color" value={/^#[0-9a-fA-F]{6}$/.test(artboard.backgroundColor) ? artboard.backgroundColor : '#ffffff'} onChange={(e) => onUpdate({ backgroundColor: e.target.value })} />
                         </div>
 
                         <div className="space-y-2">

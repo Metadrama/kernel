@@ -151,7 +151,7 @@ export default function GaugeChartComponent({ config }: GaugeChartComponentProps
 
   return (
     <div className="relative flex h-full w-full flex-col items-center justify-center">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
         <RadialBarChart
           cx="50%"
           cy="70%"
@@ -162,7 +162,7 @@ export default function GaugeChartComponent({ config }: GaugeChartComponentProps
           startAngle={180}
           endAngle={0}
         >
-          <RadialBar dataKey="value" cornerRadius={8} background={false}>
+          <RadialBar dataKey="value" cornerRadius={8} background={false} isAnimationActive={false}>
             {data.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={entry.fill} />
             ))}

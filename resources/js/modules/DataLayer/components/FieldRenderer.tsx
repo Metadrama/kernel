@@ -254,7 +254,7 @@ export function FieldRenderer({
           <input
             id={id}
             type="color"
-            value={String(value ?? field.defaultValue ?? '#000000')}
+            value={/^#[0-9a-fA-F]{6}$/.test(String(value ?? field.defaultValue ?? '')) ? String(value ?? field.defaultValue) : '#000000'}
             onChange={(e) => onChange(e.target.value)}
             disabled={disabled}
             className="h-8 w-12 rounded border cursor-pointer disabled:opacity-50"

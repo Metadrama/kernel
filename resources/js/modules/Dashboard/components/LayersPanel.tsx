@@ -3,9 +3,10 @@
  */
 
 import { useMemo } from 'react';
-import { ArrowUp, ArrowDown, Eye, EyeOff, Lock, Unlock } from 'lucide-react';
+import { ArrowUp, ArrowDown, Eye, EyeOff, Lock, Unlock, Trash2 } from 'lucide-react';
 import { Button } from '@/modules/DesignSystem/ui/button';
 import { ScrollArea } from '@/modules/DesignSystem/ui/scroll-area';
+import { ComponentContextMenu, ComponentContextMenuActions } from './ComponentContextMenu';
 import type { Artboard } from '@/modules/Artboard/types/artboard';
 import { AVAILABLE_COMPONENTS } from '@/modules/DesignSystem/constants/components';
 
@@ -13,20 +14,27 @@ interface LayersPanelProps {
     artboards: Artboard[];
     artboardStackOrder: string[];
     selectedArtboardId: string | null;
+    selectedComponentId: string | null;
     onSelectArtboard: (id: string) => void;
     onToggleVisibility: (id: string) => void;
     onToggleLock: (id: string) => void;
     onMoveLayer: (id: string, direction: 'up' | 'down') => void;
+    // Component actions
+    onSelectComponent: (id: string) => void;
+    getComponentActions: (componentId: string, artboardId: string) => ComponentContextMenuActions;
 }
 
 export default function LayersPanel({
     artboards,
     artboardStackOrder,
     selectedArtboardId,
+    selectedComponentId,
     onSelectArtboard,
     onToggleVisibility,
     onToggleLock,
     onMoveLayer,
+    onSelectComponent,
+    getComponentActions,
 }: LayersPanelProps) {
     const componentNameMap = useMemo(() => {
         const map: Record<string, string> = {};
@@ -72,7 +80,7 @@ export default function LayersPanel({
                             return (
                                 <div
                                     key={artboard.id}
-                                    className={`group rounded-xl px-3 py-2 transition hover:bg-muted/40 ${isSelected ? 'ring-1 ring-foreground/40' : 'ring-1 ring-transparent'
+                                    className={`group rounded-xl px-3 py-2 transition hover:bg-muted/40 ${isSelected && !selectedComponentId ? 'ring-1 ring-foreground/40' : 'ring-1 ring-transparent'
                                         }`}
                                 >
                                     <div className="flex items-center gap-2">
@@ -88,7 +96,7 @@ export default function LayersPanel({
                                                 {artboard.dimensions.label ?? artboard.format}
                                             </span>
                                         </button>
-                                        <div className="flex items-center gap-1">
+                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
@@ -125,27 +133,84 @@ export default function LayersPanel({
                                             </Button>
                                         </div>
                                     </div>
-                                    <div className="mt-3 space-y-2">
-                                        <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+                                    <div className="mt-3 space-y-1">
+                                        <div className="flex items-center justify-between text-xs text-muted-foreground px-1 pb-1">
                                             <span>{artboard.components.length} {artboard.components.length === 1 ? 'component' : 'components'}</span>
-                                            {sortedComponents.length > 0 && (
-                                                <span>Top: {componentNameMap[sortedComponents[0].componentType] || sortedComponents[0].componentType}</span>
-                                            )}
                                         </div>
                                         {artboard.components.length === 0 ? (
-                                            <p className="text-xs text-muted-foreground px-1">No components yet.</p>
+                                            <p className="text-xs text-muted-foreground px-1 py-1">No components yet.</p>
                                         ) : (
-                                            <div className="space-y-1">
-                                                {sortedComponents.map((component, index) => (
-                                                    <div key={component.instanceId} className="rounded-lg px-3 py-2 transition hover:bg-muted/30">
-                                                        <div className="flex items-center justify-between text-xs font-medium text-foreground">
-                                                            <span>{componentNameMap[component.componentType] || component.componentType}</span>
-                                                            <span className="text-[11px] text-muted-foreground">
-                                                                Layer {sortedComponents.length - index}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                ))}
+                                            <div className="space-y-0.5">
+                                                {sortedComponents.map((component, index) => {
+                                                    const isComponentSelected = selectedComponentId === component.instanceId;
+                                                    const actions = getComponentActions(component.instanceId, artboard.id);
+
+                                                    return (
+                                                        <ComponentContextMenu
+                                                            key={component.instanceId}
+                                                            {...actions}
+                                                            isLocked={component.locked}
+                                                            isHidden={component.hidden}
+                                                        >
+                                                            <div
+                                                                className={`group/item flex items-center justify-between rounded-lg pl-3 pr-1 py-1.5 transition cursor-pointer ${isComponentSelected
+                                                                    ? 'bg-primary/10 text-primary font-medium'
+                                                                    : 'text-foreground hover:bg-muted/50'
+                                                                    } ${component.hidden ? 'opacity-50' : ''}`}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    onSelectComponent(component.instanceId);
+                                                                }}
+                                                            >
+                                                                <div className="flex items-center gap-2 overflow-hidden">
+                                                                    <div className="h-1.5 w-1.5 rounded-full bg-current shrink-0 opacity-50" />
+                                                                    <span className="truncate text-xs">
+                                                                        {componentNameMap[component.componentType] || component.componentType}
+                                                                    </span>
+                                                                </div>
+
+                                                                <div className={`flex items-center gap-0.5 ${isComponentSelected ? 'opacity-100' : 'opacity-0 group-hover/item:opacity-100'} transition-opacity`}>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-6 w-6"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            actions.onToggleVisibility?.();
+                                                                        }}
+                                                                    >
+                                                                        {component.hidden ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                                                        <span className="sr-only">Toggle visibility</span>
+                                                                    </Button>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-6 w-6"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            actions.onToggleLock?.();
+                                                                        }}
+                                                                    >
+                                                                        {component.locked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
+                                                                        <span className="sr-only">Toggle lock</span>
+                                                                    </Button>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            actions.onDelete?.();
+                                                                        }}
+                                                                    >
+                                                                        <Trash2 className="h-3 w-3" />
+                                                                        <span className="sr-only">Delete</span>
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                        </ComponentContextMenu>
+                                                    );
+                                                })}
                                             </div>
                                         )}
                                     </div>

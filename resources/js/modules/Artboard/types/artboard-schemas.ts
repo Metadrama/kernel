@@ -41,6 +41,9 @@ export const zArtboardComponent = z
         position: zComponentPosition,
         config: z.record(z.string(), z.unknown()),
         locked: z.boolean().optional(),
+        hidden: z.boolean().optional(),
+        flipX: z.boolean().optional(),
+        flipY: z.boolean().optional(),
     })
     .passthrough();
 

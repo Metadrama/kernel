@@ -2,21 +2,22 @@ import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { FONT_FAMILIES } from '@/modules/DesignSystem/constants/fonts';
 
 export type FontFamily = 'inter' | 'roboto' | 'open-sans' | 'lato' | 'poppins' | 'montserrat' | 'source-sans-pro' | 'nunito' | 'raleway' | 'ubuntu' | 'system-ui' | 'serif' | 'mono';
-export type FontSize = 'xs' | 'sm' | 'base' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
-export type FontWeight = 'thin' | 'light' | 'normal' | 'medium' | 'semibold' | 'bold' | 'extrabold';
+// Presets kept for backward compatibility, but we prefer numbers now
+export type FontSize = 'xs' | 'sm' | 'base' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | number;
+export type FontWeight = 'thin' | 'light' | 'normal' | 'medium' | 'semibold' | 'bold' | 'extrabold' | string;
 export type FontStyle = 'normal' | 'italic';
 export type TextDecoration = 'none' | 'underline' | 'line-through';
 export type TextAlign = 'left' | 'center' | 'right' | 'justify';
 export type VerticalAlign = 'top' | 'middle' | 'bottom';
-export type LineHeight = 'tight' | 'snug' | 'normal' | 'relaxed' | 'loose';
-export type LetterSpacing = 'tighter' | 'tight' | 'normal' | 'wide' | 'wider';
+export type LineHeight = 'tight' | 'snug' | 'normal' | 'relaxed' | 'loose' | number | string;
+export type LetterSpacing = 'tighter' | 'tight' | 'normal' | 'wide' | 'wider' | number | string;
 export type TextTransform = 'none' | 'uppercase' | 'lowercase' | 'capitalize';
 
 export interface TextComponentConfig {
   text?: string;
-  fontFamily?: FontFamily;
+  fontFamily?: FontFamily | string;
   fontSize?: FontSize;
-  fontSizePx?: number; // Custom px value (overrides fontSize preset)
+  fontSizePx?: number; // Legacy override, we should prefer fontSize as number now
   fontWeight?: FontWeight;
   fontStyle?: FontStyle;
   textDecoration?: TextDecoration;
@@ -27,15 +28,19 @@ export interface TextComponentConfig {
   letterSpacing?: LetterSpacing;
   textTransform?: TextTransform;
   opacity?: number;
+  autoWidth?: boolean;
+  autoHeight?: boolean;
 }
 
 interface TextComponentProps {
   config?: TextComponentConfig;
   onConfigChange?: (config: Record<string, unknown>) => void;
+  onDimensionsChange?: (dimensions: { width?: number; height?: number }) => void;
 }
 
 // Base font sizes in pixels for each Tailwind size class
-const fontSizePixels: Record<FontSize, number> = {
+type FontSizePreset = Exclude<FontSize, number>;
+const fontSizePixels: Record<FontSizePreset, number> = {
   xs: 12,
   sm: 14,
   base: 16,
@@ -46,7 +51,7 @@ const fontSizePixels: Record<FontSize, number> = {
   '4xl': 36,
 };
 
-const fontWeightClasses: Record<FontWeight, string> = {
+const fontWeightClasses: Record<string, string> = {
   thin: 'font-thin',
   light: 'font-light',
   normal: 'font-normal',
@@ -56,25 +61,18 @@ const fontWeightClasses: Record<FontWeight, string> = {
   extrabold: 'font-extrabold',
 };
 
-const fontStyleClasses: Record<FontStyle, string> = {
+const fontStyleClasses: Record<string, string> = {
   normal: 'not-italic',
   italic: 'italic',
 };
 
-const textDecorationClasses: Record<TextDecoration, string> = {
+const textDecorationClasses: Record<string, string> = {
   none: 'no-underline',
   underline: 'underline',
   'line-through': 'line-through',
 };
 
-const textAlignClasses: Record<TextAlign, string> = {
-  left: 'text-left',
-  center: 'text-center',
-  right: 'text-right',
-  justify: 'text-justify',
-};
-
-const lineHeightClasses: Record<LineHeight, string> = {
+const lineHeightClasses: Record<string, string> = {
   tight: 'leading-tight',
   snug: 'leading-snug',
   normal: 'leading-normal',
@@ -82,7 +80,7 @@ const lineHeightClasses: Record<LineHeight, string> = {
   loose: 'leading-loose',
 };
 
-const letterSpacingClasses: Record<LetterSpacing, string> = {
+const letterSpacingClasses: Record<string, string> = {
   tighter: 'tracking-tighter',
   tight: 'tracking-tight',
   normal: 'tracking-normal',
@@ -90,40 +88,90 @@ const letterSpacingClasses: Record<LetterSpacing, string> = {
   wider: 'tracking-wider',
 };
 
-const textTransformClasses: Record<TextTransform, string> = {
+const textTransformClasses: Record<string, string> = {
   none: 'normal-case',
   uppercase: 'uppercase',
   lowercase: 'lowercase',
   capitalize: 'capitalize',
 };
 
+// Map legacy presets to numeric values
+const normalizeFontSize = (val?: FontSize | number): number => {
+  if (typeof val === 'number') return val;
+  if (!val) return 16;
+  return fontSizePixels[val as keyof typeof fontSizePixels] || 16;
+};
+
+const normalizeLineHeight = (val?: LineHeight | number | string): string | number => {
+  if (typeof val === 'number') return val; // 1.5 etc
+  if (!val || val === 'normal') return 'normal';
+  if (lineHeightClasses[val as keyof typeof lineHeightClasses]) return ''; // handled by class
+    // If it's a string like "120%" or "24px", return it
+  return val;
+};
+
+const normalizeLetterSpacing = (val?: LetterSpacing | number | string): string | number => {
+    if (typeof val === 'number') return `${val}%`; // convert number to percentage string for CSS
+    if (!val || val === 'normal') return 'normal';
+    if (letterSpacingClasses[val as keyof typeof letterSpacingClasses]) return ''; // handled by class
+    return val;
+};
+
 export default function TextComponent({
   config,
   onConfigChange,
+  onDimensionsChange,
 }: TextComponentProps) {
   // Extract config values with defaults
   const text = config?.text ?? 'Text';
   const fontFamily = config?.fontFamily ?? 'inter';
-  const fontSize = config?.fontSize ?? 'base';
+  // Prefer explicit fontSize number, fallback to legacy presets
+  // HANDLE LEGACY: fontSizePx overrides fontSize if present
+  const fontSizeRaw = config?.fontSizePx ?? config?.fontSize ?? 'base'; 
   const fontWeight = config?.fontWeight ?? 'normal';
   const fontStyle = config?.fontStyle ?? 'normal';
   const textDecoration = config?.textDecoration ?? 'none';
   const align = config?.align ?? 'left';
   const verticalAlign = config?.verticalAlign ?? 'middle';
   const color = config?.color;
-  const lineHeight = config?.lineHeight ?? 'normal';
-  const letterSpacing = config?.letterSpacing ?? 'normal';
+  const lineHeightRaw = config?.lineHeight ?? 'normal';
+  const letterSpacingRaw = config?.letterSpacing ?? 'normal';
   const textTransform = config?.textTransform ?? 'none';
   const opacity = config?.opacity ?? 100;
+  const autoWidth = config?.autoWidth ?? false;
+  const autoHeight = config?.autoHeight ?? false;
 
   // Get the CSS font-family string from the FONT_FAMILIES list
-  const fontFamilyCSS = FONT_FAMILIES.find((f) => f.value === fontFamily)?.fontFamily || 'Inter, system-ui, sans-serif';
+  const fontFamilyCSS = FONT_FAMILIES.find((f) => f.value === fontFamily)?.fontFamily || fontFamily || 'Inter, system-ui, sans-serif';
 
   const [isEditing, setIsEditing] = useState(false);
-  const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
-  const [textSize, setTextSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLSpanElement>(null);
+
+  // Auto-resize logic
+  useLayoutEffect(() => {
+    if (!textRef.current || !onDimensionsChange || (!autoWidth && !autoHeight)) return;
+
+    // Measure text content
+    const { width, height } = textRef.current.getBoundingClientRect();
+    
+    // Add padding compensation (container has p-1 = 4px on each side = 8px total)
+    const padding = 8;
+    const newWidth = Math.ceil(width + padding);
+    const newHeight = Math.ceil(height + padding);
+
+    const updates: { width?: number; height?: number } = {};
+    if (autoWidth) updates.width = newWidth;
+    if (autoHeight) updates.height = newHeight;
+
+    if (Object.keys(updates).length > 0) {
+        onDimensionsChange(updates);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    text, fontFamily, fontSizeRaw, fontWeight, fontStyle, letterSpacingRaw, lineHeightRaw, textTransform, 
+    autoWidth, autoHeight, onDimensionsChange
+  ]);
 
   // Sync text from config
   useEffect(() => {
@@ -132,42 +180,11 @@ export default function TextComponent({
     }
   }, [text, isEditing]);
 
-  // Track container size with ResizeObserver
-  useLayoutEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (entry) {
-        const { width, height } = entry.contentRect;
-        setContainerSize({ width, height });
-      }
-    });
-
-    observer.observe(container);
-    return () => observer.disconnect();
-  }, []);
-
-  // Measure the natural text size (at base font size, scale=1)
-  useLayoutEffect(() => {
-    const textEl = textRef.current;
-    if (!textEl) return;
-
-    // Temporarily remove transform to measure natural size
-    const prevTransform = textEl.style.transform;
-    textEl.style.transform = 'none';
-
-    const rect = textEl.getBoundingClientRect();
-    setTextSize({ width: rect.width, height: rect.height });
-
-    textEl.style.transform = prevTransform;
-  }, [text, fontSize, fontWeight, fontStyle, letterSpacing, textTransform, isEditing]);
-
   // Focus and select text when entering edit mode
   useEffect(() => {
     if (isEditing && textRef.current) {
       textRef.current.focus();
+      // Wait for focus to be applied before selecting
       // Select all text
       const range = document.createRange();
       range.selectNodeContents(textRef.current);
@@ -241,7 +258,7 @@ export default function TextComponent({
     if (e.ctrlKey || e.metaKey) {
       if (e.key === 'b' || e.key === 'B') {
         e.preventDefault();
-        const newWeight = fontWeight === 'bold' ? 'normal' : 'bold';
+        const newWeight = (fontWeight === 'bold' || fontWeight === '700') ? 'normal' : 'bold';
         onConfigChange?.({ ...config, fontWeight: newWeight });
       }
       if (e.key === 'i' || e.key === 'I') {
@@ -257,41 +274,33 @@ export default function TextComponent({
     }
   };
 
-  // Calculate scale factor to fit text within container
-  const calculateScaleFactor = (): number => {
-    if (textSize.width === 0 || textSize.height === 0 || containerSize.width === 0 || containerSize.height === 0) {
-      return 1;
-    }
-    // Scale to fit container, using the smaller scale to ensure text fits
-    const widthScale = containerSize.width / textSize.width;
-    const heightScale = containerSize.height / textSize.height;
-    return Math.min(widthScale, heightScale);
-  };
+  const finalFontSize = normalizeFontSize(fontSizeRaw);
+  const finalLineHeight = normalizeLineHeight(lineHeightRaw);
+  const finalLetterSpacing = normalizeLetterSpacing(letterSpacingRaw);
 
-  const scaleFactor = calculateScaleFactor();
-  const baseFontSizePx = config?.fontSizePx ?? fontSizePixels[fontSize];
+  const isLegacyLineHeight = typeof lineHeightRaw === 'string' && lineHeightRaw in lineHeightClasses;
+  const isLegacyLetterSpacing = typeof letterSpacingRaw === 'string' && letterSpacingRaw in letterSpacingClasses;
 
-  // Build class string (without font size - we use inline style)
+  // Build class string
   const textClasses = [
-    fontWeightClasses[fontWeight],
+    typeof fontWeight === 'string' && fontWeight in fontWeightClasses ? fontWeightClasses[fontWeight as FontWeight] : '', // Only use class if it's a preset
     fontStyleClasses[fontStyle],
     textDecorationClasses[textDecoration],
-    lineHeightClasses[lineHeight],
-    letterSpacingClasses[letterSpacing],
+    isLegacyLineHeight ? lineHeightClasses[lineHeightRaw as LineHeight] : '',
+    isLegacyLetterSpacing ? letterSpacingClasses[letterSpacingRaw as LetterSpacing] : '',
     textTransformClasses[textTransform],
   ].join(' ');
 
-  // Build inline styles with base font size (scaling handled by transform)
+  // Build inline styles with explicit font size (no scaling)
   const textStyles: React.CSSProperties = {
     fontFamily: fontFamilyCSS,
     color: color || undefined,
     opacity: opacity / 100,
-    fontSize: `${baseFontSizePx}px`,
-    transform: `scale(${scaleFactor})`,
-    transformOrigin: [
-      align === 'center' ? 'center' : align === 'right' ? 'right' : 'left',
-      verticalAlign === 'middle' ? 'center' : verticalAlign === 'bottom' ? 'bottom' : 'top',
-    ].join(' '),
+    fontSize: `${finalFontSize}px`,
+    // Use raw value if not legacy class
+    lineHeight: !isLegacyLineHeight ? finalLineHeight : undefined,
+    letterSpacing: !isLegacyLetterSpacing ? finalLetterSpacing : undefined,
+    fontWeight: (typeof fontWeight === 'number' || !(fontWeight in fontWeightClasses)) ? fontWeight : undefined,
   };
 
   // Container alignment classes for horizontal and vertical positioning
@@ -311,7 +320,7 @@ export default function TextComponent({
   return (
     <div
       ref={containerRef}
-      className={`h-full w-full flex ${containerVerticalAlignClass} cursor-text ${containerAlignClass} transition-colors overflow-hidden`}
+      className={`h-full w-full flex ${containerVerticalAlignClass} cursor-text ${containerAlignClass} transition-colors overflow-hidden p-1`}
       onDoubleClick={handleDoubleClick}
       onClick={handleClick}
       onMouseDown={handleContainerMouseDown}
@@ -325,7 +334,7 @@ export default function TextComponent({
         onKeyDown={handleKeyDown}
         onMouseDown={(e) => isEditing && e.stopPropagation()}
         onClick={(e) => isEditing && e.stopPropagation()}
-        className={`${textClasses} text-foreground whitespace-pre-wrap break-words focus:outline-none`}
+        className={`${textClasses} text-foreground whitespace-pre-wrap break-words focus:outline-none max-w-full`}
         style={textStyles}
       >
         {text || 'Text'}

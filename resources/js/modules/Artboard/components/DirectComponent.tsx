@@ -8,14 +8,40 @@
  * - Component rendering
  */
 
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { cn } from '@/modules/DesignSystem/lib/utils';
 import type { ArtboardComponent } from '@/modules/Artboard/types/artboard';
 import type { ComponentBounds, AlignmentGuide } from '@/modules/Artboard/lib/alignment-helpers';
 import { useComponentInteraction } from '@/modules/Artboard/hooks/useComponentInteraction';
 import { ResizeHandles } from './ResizeHandles';
-import { ComponentContextMenu } from '@/modules/Dashboard/components/ComponentContextMenu';
+import { ComponentContextMenu, type ComponentContextMenuActions } from '@/modules/Dashboard/components/ComponentContextMenu';
 import { COMPONENT_REGISTRY } from '@/modules/Widgets';
+
+/**
+ * Memoized component content — prevents chart/widget re-renders during drag/resize.
+ * Only re-renders when config or componentType actually change.
+ */
+const MemoizedComponentContent = memo(function MemoizedComponentContent({
+    componentType,
+    config,
+    onConfigChange,
+    onDimensionsChange,
+}: {
+    componentType: string;
+    config: Record<string, unknown>;
+    onConfigChange?: (config: Record<string, unknown>) => void;
+    onDimensionsChange?: (dims: { width?: number; height?: number }) => void;
+}) {
+    const Component = COMPONENT_REGISTRY[componentType];
+    if (!Component) {
+        return (
+            <div className="flex h-full w-full items-center justify-center bg-muted text-muted-foreground text-xs">
+                Unknown: {componentType}
+            </div>
+        );
+    }
+    return <Component config={config} onConfigChange={onConfigChange} onDimensionsChange={onDimensionsChange} />;
+});
 
 interface DirectComponentProps {
     component: ArtboardComponent;
@@ -30,6 +56,14 @@ interface DirectComponentProps {
     onConfigChange?: (config: Record<string, unknown>) => void;
     onDelete: () => void;
     onZOrderChange?: (operation: 'front' | 'forward' | 'back' | 'backward') => void;
+    // Context menu actions passed from parent
+    onCopy?: () => void;
+    onPaste?: () => void;
+    onToggleVisibility?: () => void;
+    onToggleLock?: () => void;
+    onFlipHorizontal?: () => void;
+    onFlipVertical?: () => void;
+    hasClipboard?: boolean;
 }
 
 export function DirectComponent({
@@ -45,8 +79,18 @@ export function DirectComponent({
     onConfigChange,
     onDelete,
     onZOrderChange,
+    onCopy,
+    onPaste,
+    onToggleVisibility,
+    onToggleLock,
+    onFlipHorizontal,
+    onFlipVertical,
+    hasClipboard,
 }: DirectComponentProps) {
-    const { position, componentType, locked } = component;
+    const { position, componentType, locked, hidden, flipX, flipY } = component;
+
+    // Hidden components are invisible but still occupy space in the DOM
+    if (hidden && !isSelected) return null;
 
     // Use extracted interaction hook for drag & resize
     const { isDragging, isResizing, displayRect, handleMouseDown, handleResizeStart } = useComponentInteraction({
@@ -68,30 +112,37 @@ export function DirectComponent({
     // Counter-scale to keep components at true pixel size when scaleWithZoom is false
     const inverseScale = scaleWithZoom ? 1 : (scale === 0 ? 1 : 1 / scale);
 
-    // Render the component content
-    const renderComponent = () => {
-        try {
-            const Component = COMPONENT_REGISTRY[componentType];
-            if (!Component) {
-                return (
-                    <div className="flex h-full w-full items-center justify-center bg-muted text-muted-foreground text-xs">
-                        Unknown: {componentType}
-                    </div>
-                );
-            }
-            return <Component config={component.config} onConfigChange={onConfigChange} />;
-        } catch (error) {
-            console.error(`Failed to render component ${componentType}:`, error);
-            return (
-                <div className="flex h-full w-full items-center justify-center bg-destructive/10 text-destructive text-xs">
-                    Error: {componentType}
-                </div>
-            );
-        }
+    // Handle auto-resize requests from components (like text)
+    const handleDimensionsChange = (dims: { width?: number; height?: number }) => {
+        onPositionChange({
+            ...position,
+            ...dims,
+        });
     };
 
+    // Build the flip transform for the content
+    const flipTransform = [
+        flipX ? 'scaleX(-1)' : '',
+        flipY ? 'scaleY(-1)' : '',
+    ].filter(Boolean).join(' ');
+
+    const safeWidth = Math.max(1, displayRect.width);
+    const safeHeight = Math.max(1, displayRect.height);
+
     return (
-        <ComponentContextMenu onZOrderChange={onZOrderChange} onDelete={onDelete}>
+        <ComponentContextMenu
+            onZOrderChange={onZOrderChange}
+            onDelete={onDelete}
+            onCopy={onCopy}
+            onPaste={onPaste}
+            onToggleVisibility={onToggleVisibility}
+            onToggleLock={onToggleLock}
+            onFlipHorizontal={onFlipHorizontal}
+            onFlipVertical={onFlipVertical}
+            isLocked={!!locked}
+            isHidden={!!hidden}
+            hasClipboard={hasClipboard}
+        >
             <div
                 data-component-id={component.instanceId}
                 className={cn(
@@ -106,8 +157,8 @@ export function DirectComponent({
                 style={{
                     left: displayRect.x,
                     top: displayRect.y,
-                    width: displayRect.width,
-                    height: displayRect.height,
+                    width: safeWidth,
+                    height: safeHeight,
                     zIndex: position.zIndex,
                     pointerEvents: 'auto',
                     // Micro-interaction: shadow lift on drag
@@ -116,7 +167,7 @@ export function DirectComponent({
                         : isHovered && !isSelected
                             ? '0 4px 12px -2px rgba(0,0,0,0.08)'
                             : undefined,
-                    // Micro-interaction: scale on drag pickup + rotation
+                    // Micro-interaction: scale on drag pickup + rotation + flip
                     transform: [
                         position.rotation ? `rotate(${position.rotation}deg)` : '',
                         isDragging ? 'scale(1.02)' : '',
@@ -140,26 +191,31 @@ export function DirectComponent({
                     style={{
                         transform: `scale(${inverseScale})`,
                         transformOrigin: 'top left',
-                        width: `${displayRect.width / inverseScale}px`,
-                        height: `${displayRect.height / inverseScale}px`,
+                        width: `${safeWidth / inverseScale}px`,
+                        height: `${safeHeight / inverseScale}px`,
                     }}
                 />
 
                 {/* Resize handles */}
                 <ResizeHandles isSelected={isSelected} inverseScale={inverseScale} onResizeStart={handleResizeStart} />
 
-                {/* Component content (counter-scaled) */}
+                {/* Component content (counter-scaled + flip) */}
                 <div
-                    className="absolute inset-0 overflow-hidden"
+                    className={cn('absolute inset-0 overflow-hidden', hidden && 'opacity-30')}
                     style={{
-                        transform: `scale(${inverseScale})`,
+                        transform: `scale(${inverseScale}) ${flipTransform}`.trim(),
                         transformOrigin: 'top left',
-                        width: `${displayRect.width / inverseScale}px`,
-                        height: `${displayRect.height / inverseScale}px`,
+                        width: `${safeWidth / inverseScale}px`,
+                        height: `${safeHeight / inverseScale}px`,
                         pointerEvents: locked ? 'none' : 'auto',
                     }}
                 >
-                    {renderComponent()}
+                    <MemoizedComponentContent
+                        componentType={componentType}
+                        config={component.config as Record<string, unknown>}
+                        onConfigChange={onConfigChange}
+                        onDimensionsChange={handleDimensionsChange}
+                    />
                 </div>
             </div>
         </ComponentContextMenu>

@@ -1,7 +1,42 @@
-﻿import { useState, useCallback, useRef, useEffect } from 'react';
+﻿import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { ComponentBounds, AlignmentGuide } from '@/modules/Artboard/lib/alignment-helpers';
 import { resolveSnap, resolveResizeSnap } from '@/modules/Artboard/lib/snap-resolver';
 import { getMinSize, getMaxSize, getAspectRatio } from '@/modules/Artboard/lib/component-sizes';
+
+/**
+ * Creates a throttled version of a callback that fires at most once per animation frame.
+ * Ensures the LAST value is always delivered (trailing call).
+ */
+function useRafThrottle<T>(callback: ((value: T) => void) | undefined) {
+    const rafIdRef = useRef<number | null>(null);
+    const latestValueRef = useRef<T | null>(null);
+    const callbackRef = useRef(callback);
+    callbackRef.current = callback;
+
+    const throttled = useCallback((value: T) => {
+        latestValueRef.current = value;
+        if (rafIdRef.current === null) {
+            rafIdRef.current = requestAnimationFrame(() => {
+                rafIdRef.current = null;
+                if (latestValueRef.current !== null) {
+                    callbackRef.current?.(latestValueRef.current);
+                }
+            });
+        }
+    }, []);
+
+    const cancel = useCallback(() => {
+        if (rafIdRef.current !== null) {
+            cancelAnimationFrame(rafIdRef.current);
+            rafIdRef.current = null;
+        }
+        latestValueRef.current = null;
+    }, []);
+
+    useEffect(() => cancel, [cancel]);
+
+    return useMemo(() => ({ throttled, cancel }), [throttled, cancel]);
+}
 
 export type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
 
@@ -64,6 +99,9 @@ export function useComponentInteraction({
     const onGuidesChangeRef = useRef<((guides: AlignmentGuide[]) => void) | undefined>(onGuidesChange);
     const onLivePositionChangeRef = useRef<((position: Position | null) => void) | undefined>(onLivePositionChange);
     const componentIdRef = useRef<string>(componentId);
+
+    // Throttle live position updates to one per animation frame
+    const livePositionThrottle = useRafThrottle<Position>(onLivePositionChange);
 
     useEffect(() => {
         siblingBoundsRef.current = siblingBounds;
@@ -189,7 +227,7 @@ export function useComponentInteraction({
 
                 localRectRef.current = newRect;
                 setLocalRect(newRect);
-                onLivePositionChangeRef.current?.(newRect);
+                livePositionThrottle.throttled(newRect);
                 onGuidesChangeRef.current?.(snapResult.guides);
             } else if (isResizing && resizeStartRef.current && resizeHandle && interactionStartRectRef.current) {
                 const dx = (e.clientX - resizeStartRef.current.x) / scale;
@@ -248,7 +286,7 @@ export function useComponentInteraction({
 
                 localRectRef.current = finalRect;
                 setLocalRect(finalRect);
-                onLivePositionChangeRef.current?.(finalRect);
+                livePositionThrottle.throttled(finalRect);
                 onGuidesChangeRef.current?.(snapResult.guides);
             }
         };
@@ -266,6 +304,7 @@ export function useComponentInteraction({
             interactionStartRectRef.current = null;
             dragStartRef.current = null;
             resizeStartRef.current = null;
+            livePositionThrottle.cancel();
             onLivePositionChangeRef.current?.(null);
             onGuidesChangeRef.current?.([]);
         };
@@ -277,7 +316,7 @@ export function useComponentInteraction({
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
         };
-    }, [isDragging, isResizing, resizeHandle, scale, minSize, maxSize, aspectRatio, onPositionChange]);
+    }, [isDragging, isResizing, resizeHandle, scale, minSize, maxSize, aspectRatio, onPositionChange, livePositionThrottle]);
 
     return {
         isDragging,

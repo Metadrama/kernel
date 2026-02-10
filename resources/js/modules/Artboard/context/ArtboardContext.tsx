@@ -31,6 +31,9 @@ interface ArtboardContextValue {
     setDataSourceConfig: React.Dispatch<React.SetStateAction<DataSource | null>>;
     autosaveEnabled: boolean;
     setAutosaveEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+    // Component selection
+    selectedComponentId: string | null;
+    setSelectedComponentId: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
 const ArtboardContext = createContext<ArtboardContextValue | undefined>(undefined);
@@ -101,6 +104,7 @@ export function ArtboardProvider({ children, initialData }: ArtboardProviderProp
     const dashboardId = initialData?.dashboardId ?? 'default';
     const [artboards, setArtboards] = useState<Artboard[]>(() => loadArtboards(initialData));
     const [selectedArtboardId, setSelectedArtboardId] = useState<string | null>(null);
+    const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
     const [artboardStackOrder, setArtboardStackOrder] = useState<string[]>([]);
     const [autosaveEnabled, setAutosaveEnabled] = useState<boolean>(() => {
         if (typeof window === 'undefined') return true;
@@ -250,10 +254,13 @@ export function ArtboardProvider({ children, initialData }: ArtboardProviderProp
             setDataSourceConfig,
             autosaveEnabled,
             setAutosaveEnabled,
+            selectedComponentId,
+            setSelectedComponentId,
         }),
         [
             artboards,
             selectedArtboardId,
+            selectedComponentId,
             artboardStackOrder,
             bringArtboardToFront,
             moveArtboardLayer,
