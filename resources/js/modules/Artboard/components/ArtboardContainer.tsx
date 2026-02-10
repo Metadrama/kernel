@@ -196,6 +196,9 @@ export default function ArtboardContainer({
         [artboard.components, artboard.id, onUpdate]
     );
 
+    // Live position during drag/resize for internal alignment guides
+    const [internalGuides, setInternalGuides] = useState<AlignmentGuide[]>([]);
+
     // Drag & drop from sidebar
     const { dropPreview, activeGuides, handleDragOver, handleDragLeave, handleDrop } = useDragDropHandler({
         canvasScale,
@@ -293,7 +296,7 @@ export default function ArtboardContainer({
                                 overflow: artboard.clipContent ? 'hidden' : 'visible',
                             }}
                         >
-                            <AlignmentGuidesOverlay guides={activeGuides} components={siblingBounds} />
+                            <AlignmentGuidesOverlay guides={internalGuides.length > 0 ? internalGuides : activeGuides} components={siblingBounds} />
 
                             {/* Live drop preview */}
                             {dropPreview && (
@@ -322,7 +325,7 @@ export default function ArtboardContainer({
                                     scale={canvasScale}
                                     scaleWithZoom={scaleWithZoom}
                                     siblingBounds={siblingBounds}
-                                    onGuidesChange={() => { }} // Handled by drop handler
+                                    onGuidesChange={setInternalGuides}
                                     onSelect={() => {
                                         onSelectComponent?.(component.instanceId);
                                     }}
