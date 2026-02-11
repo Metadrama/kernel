@@ -150,6 +150,22 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
         [component, onPositionChange],
     );
 
+    const linkedChartOptions = useMemo(() => {
+        const charts: { value: string; label: string }[] = [];
+        artboards.forEach((a) => {
+            a.components.forEach((c: ArtboardComponent) => {
+                if (c.componentType.startsWith('chart-') && c.componentType !== 'chart-legend') {
+                    const name = (c.config?.name as string) || c.componentType;
+                    charts.push({
+                        value: c.instanceId,
+                        label: `${name} (${a.name})`,
+                    });
+                }
+            });
+        });
+        return charts;
+    }, [artboards]);
+
     // Sort groups by CONFIG_GROUPS order
     const sortedGroups = Array.from(groupedFields.entries()).sort((a, b) => {
         const aIndex = CONFIG_GROUPS.findIndex((g) => g.id === a[0]);
@@ -263,23 +279,9 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
                                     <AccordionContent className="px-3 pt-1 pb-2">
                                         <div className="space-y-2.5">
                                             {visibleFields.map((field) => {
-                                                // Dynamically populate options for linkedChartId
-                                                if (field.key === 'linkedChartId') {
-                                                    const charts: { value: string; label: string }[] = [];
-                                                    artboards.forEach((a) => {
-                                                        a.components.forEach((c: ArtboardComponent) => {
-                                                            if (c.componentType.startsWith('chart-') && c.componentType !== 'chart-legend') {
-                                                                const name = (c.config?.name as string) || c.componentType;
-                                                                charts.push({
-                                                                    value: c.instanceId,
-                                                                    label: `${name} (${a.name})`,
-                                                                });
-                                                            }
-                                                        });
-                                                    });
-                                                    // Use a shallow copy to avoid mutating strict schema if reused, though here we just pass prop
-                                                    field = { ...field, options: charts };
-                                                }
+                                                const fieldWithOptions = field.key === 'linkedChartId'
+                                                    ? { ...field, options: linkedChartOptions }
+                                                    : field;
 
                                                 return (
                                                     <div
@@ -287,7 +289,7 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
                                                         className="animate-in fade-in slide-in-from-right-2 duration-300"
                                                     >
                                                         <FieldRenderer
-                                                            field={field}
+                                                            field={fieldWithOptions}
                                                             value={getNestedValue(config, field.key)}
                                                             onChange={(value) => handleFieldChange(field.key, value)}
                                                             config={config}

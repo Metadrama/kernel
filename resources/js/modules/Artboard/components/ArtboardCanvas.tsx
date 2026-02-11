@@ -184,6 +184,21 @@ export default function ArtboardCanvas() {
         [selectedArtboardId, setArtboards, setSelectedArtboardId],
     );
 
+    const handleSelectArtboard = useCallback(
+        (artboardId: string) => {
+            setSelectedArtboardId(artboardId);
+            bringArtboardToFront(artboardId);
+            setShowAddArtboard(false);
+        },
+        [bringArtboardToFront, setSelectedArtboardId, setShowAddArtboard],
+    );
+
+    const handleDeselectComponent = useCallback(() => {
+        setSelectedComponentId(null);
+        setShowInspector(false);
+        setShowAddArtboard(false);
+    }, [setSelectedComponentId, setShowAddArtboard, setShowInspector]);
+
     // Remove add card - no longer used with direct component placement
     const handleAddCard = useCallback(() => {
         // No-op - components are added by dropping directly onto artboards
@@ -701,6 +716,49 @@ export default function ArtboardCanvas() {
         };
     }, [artboards, dataSourceConfig, autosaveEnabled, handleSave]);
 
+    const artboardElements = useMemo(() => {
+        return artboardStackOrder
+            .map((id) => artboards.find((a) => a.id === id))
+            .filter((a): a is Artboard => !!a)
+            .map((artboard, index) => (
+                <ArtboardContainer
+                    key={artboard.id}
+                    artboard={artboard}
+                    isSelected={selectedArtboardId === artboard.id}
+                    canvasScale={scale}
+                    scaleWithZoom={scaleWithZoom}
+                    zIndex={index}
+                    onUpdate={handleUpdateArtboard}
+                    onDelete={handleDeleteArtboard}
+                    onSelect={() => handleSelectArtboard(artboard.id)}
+                    onSelectComponent={handleSelectComponent}
+                    onDeselectComponent={handleDeselectComponent}
+                    selectedComponentId={
+                        selectedComponent?.artboardId === artboard.id ? selectedComponent.component.instanceId : undefined
+                    }
+                    onLivePositionChange={setLivePosition}
+                    onCopyComponent={handleCopyComponentById}
+                    onPasteComponent={handlePasteToArtboard}
+                    hasClipboard={!!clipboard}
+                />
+            ));
+    }, [
+        artboardStackOrder,
+        artboards,
+        clipboard,
+        handleCopyComponentById,
+        handleDeleteArtboard,
+        handleDeselectComponent,
+        handlePasteToArtboard,
+        handleSelectArtboard,
+        handleSelectComponent,
+        handleUpdateArtboard,
+        scale,
+        scaleWithZoom,
+        selectedArtboardId,
+        selectedComponent,
+    ]);
+
     return (
         <div className="flex h-screen flex-1 overflow-hidden">
             <div className="flex flex-1 flex-col overflow-hidden bg-muted/30">
@@ -745,41 +803,7 @@ export default function ArtboardCanvas() {
                         />
 
                         {/* Artboards */}
-                        {artboardStackOrder
-                            .map((id) => artboards.find((a) => a.id === id))
-                            .filter((a): a is Artboard => !!a)
-                            .map((artboard, index) => (
-                                <ArtboardContainer
-                                    key={artboard.id}
-                                    artboard={artboard}
-                                    isSelected={selectedArtboardId === artboard.id}
-                                    canvasScale={scale}
-                                    scaleWithZoom={scaleWithZoom}
-                                    zIndex={index}
-                                    onUpdate={handleUpdateArtboard}
-                                    onDelete={handleDeleteArtboard}
-                                    onSelect={() => {
-                                        setSelectedArtboardId(artboard.id);
-                                        bringArtboardToFront(artboard.id);
-                                        // Dismiss Add Artboard panel when selecting an artboard
-                                        setShowAddArtboard(false);
-                                    }}
-                                    onSelectComponent={handleSelectComponent}
-                                    onDeselectComponent={() => {
-                                        // Close Component Inspector and Add Artboard panel when clicking empty artboard
-                                        setSelectedComponentId(null);
-                                        setShowInspector(false);
-                                        setShowAddArtboard(false);
-                                    }}
-                                    selectedComponentId={
-                                        selectedComponent?.artboardId === artboard.id ? selectedComponent.component.instanceId : undefined
-                                    }
-                                    onLivePositionChange={setLivePosition}
-                                    onCopyComponent={handleCopyComponentById}
-                                    onPasteComponent={handlePasteToArtboard}
-                                    hasClipboard={!!clipboard}
-                                />
-                            ))}
+                        {artboardElements}
                     </div>
 
                     {/* Hand mode overlay */}

@@ -10,7 +10,7 @@ import { useDragDropHandler } from '@/modules/Artboard/hooks/useDragDropHandler'
 import { getDefaultSize } from '@/modules/Artboard/lib/component-sizes';
 import type { Artboard, ArtboardComponent } from '@/modules/Artboard/types/artboard';
 import { Lock, Trash2, Unlock } from 'lucide-react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import AlignmentGuidesOverlay from './AlignmentGuidesOverlay';
 import { ArtboardHeader } from './ArtboardHeader';
 
@@ -33,7 +33,7 @@ interface ArtboardContainerProps {
     hasClipboard?: boolean;
 }
 
-export default function ArtboardContainer({
+function ArtboardContainer({
     artboard,
     isSelected,
     canvasScale,
@@ -376,6 +376,8 @@ export default function ArtboardContainer({
         </>
     );
 }
+
+export default memo(ArtboardContainer);
 
 
 

@@ -1,4 +1,4 @@
-﻿import { useState, useCallback, useRef } from 'react';
+﻿import { useEffect, useState, useCallback, useRef } from 'react';
 import type { ComponentCard } from '@/modules/Dashboard/types/dashboard';
 import { getDefaultSize } from '@/modules/Artboard/lib/component-sizes';
 import { resolveSnap } from '@/modules/Artboard/lib/snap-resolver';
@@ -41,6 +41,32 @@ export function useDragDropHandler({
     const [dropPreview, setDropPreview] = useState<DropPreview | null>(null);
     const [activeGuides, setActiveGuides] = useState<AlignmentGuide[]>([]);
 
+    const rafIdRef = useRef<number | null>(null);
+    const pendingRef = useRef<{ preview: DropPreview | null; guides: AlignmentGuide[] }>({
+        preview: null,
+        guides: [],
+    });
+
+    const scheduleUpdate = useCallback((preview: DropPreview | null, guides: AlignmentGuide[]) => {
+        pendingRef.current = { preview, guides };
+        if (rafIdRef.current !== null) return;
+
+        rafIdRef.current = requestAnimationFrame(() => {
+            rafIdRef.current = null;
+            setDropPreview(pendingRef.current.preview);
+            setActiveGuides(pendingRef.current.guides);
+        });
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            if (rafIdRef.current !== null) {
+                cancelAnimationFrame(rafIdRef.current);
+                rafIdRef.current = null;
+            }
+        };
+    }, []);
+
     const handleDragOver = useCallback(
         (e: React.DragEvent) => {
             e.preventDefault();
@@ -69,8 +95,7 @@ export function useDragDropHandler({
 
             if (!componentData?.id) {
                 // No payload available during dragover in some browsers; just clear preview/guides.
-                setDropPreview(null);
-                setActiveGuides([]);
+                scheduleUpdate(null, []);
                 return;
             }
 
@@ -92,24 +117,21 @@ export function useDragDropHandler({
                 modifiers: { bypassAllSnapping: bypassSnap },
             });
 
-            setDropPreview({
+            scheduleUpdate({
                 componentType: componentData.id,
                 position: snap.position,
                 size: { width: defaultSize.width, height: defaultSize.height },
                 bypassSnap,
-            });
-
-            setActiveGuides(snap.guides);
+            }, snap.guides);
         },
-        [canvasScale, siblingBounds, containerRef, getDragged]
+        [canvasScale, siblingBounds, containerRef, getDragged, scheduleUpdate]
     );
 
     const handleDragLeave = useCallback((e: React.DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        setDropPreview(null);
-        setActiveGuides([]);
-    }, []);
+        scheduleUpdate(null, []);
+    }, [scheduleUpdate]);
 
     const handleDrop = useCallback(
         (e: React.DragEvent) => {
@@ -157,11 +179,10 @@ export function useDragDropHandler({
             } catch (error) {
                 console.error('Failed to parse dropped component:', error);
             } finally {
-                setDropPreview(null);
-                setActiveGuides([]);
+                scheduleUpdate(null, []);
             }
         },
-        [canvasScale, siblingBounds, containerRef, getDragged, onComponentAdd]
+        [canvasScale, siblingBounds, containerRef, getDragged, onComponentAdd, scheduleUpdate]
     );
 
     return {
