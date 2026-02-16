@@ -85,6 +85,8 @@ interface ArtboardContainerProps {
   // Widget transfer callbacks for cross-artboard drag
   onWidgetReceived?: (widget: WidgetSchema, sourceArtboardId: string | undefined) => void;
   onWidgetRemoved?: (widgetId: string) => void;
+  onWidgetDragStart?: (widgetId: string) => void;
+  onWidgetDragEnd?: (widgetId: string, event: Event) => void;
   // Header state exposed for external rendering
   onHeaderAction?: (action: {
     type: 'menu' | 'addWidget';
@@ -107,6 +109,8 @@ function ArtboardContainer({
   selectedComponentId,
   onWidgetReceived,
   onWidgetRemoved,
+  onWidgetDragStart,
+  onWidgetDragEnd,
 }: ArtboardContainerProps) {
   const HEADER_HEIGHT_PX = 52; // matches tailwind h-13 (3.25rem @ 16px)
   const HEADER_GAP_PX = 8;
@@ -241,7 +245,7 @@ function ArtboardContainer({
         animate: true,
         minRow: 5,    // Minimum rows to ensure empty artboards have drop zone
         maxRow: effectiveGridConfig.maxRows, // Maximum rows based on effective height
-        acceptWidgets: '.grid-stack-item', // Accept widgets from any grid
+        acceptWidgets: false, // Disable native cross-grid transfer to avoid React conflicts
         draggable: {
           // Cancel on component handles so they don't trigger widget drag
           cancel: '.component-drag-handle',
@@ -255,6 +259,21 @@ function ArtboardContainer({
     );
 
     gridInstanceRef.current = grid;
+
+        // Custom drag handling listeners
+        grid.on('dragstart', (event: Event, el: any) => {
+          const node = el.gridstackNode;
+          if (node && node.id && onWidgetDragStart) {
+            onWidgetDragStart(String(node.id));
+          }
+        });
+
+        grid.on('dragstop', (event: Event, el: any) => {
+          const node = el.gridstackNode;
+          if (node && node.id && onWidgetDragEnd) {
+            onWidgetDragEnd(String(node.id), event);
+          }
+        });
 
     // Listen for drag start to set transfer flag
     grid.on('dragstart', () => {

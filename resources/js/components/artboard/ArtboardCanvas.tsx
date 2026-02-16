@@ -21,7 +21,7 @@ import CanvasEmptyState from './CanvasEmptyState';
 import { useCanvasZoom, useCanvasPan, useWidgetTransfer } from '@/hooks';
 import type { ArtboardSchema } from '@/types/artboard';
 import type { WidgetComponent, WidgetSchema } from '@/types/dashboard';
-import { createArtboard } from '@/lib/artboard-utils';
+import { createArtboard, calculateEffectiveGridConfig } from '@/lib/artboard-utils';
 import { useArtboardContext } from '@/context/ArtboardContext';
 
 export default function ArtboardCanvas() {
@@ -46,7 +46,69 @@ export default function ArtboardCanvas() {
     setArchivedWidgets,
   });
 
-  // Canvas zoom/pan from extracted hook
+  // Custom drag-out-of-bounds handler
+  const handleWidgetDragEnd = useCallback((widgetId: string, sourceArtboardId: string, event: Event) => {
+    // We only care if it's a mouse/pointer event with coordinates
+    // GridStack events might wrap the native event or be the native event
+    const e = event as MouseEvent;
+    if (typeof e.clientX !== 'number') return;
+
+    // 1. Convert screen coordinates to canvas coordinates
+    if (!canvasRef.current) return;
+
+    const containerRect = canvasRef.current.getBoundingClientRect();
+    const canvasX = (e.clientX - containerRect.left - pan.x) / scale;
+    const canvasY = (e.clientY - containerRect.top - pan.y) / scale;
+
+    // 2. Find target artboard
+    let targetArtboard: ArtboardSchema | undefined;
+
+    // Iterate artboards to find one under cursor
+    for (const artboard of artboards) {
+      if (!artboard.visible) continue;
+
+      const { x, y } = artboard.position;
+      const { widthPx, heightPx } = artboard.dimensions;
+
+      if (
+        canvasX >= x &&
+        canvasX <= x + widthPx &&
+        canvasY >= y &&
+        canvasY <= y + heightPx
+      ) {
+        targetArtboard = artboard;
+        break;
+      }
+    }
+
+    // 3. Handle Transfer or Archive
+    if (targetArtboard) {
+      if (targetArtboard.id !== sourceArtboardId) {
+        // Calculate grid position in target
+        const padding = targetArtboard.gridPadding ?? 16;
+        const localX = canvasX - targetArtboard.position.x - padding;
+        const localY = canvasY - targetArtboard.position.y - padding;
+
+        // Convert to grid units
+        const gridConfig = calculateEffectiveGridConfig(targetArtboard.dimensions, padding);
+        const colWidth = gridConfig.effectiveWidth / gridConfig.columns;
+
+        let gridX = Math.round(localX / colWidth);
+        let gridY = Math.round(localY / gridConfig.cellHeight);
+
+        // Clamp to bounds
+        gridX = Math.max(0, Math.min(gridX, gridConfig.columns - 1));
+        gridY = Math.max(0, gridY);
+
+        transferWidget(widgetId, sourceArtboardId, targetArtboard.id, { x: gridX, y: gridY });
+      }
+    } else {
+      // Dropped on canvas -> Archive
+      archiveWidget(widgetId, sourceArtboardId, { x: canvasX, y: canvasY });
+    }
+  }, [artboards, pan, scale, transferWidget, archiveWidget]);
+
+// Canvas zoom/pan from extracted hook
   const { scale, pan, setPan, viewportSize, adjustScale, canvasRef } = useCanvasZoom();
 
   // Tool state
@@ -320,6 +382,7 @@ export default function ArtboardCanvas() {
                       ? selectedComponent.component.instanceId
                       : undefined
                   }
+                  onWidgetDragEnd={(widgetId, event) => handleWidgetDragEnd(widgetId, artboard.id, event)}
                 />
               ))}
           </div>
