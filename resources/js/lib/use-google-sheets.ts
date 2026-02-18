@@ -135,7 +135,10 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
 
     // Validate required fields
     if (!spreadsheetId || !sheetName || !labelColumn || !valueColumn) {
-      setData(null);
+      // Don't clear data immediately if we had some, to prevent flash
+      // But if it's invalid config, maybe we should?
+      // For now, let's keep it safe.
+      if (!data) setData(null);
       return;
     }
 
@@ -146,27 +149,43 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
       setError(null);
 
       try {
-        // Escape sheet name for Google Sheets API (wrap in single quotes if it contains special characters)
+        // Escape sheet name for Google Sheets API
         const escapedSheetName = /[^\w]/.test(sheetName) ? `'${sheetName.replace(/'/g, "''")}'` : sheetName;
         
-        // First, fetch headers to get column indices
-        const headerRange = `${escapedSheetName}!A${headerRow}:ZZ${headerRow}`;
-        const headerResponse = await fetch('/api/sheets/read', {
+        // OPTIMIZATION: Fetch headers AND data in one go
+        // Fetch from headerRow down to end of sheet (ZZ)
+        const range = `${escapedSheetName}!A${headerRow}:ZZ`;
+
+        const response = await fetch('/api/sheets/read', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             spreadsheet_id: spreadsheetId,
-            range: headerRange,
+            range: range,
           }),
         });
         
-        const headerData = await headerResponse.json();
-        
-        if (!headerData.success || !headerData.data?.[0]) {
-          throw new Error('Failed to fetch headers');
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to fetch data');
         }
 
-        const headers: string[] = headerData.data[0];
+        if (cancelled) return;
+
+        const allRows: string[][] = result.data || [];
+        
+        if (allRows.length === 0) {
+            throw new Error('Sheet is empty');
+        }
+
+        // Row 0 relative to range is the header row
+        const headers = allRows[0];
+
+        // Calculate the relative index of data start
+        // If headerRow is 2 and dataStartRow is 3, then data starts at index 1 (3 - 2)
+        const relativeDataStartIndex = Math.max(1, (dataStartRow - headerRow));
+
         const labelColIndex = headers.findIndex(h => h === labelColumn);
         const valueColIndex = headers.findIndex(h => h === valueColumn);
         const filterColIndex = filterColumn 
@@ -174,38 +193,23 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
           : -1;
 
         if (labelColIndex === -1 || valueColIndex === -1) {
-          throw new Error('Could not find specified columns');
+          throw new Error(`Could not find columns: ${labelColIndex === -1 ? labelColumn : ''} ${valueColIndex === -1 ? valueColumn : ''}`);
         }
 
-        // Fetch data rows
-        const dataRange = `${escapedSheetName}!A${dataStartRow}:ZZ`;
-        const dataResponse = await fetch('/api/sheets/read', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            spreadsheet_id: spreadsheetId,
-            range: dataRange,
-          }),
-        });
-        
-        const rowData = await dataResponse.json();
-        
-        if (!rowData.success) {
-          throw new Error(rowData.error || 'Failed to fetch data');
-        }
-
-        if (cancelled) return;
-
-        const rows: string[][] = rowData.data || [];
-        
         // Transform data
         const transformedData: Array<{ label: string; value: number }> = [];
         
-        for (const row of rows) {
+        // Iterate only through data rows
+        for (let i = relativeDataStartIndex; i < allRows.length; i++) {
+          const row = allRows[i];
+          // Ensure row has enough columns
+          if (!row) continue;
+
           const label = row[labelColIndex] || '';
-          const value = parseNumericValue(row[valueColIndex]);
+          const valueStr = row[valueColIndex];
+          const value = parseNumericValue(valueStr);
           
-          // Skip empty rows
+          // Skip empty rows (no label AND zero value)
           if (!label && value === 0) continue;
           
           // Apply filter if specified
@@ -265,7 +269,10 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'Failed to fetch data');
-          setData(null);
+          // Only clear data on critical errors if you want to force an error state,
+          // otherwise keeping stale data might be better.
+          // For now, let's keep old data visible even on error to prevent total layout shift.
+          // setData(null);
         }
       } finally {
         if (!cancelled) {

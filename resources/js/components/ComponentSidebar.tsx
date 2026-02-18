@@ -3,11 +3,12 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { PanelLeftClose, PanelLeft, FolderOpen, Download } from 'lucide-react';
+import { PanelLeftClose, PanelLeft, FolderOpen, Download, LayoutGrid, Layers, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useArtboardContext } from '@/context/ArtboardContext';
 import { ComponentsPanel, LayersPanel } from './sidebar';
 import { router } from '@inertiajs/react';
+import { cn } from '@/lib/utils';
 
 interface SavedDashboard {
   id: string;
@@ -145,9 +146,9 @@ export default function ComponentSidebar({ savedDashboards = [], currentDashboar
 
   if (isCollapsed) {
     return (
-      <div className="flex h-screen w-12 flex-col border-r bg-card">
+      <div className="flex h-screen w-12 flex-col border-r bg-card/50 backdrop-blur-xl">
         <div className="flex h-14 items-center justify-center border-b">
-          <Button variant="ghost" size="icon" onClick={toggleCollapse} className="h-8 w-8">
+          <Button variant="ghost" size="icon" onClick={toggleCollapse} className="h-8 w-8 text-muted-foreground hover:text-foreground">
             <PanelLeft className="h-4 w-4" />
           </Button>
         </div>
@@ -156,10 +157,19 @@ export default function ComponentSidebar({ savedDashboards = [], currentDashboar
   }
 
   return (
-    <div className="flex h-screen w-80 flex-col border-r bg-card shadow-sm">
+    <div className="flex h-screen w-80 flex-col border-r bg-card/95 backdrop-blur-xl shadow-sm z-20">
       {/* Header */}
-      <div className="flex h-14 items-center justify-between border-b px-4 shrink-0">
-        <h2 className="text-lg font-semibold">BM://</h2>
+      <div className="flex h-14 items-center justify-between border-b px-3 shrink-0">
+        <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-xs border border-primary/20">
+                BM
+            </div>
+            <div className="flex flex-col">
+                <span className="text-sm font-semibold tracking-tight leading-none">Builder</span>
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mt-0.5">V1.0.0</span>
+            </div>
+        </div>
+
         <div className="flex items-center gap-1">
           {/* Dashboard Picker with hover */}
           <div
@@ -170,7 +180,7 @@ export default function ComponentSidebar({ savedDashboards = [], currentDashboar
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
               title="Dashboards"
             >
               <FolderOpen className="h-4 w-4" />
@@ -179,35 +189,42 @@ export default function ComponentSidebar({ savedDashboards = [], currentDashboar
             {/* Dropdown on hover */}
             {showDashboardPicker && (
               <div
-                className="absolute right-0 top-full mt-1 w-64 rounded-lg border bg-card shadow-lg z-50"
+                className="absolute right-0 top-full mt-1 w-72 rounded-xl border bg-card shadow-xl z-50 overflow-hidden ring-1 ring-border/50"
                 onMouseEnter={handlePickerMouseEnter}
                 onMouseLeave={handlePickerMouseLeave}
               >
-                <div className="p-3 border-b">
-                  <p className="text-xs font-medium text-muted-foreground">SAVED DASHBOARDS</p>
+                <div className="p-3 border-b bg-muted/30">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Saved Dashboards</p>
                 </div>
 
                 {savedDashboards.length === 0 ? (
-                  <div className="p-3">
-                    <p className="text-xs text-muted-foreground">No saved dashboards yet.</p>
+                  <div className="p-4 text-center">
+                    <p className="text-sm text-muted-foreground">No saved dashboards yet.</p>
                   </div>
                 ) : (
-                  <div className="max-h-48 overflow-y-auto p-1">
+                  <div className="max-h-[240px] overflow-y-auto p-1.5 space-y-0.5">
                     {savedDashboards.map((dash) => (
                       <div
                         key={dash.id}
-                        className={`flex items-center gap-1 rounded-md transition hover:bg-muted ${dash.id === currentDashboardId ? 'bg-muted' : ''
-                          }`}
+                        className={cn(
+                          "flex items-center gap-2 rounded-lg transition-colors group",
+                          dash.id === currentDashboardId ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                        )}
                       >
                         <button
                           onClick={() => handleLoadDashboard(dash.id)}
                           className="flex-1 text-left px-3 py-2 text-sm"
                         >
                           <div className="flex items-center justify-between">
-                            <span className={`truncate ${dash.id === currentDashboardId ? 'font-medium' : ''}`}>
+                            <span className={cn("truncate font-medium", dash.id === currentDashboardId ? "text-primary" : "text-foreground")}>
                               {dash.name}
                             </span>
-                            <span className="text-xs text-muted-foreground">{dash.artboardCount}</span>
+                            <span className="text-[10px] text-muted-foreground bg-background/50 px-1.5 py-0.5 rounded border border-transparent group-hover:border-border/50">
+                                {dash.artboardCount}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-muted-foreground mt-0.5 truncate opacity-70">
+                            Last updated {dash.updatedAt ? new Date(dash.updatedAt).toLocaleDateString() : 'Never'}
                           </div>
                         </button>
                         <button
@@ -215,10 +232,10 @@ export default function ComponentSidebar({ savedDashboards = [], currentDashboar
                             e.stopPropagation();
                             handleExportDashboard(dash.id, dash.name);
                           }}
-                          className="p-2 hover:bg-background rounded-md transition"
+                          className="mr-1 p-2 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-background hover:text-foreground hover:shadow-sm"
                           title={`Export ${dash.name}`}
                         >
-                          <Download className="h-3.5 w-3.5 text-muted-foreground" />
+                          <Download className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     ))}
@@ -228,50 +245,61 @@ export default function ComponentSidebar({ savedDashboards = [], currentDashboar
             )}
           </div>
 
-          <Button variant="ghost" size="icon" onClick={toggleCollapse} className="h-8 w-8">
+          <Button variant="ghost" size="icon" onClick={toggleCollapse} className="h-8 w-8 text-muted-foreground hover:text-foreground">
             <PanelLeftClose className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      {/* Mode Switch */}
-      <div className="border-b bg-card/95 px-4 py-2.5">
-        <div className="grid grid-cols-2 gap-2">
-          {(['components', 'layers'] as const).map((panel) => (
-            <button
-              key={panel}
-              type="button"
-              onClick={() => setActivePanel(panel)}
-              className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${activePanel === panel
-                ? 'border-foreground/40 bg-background text-foreground shadow-sm'
-                : 'border-transparent bg-muted/40 text-muted-foreground hover:bg-muted/70'
-                }`}
-            >
-              {panel === 'components' ? 'Components' : 'Layers'}
-            </button>
-          ))}
+      {/* Mode Switch - Segmented Control Style */}
+      <div className="px-3 py-3 border-b">
+        <div className="grid grid-cols-2 gap-1 p-1 bg-muted/60 rounded-lg">
+          {(['components', 'layers'] as const).map((panel) => {
+            const isActive = activePanel === panel;
+            return (
+              <button
+                key={panel}
+                type="button"
+                onClick={() => setActivePanel(panel)}
+                className={cn(
+                  "flex items-center justify-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200",
+                  isActive
+                    ? "bg-background text-foreground shadow-sm ring-1 ring-black/5 dark:ring-white/5"
+                    : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                )}
+              >
+                {panel === 'components' ? <LayoutGrid className="h-3.5 w-3.5" /> : <Layers className="h-3.5 w-3.5" />}
+                {panel === 'components' ? 'Components' : 'Layers'}
+              </button>
+            );
+          })}
         </div>
       </div>
 
       {/* Active Panel */}
-      {activePanel === 'components' ? (
-        <ComponentsPanel />
-      ) : (
-        <LayersPanel
-          artboards={artboards}
-          artboardStackOrder={artboardStackOrder}
-          selectedArtboardId={selectedArtboardId}
-          onSelectArtboard={handleSelectArtboard}
-          onToggleVisibility={handleToggleVisibility}
-          onToggleLock={handleToggleLock}
-          onMoveLayer={handleMoveLayer}
-        />
-      )}
+      <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+        {activePanel === 'components' ? (
+          <ComponentsPanel />
+        ) : (
+          <LayersPanel
+            artboards={artboards}
+            artboardStackOrder={artboardStackOrder}
+            selectedArtboardId={selectedArtboardId}
+            onSelectArtboard={handleSelectArtboard}
+            onToggleVisibility={handleToggleVisibility}
+            onToggleLock={handleToggleLock}
+            onMoveLayer={handleMoveLayer}
+          />
+        )}
+      </div>
 
       {/* Footer */}
-      <div className="border-t p-3 shrink-0 bg-card/95">
-        <p className="text-xs text-muted-foreground text-center">
-          Drag components onto the canvas or into widgets
+      <div className="border-t p-3 shrink-0 bg-muted/20">
+        <p className="text-[10px] text-muted-foreground text-center font-medium opacity-70">
+          {activePanel === 'components'
+            ? 'Drag & drop components to build'
+            : 'Manage your layout hierarchy'
+          }
         </p>
       </div>
     </div>

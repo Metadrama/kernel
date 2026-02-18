@@ -24,6 +24,7 @@ import type { WidgetSchema, ComponentCard, WidgetComponent } from '@/types/dashb
 import type { ComponentRect } from '@/lib/collision-detection';
 import type { SnapLine } from '@/lib/snap-utils';
 import { getMinSize, getMaxSize, getAspectRatio } from '@/lib/component-sizes';
+import { cn } from '@/lib/utils';
 
 interface WidgetShellProps {
   widget: WidgetSchema;
@@ -48,13 +49,10 @@ interface WidgetShellProps {
   onSelectWidget?: () => void;
   /** Canvas scale factor for zoom compensation */
   scale?: number;
-  /** Whether to show the drag handle inside the shell (default: true). Set to false when handle is rendered externally (e.g., by GridStack parent). */
+  /** Whether to show drag handle (when not locked) */
   showDragHandle?: boolean;
 }
 
-/**
- * Alignment guides overlay component
- */
 function AlignmentGuides({ guides }: { guides: SnapLine[] }) {
   if (guides.length === 0) return null;
 
@@ -63,7 +61,7 @@ function AlignmentGuides({ guides }: { guides: SnapLine[] }) {
       {guides.map((guide, i) => (
         <div
           key={`${guide.axis}-${guide.position}-${i}`}
-          className="absolute bg-pink-500"
+          className="absolute bg-primary/70"
           style={
             guide.axis === 'x'
               ? {
@@ -85,16 +83,14 @@ function AlignmentGuides({ guides }: { guides: SnapLine[] }) {
   );
 }
 
-/**
- * Individual component wrapper with drag and resize capabilities
- */
+// Internal component for individual items to manage their own drag/resize state
 function ComponentItem({
   component,
   isSelected,
   containerRef,
   siblings,
   scale = 1,
-  anySiblingActive = false,
+  anySiblingActive,
   onBoundsChange,
   onSelect,
   onRemove,
@@ -104,204 +100,195 @@ function ComponentItem({
 }: {
   component: WidgetComponent;
   isSelected: boolean;
-  containerRef: React.RefObject<HTMLDivElement | null>;
+  containerRef: React.RefObject<HTMLElement | null>;
   siblings: ComponentRect[];
-  scale?: number;
-  anySiblingActive?: boolean;
-  onBoundsChange: (bounds: { x: number; y: number; width: number; height: number }) => void;
-  onSelect: () => void;
-  onRemove: () => void;
+  scale: number;
+  anySiblingActive: boolean;
+  onBoundsChange?: (bounds: { x: number; y: number; width: number; height: number }) => void;
+  onSelect?: () => void;
+  onRemove?: () => void;
   onZOrderChange?: (operation: 'bringToFront' | 'sendToBack' | 'bringForward' | 'sendBackward') => void;
-  onGuidesChange: (guides: SnapLine[]) => void;
-  onActiveChange: (isActive: boolean) => void;
+  onGuidesChange?: (guides: SnapLine[]) => void;
+  onActiveChange?: (isActive: boolean) => void;
 }) {
-  const ComponentToRender = getComponent(component.componentType);
-  const isRegistered = isComponentRegistered(component.componentType);
+  const componentRef = useRef<HTMLDivElement>(null);
 
+  // Calculate constraints
   const minSize = getMinSize(component.componentType);
   const maxSize = getMaxSize(component.componentType);
   const aspectRatio = getAspectRatio(component.componentType);
 
-  // Drag hook
-  const {
-    isDragging,
-    displayPosition,
-    activeGuides: dragGuides,
-    handleMouseDown: handleDragMouseDown
-  } = useComponentDrag({
-    position: { x: component.x, y: component.y },
-    size: { width: component.width, height: component.height },
-    componentId: component.instanceId,
-    containerRef,
-    siblings,
-    scale,
-    onPositionChange: (pos) => onBoundsChange({ ...pos, width: component.width, height: component.height }),
-    onSelect,
-  });
-
   // Resize hook
   const {
+    startResize,
     isResizing,
     displayBounds,
-    activeGuides: resizeGuides,
-    startResize
+    activeGuides: resizeGuides
   } = useComponentResize({
     bounds: { x: component.x, y: component.y, width: component.width, height: component.height },
     componentId: component.instanceId,
+    containerRef,
     minSize,
     maxSize,
-    aspectRatio,
-    containerRef,
-    siblings,
+    aspectRatio: aspectRatio || undefined,
     scale,
-    onBoundsChange,
+    enableSnapping: true,
+    snapThreshold: 8,
+    onBoundsChange: (newBounds) => {
+      if (onBoundsChange) {
+        onBoundsChange(newBounds);
+      }
+    },
+    siblings,
   });
 
-  const isActive = isDragging || isResizing;
+  // Drag hook
+  const {
+    displayPosition,
+    handleMouseDown,
+    isDragging,
+    activeGuides: dragGuides
+  } = useComponentDrag({
+    componentId: component.instanceId,
+    position: { x: component.x, y: component.y },
+    size: { width: component.width, height: component.height },
+    containerRef,
+    scale,
+    enableSnapping: true,
+    snapThreshold: 8,
+    onPositionChange: (newPos) => {
+      if (onBoundsChange) {
+        onBoundsChange({ ...newPos, width: component.width, height: component.height });
+      }
+    },
+    onSelect: () => onSelect?.(),
+    disabled: isResizing, // Disable drag while resizing
+    siblings: siblings.map(s => ({ ...s, id: s.id })),
+  });
 
-  // Report active state to parent
+  // Notify parent of guide changes
   useEffect(() => {
-    onActiveChange(isActive);
-  }, [isActive, onActiveChange]);
+    if (isResizing) {
+       onGuidesChange?.(resizeGuides);
+    } else if (isDragging) {
+       onGuidesChange?.(dragGuides);
+    } else {
+       // Only clear if we were previously active, to avoid clearing other components' guides?
+       // Actually parent handles consolidation usually, but here we just push up.
+       if (!anySiblingActive) {
+           onGuidesChange?.([]);
+       }
+    }
+  }, [isResizing, isDragging, resizeGuides, dragGuides, anySiblingActive]);
 
-  // Report active guides to parent
+  // Notify parent of active state
   useEffect(() => {
-    const guides = isDragging ? dragGuides : isResizing ? resizeGuides : [];
-    onGuidesChange(guides);
-  }, [isDragging, isResizing, dragGuides, resizeGuides, onGuidesChange]);
+    onActiveChange?.(isDragging || isResizing);
+  }, [isDragging, isResizing]);
 
-  // Use display position/bounds for immediate visual feedback
-  const displayX = isResizing ? displayBounds.x : displayPosition.x;
-  const displayY = isResizing ? displayBounds.y : displayPosition.y;
-  const displayWidth = isResizing ? displayBounds.width : component.width;
-  const displayHeight = isResizing ? displayBounds.height : component.height;
+  // Handle selection on click
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onSelect?.();
+  };
+
+  const ComponentToRender = getComponent(component.componentType);
+  if (!ComponentToRender) return null;
+
+  // Handles for resize
+  const handles = ['nw', 'ne', 'sw', 'se', 'n', 'e', 's', 'w'] as const;
+
+  // Determine display values
+  const x = isResizing ? displayBounds.x : (isDragging ? displayPosition.x : component.x);
+  const y = isResizing ? displayBounds.y : (isDragging ? displayPosition.y : component.y);
+  const w = isResizing ? displayBounds.width : component.width;
+  const h = isResizing ? displayBounds.height : component.height;
 
   return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <div
-          className={`absolute group/component ${isDragging ? 'z-30 cursor-grabbing' : 'z-10 hover:z-20'} ${isResizing ? 'z-30' : ''} ${isSelected ? 'z-25' : ''}`}
-          style={{
-            left: displayX,
-            top: displayY,
-            width: displayWidth,
-            height: displayHeight,
-            // Disable transitions during drag/resize for instant feedback
-            transition: isActive ? 'none' : 'box-shadow 150ms ease-out',
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelect();
-          }}
-        >
-          {/* Component container with selection styling */}
-          <div className={`h-full w-full rounded-md border bg-background ${isSelected
-            ? 'border-primary/60 ring-1 ring-primary/20 shadow-sm'
-            : isActive
-              ? 'border-primary/60 shadow-md ring-1 ring-primary/20'
-              : anySiblingActive
-                ? 'border-border/60 shadow-sm'
-                : 'border-transparent group-hover/component:border-border group-hover/component:shadow-sm'
-            }`}>
-
-            {/* Move handle - top center */}
-            <div
-              className="component-drag-handle absolute -top-0 left-1/2 -translate-x-1/2 opacity-0 group-hover/component:opacity-100 transition-opacity cursor-grab active:cursor-grabbing z-10 bg-background/90 backdrop-blur-sm rounded-b px-2 py-0.5 border border-t-0 shadow-sm"
-              onMouseDown={handleDragMouseDown}
-            >
-              <Move className="h-3 w-3 text-muted-foreground" />
-            </div>
-
-            {/* Render the actual component */}
-            <div className="h-full w-full overflow-hidden rounded-md">
-              {isRegistered && ComponentToRender ? (
-                <ComponentToRender config={component.config} />
-              ) : (
-                <div className="flex h-full items-center justify-center p-2">
-                  <p className="text-xs text-muted-foreground">
-                    Unknown: {component.componentType}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Resize handles - 8 directions for Figma-like control */}
-            {/* North */}
-            <div
-              className="component-drag-handle absolute left-1/2 -translate-x-1/2 -top-1 h-2 w-8 bg-primary/60 rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-n-resize z-20 hover:bg-primary"
-              onMouseDown={(e) => startResize(e, 'n')}
-            />
-            {/* South */}
-            <div
-              className="component-drag-handle absolute left-1/2 -translate-x-1/2 -bottom-1 h-2 w-8 bg-primary/60 rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-s-resize z-20 hover:bg-primary"
-              onMouseDown={(e) => startResize(e, 's')}
-            />
-            {/* East */}
-            <div
-              className="component-drag-handle absolute -right-1 top-1/2 -translate-y-1/2 w-2 h-8 bg-primary/60 rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-e-resize z-20 hover:bg-primary"
-              onMouseDown={(e) => startResize(e, 'e')}
-            />
-            {/* West */}
-            <div
-              className="component-drag-handle absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-8 bg-primary/60 rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-w-resize z-20 hover:bg-primary"
-              onMouseDown={(e) => startResize(e, 'w')}
-            />
-            {/* Northeast */}
-            <div
-              className="component-drag-handle absolute -right-1 -top-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-ne-resize z-20 shadow-sm"
-              onMouseDown={(e) => startResize(e, 'ne')}
-            />
-            {/* Southeast */}
-            <div
-              className="component-drag-handle absolute -right-1 -bottom-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-se-resize z-20 shadow-sm"
-              onMouseDown={(e) => startResize(e, 'se')}
-            />
-            {/* Southwest */}
-            <div
-              className="component-drag-handle absolute -left-1 -bottom-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-sw-resize z-20 shadow-sm"
-              onMouseDown={(e) => startResize(e, 'sw')}
-            />
-            {/* Northwest */}
-            <div
-              className="component-drag-handle absolute -left-1 -top-1 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/component:opacity-100 [@media(hover:none)]:opacity-100 cursor-nw-resize z-20 shadow-sm"
-              onMouseDown={(e) => startResize(e, 'nw')}
-            />
-          </div>
-        </div>
-      </ContextMenuTrigger>
-      <ContextMenuContent className="w-48">
-        {onZOrderChange && (
+    <div
+      ref={componentRef}
+      className={`absolute select-none group/component ${isSelected ? 'z-20' : 'z-10'}`}
+      style={{
+        left: x,
+        top: y,
+        width: w,
+        height: h,
+        cursor: isDragging ? 'grabbing' : 'grab',
+        touchAction: 'none'
+      }}
+      onMouseDown={handleMouseDown}
+      onClick={handleClick}
+    >
+      {/* Component Content */}
+      <div className={`w-full h-full overflow-hidden relative transition-shadow duration-200 ${isSelected
+          ? 'ring-2 ring-primary ring-offset-2 ring-offset-background rounded-sm shadow-md'
+          : 'hover:ring-1 hover:ring-primary/40 hover:rounded-sm'
+        }`}>
+        {/* Resize Overlay - Only visible when selected */}
+        {isSelected && !isDragging && (
           <>
-            <ContextMenuItem onClick={() => onZOrderChange('bringToFront')}>
-              <ChevronsUp className="h-4 w-4 mr-2" />
-              Bring to Front
-              <ContextMenuShortcut>⌘⇧]</ContextMenuShortcut>
-            </ContextMenuItem>
-            <ContextMenuItem onClick={() => onZOrderChange('bringForward')}>
-              <ArrowUp className="h-4 w-4 mr-2" />
-              Bring Forward
-              <ContextMenuShortcut>⌘]</ContextMenuShortcut>
-            </ContextMenuItem>
-            <ContextMenuItem onClick={() => onZOrderChange('sendBackward')}>
-              <ArrowDown className="h-4 w-4 mr-2" />
-              Send Backward
-              <ContextMenuShortcut>⌘[</ContextMenuShortcut>
-            </ContextMenuItem>
-            <ContextMenuItem onClick={() => onZOrderChange('sendToBack')}>
-              <ChevronsDown className="h-4 w-4 mr-2" />
-              Send to Back
-              <ContextMenuShortcut>⌘⇧[</ContextMenuShortcut>
-            </ContextMenuItem>
-            <ContextMenuSeparator />
+            {handles.map((handle) => (
+              <div
+                key={handle}
+                className={`absolute w-2.5 h-2.5 bg-background border border-primary rounded-full z-30 transition-transform hover:scale-125 hover:bg-primary hover:border-background
+                  ${handle === 'nw' ? '-top-1 -left-1 cursor-nw-resize' : ''}
+                  ${handle === 'ne' ? '-top-1 -right-1 cursor-ne-resize' : ''}
+                  ${handle === 'sw' ? '-bottom-1 -left-1 cursor-sw-resize' : ''}
+                  ${handle === 'se' ? '-bottom-1 -right-1 cursor-se-resize' : ''}
+                  ${handle === 'n' ? '-top-1 left-1/2 -translate-x-1/2 cursor-n-resize' : ''}
+                  ${handle === 's' ? '-bottom-1 left-1/2 -translate-x-1/2 cursor-s-resize' : ''}
+                  ${handle === 'w' ? 'top-1/2 -translate-y-1/2 -left-1 cursor-w-resize' : ''}
+                  ${handle === 'e' ? 'top-1/2 -translate-y-1/2 -right-1 cursor-e-resize' : ''}
+                `}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  startResize(e, handle);
+                }}
+              />
+            ))}
           </>
         )}
-        <ContextMenuItem variant="destructive" onClick={onRemove}>
-          <Trash2 className="h-4 w-4 mr-2" />
-          Delete
-          <ContextMenuShortcut>⌫</ContextMenuShortcut>
-        </ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
+
+        {/* Component Toolbar - Quick Actions */}
+        {isSelected && (
+          <div className="absolute -top-10 right-0 flex items-center gap-1 bg-foreground/90 text-background p-1 rounded-md shadow-lg z-50 animate-in fade-in zoom-in-95 duration-100">
+            {onZOrderChange && (
+              <>
+                <button
+                  className="p-1 hover:bg-background/20 rounded"
+                  onClick={(e) => { e.stopPropagation(); onZOrderChange('bringToFront'); }}
+                  title="Bring to Front"
+                >
+                  <ChevronsUp className="h-3 w-3" />
+                </button>
+                <button
+                  className="p-1 hover:bg-background/20 rounded"
+                  onClick={(e) => { e.stopPropagation(); onZOrderChange('sendToBack'); }}
+                  title="Send to Back"
+                >
+                  <ChevronsDown className="h-3 w-3" />
+                </button>
+              </>
+            )}
+            <div className="w-px h-3 bg-background/20 mx-0.5" />
+            <button
+              className="p-1 hover:bg-red-500/80 rounded text-red-200 hover:text-white"
+              onClick={(e) => { e.stopPropagation(); onRemove?.(); }}
+              title="Delete"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
+        )}
+
+        {/* The actual component */}
+        <div className="w-full h-full pointer-events-none">
+          <ComponentToRender
+            config={component.config}
+          />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -310,6 +297,7 @@ export default function WidgetShell({
   onDelete,
   onAddComponent,
   onRemoveComponent,
+  onReorderComponents,
   onUpdateComponentBounds,
   onUpdateComponentZOrder,
   onWidgetZOrderChange,
@@ -321,117 +309,77 @@ export default function WidgetShell({
   isSelected,
   onSelectWidget,
   scale = 1,
-  showDragHandle = true,
+  showDragHandle = false,
 }: WidgetShellProps) {
-  const [isDragOver, setIsDragOver] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
-  const [activeGuides, setActiveGuides] = useState<SnapLine[]>([]);
-  const [activeComponentId, setActiveComponentId] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
   const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
+  const [activeComponentId, setActiveComponentId] = useState<string | null>(null);
+  const [activeGuides, setActiveGuides] = useState<SnapLine[]>([]);
 
-  // Sort components by zIndex for proper stacking order
-  const components = useMemo(() => {
-    const comps = widget.components || [];
-    return [...comps].sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
-  }, [widget.components]);
+  const components = widget.components || [];
   const isEmpty = components.length === 0;
 
-  // Keyboard shortcuts for selected component z-order
-  useKeyboardShortcuts({
-    enabled: !!selectedComponentId,
-    onZOrderChange: (operation) => {
-      if (selectedComponentId && onUpdateComponentZOrder) {
-        onUpdateComponentZOrder(selectedComponentId, operation);
-      }
-    },
-    onDelete: () => {
-      if (selectedComponentId && onRemoveComponent) {
-        onRemoveComponent(selectedComponentId);
-      }
-    },
-  });
+  // Calculate content bounds for container height
+  const contentHeight = useMemo(() => {
+    if (isEmpty) return 100;
+    const maxY = Math.max(...components.map(c => c.y + c.height));
+    return maxY + 20; // Add padding
+  }, [components, isEmpty]);
 
-  // Track container size for bounds checking
-  useEffect(() => {
-    if (!containerRef.current) return;
-
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setContainerSize({
-          width: entry.contentRect.width,
-          height: entry.contentRect.height,
-        });
-      }
-    });
-
-    observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  // Convert components to ComponentRect for snapping
-  const componentRects = useMemo((): ComponentRect[] => {
-    return components.map(c => ({
+  // Prepare siblings list for collision detection (excluding the currently dragged one)
+  const componentRects = useMemo(() =>
+    components.map(c => ({
       id: c.instanceId,
       x: c.x,
       y: c.y,
       width: c.width,
-      height: c.height,
-    }));
-  }, [components]);
+      height: c.height
+    })),
+    [components]
+  );
 
-  // Handle external component drop (from sidebar)
-  const handleExternalDragOver = useCallback((e: React.DragEvent) => {
+  const handleExternalDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    e.dataTransfer.dropEffect = 'copy';
-    setIsDragOver(true);
-  }, []);
-
-  const handleExternalDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const x = e.clientX;
-    const y = e.clientY;
-    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
-      setIsDragOver(false);
+    if (!widget.locked) {
+      setIsDragOver(true);
     }
-  }, []);
+  };
 
-  const handleExternalDrop = useCallback((e: React.DragEvent) => {
+  const handleExternalDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleExternalDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
 
+    if (widget.locked) return;
+
     try {
       const data = e.dataTransfer.getData('application/json');
-      if (!data) return;
-
-      const parsed = JSON.parse(data);
-
-      if (parsed.id === 'empty-widget') {
-        return; // Empty widget template only applies when creating new widgets
+      if (data) {
+        const componentCard = JSON.parse(data) as ComponentCard;
+        onAddComponent?.(componentCard);
       }
-
-      if (parsed.id && parsed.category) {
-        // Component will be auto-positioned by addComponentToWidget
-        onAddComponent?.(parsed as ComponentCard);
-      }
-    } catch (error) {
-      console.error('Failed to parse dropped data:', error);
+    } catch (err) {
+      console.error('Failed to parse dropped component:', err);
     }
-  }, [onAddComponent]);
+  };
 
-  // Calculate content bounds for container min-height
-  const contentHeight = useMemo(() => {
-    if (components.length === 0) return 0;
-    const maxBottom = Math.max(...components.map(c => c.y + c.height));
-    return maxBottom + 16; // Add padding
-  }, [components]);
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onDelete: isSelected ? onDelete : undefined,
+    onDuplicate: isSelected && onDuplicate ? () => setShowDuplicateDialog(true) : undefined,
+    onCopy: isSelected ? onCopy : undefined,
+    onPaste: () => { }, // Handled at dashboard level
+  });
 
-  // Handle guides from any active component
-  const handleGuidesChange = useCallback((componentId: string, guides: SnapLine[]) => {
+  const handleGuidesChange = useCallback((id: string, guides: SnapLine[]) => {
     setActiveGuides(prev => {
       // Prevent infinite loop by checking if guides actually changed
       if (prev === guides) return prev;
@@ -554,7 +502,14 @@ export default function WidgetShell({
         <ContextMenuTrigger asChild>
           <div
             ref={containerRef}
-            className={`group relative h-full w-full rounded-lg border bg-card text-card-foreground shadow-sm transition-all duration-200 ease-out hover:shadow-md overflow-hidden ${isDragOver ? 'border-primary ring-1 ring-primary/20' : isSelected ? 'border-primary/60 ring-1 ring-primary/20' : 'border-border'}`}
+            className={cn(
+                "group relative h-full w-full rounded-lg bg-card text-card-foreground transition-all duration-200 ease-out overflow-hidden",
+                isSelected
+                    ? "ring-2 ring-primary border-transparent shadow-md z-10"
+                    : isDragOver
+                        ? "border-primary ring-2 ring-primary/20 bg-primary/5"
+                        : "border border-border/60 hover:border-border hover:shadow-sm"
+            )}
             onDragOver={handleExternalDragOver}
             onDragLeave={handleExternalDragLeave}
             onDrop={handleExternalDrop}
@@ -563,6 +518,16 @@ export default function WidgetShell({
               onSelectWidget?.();
             }}
           >
+            {/* Corner Indicators for Selection */}
+            {isSelected && (
+                <>
+                    <div className="absolute -top-1 -left-1 w-2.5 h-2.5 border-t-[3px] border-l-[3px] border-primary bg-transparent z-20 rounded-tl-[2px]" />
+                    <div className="absolute -top-1 -right-1 w-2.5 h-2.5 border-t-[3px] border-r-[3px] border-primary bg-transparent z-20 rounded-tr-[2px]" />
+                    <div className="absolute -bottom-1 -left-1 w-2.5 h-2.5 border-b-[3px] border-l-[3px] border-primary bg-transparent z-20 rounded-bl-[2px]" />
+                    <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 border-b-[3px] border-r-[3px] border-primary bg-transparent z-20 rounded-br-[2px]" />
+                </>
+            )}
+
             {/* Widget toolbar */}
             <WidgetToolbar onDelete={onDelete} showDragHandle={showDragHandle} />
 
