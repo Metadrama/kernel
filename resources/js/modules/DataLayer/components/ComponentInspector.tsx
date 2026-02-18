@@ -7,7 +7,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Button } from '@/modules/DesignSystem/ui/button';
 import PanelHeader from '@/modules/DesignSystem/ui/panel-header';
 import { ScrollArea } from '@/modules/DesignSystem/ui/scroll-area';
-import { useArtboardContext } from '@/modules/Artboard/context/ArtboardContext';
+import { useArtboardState } from '@/modules/Artboard/context/ArtboardContext';
 import { useResizable } from '@/modules/DesignSystem/hooks/useResizable';
 import type { ConfigFieldSchema } from '@/modules/DataLayer/types/component-config';
 import { CONFIG_GROUPS, getConfigSchema, type ConfigGroupId } from '@/modules/DataLayer/types/config-schemas';
@@ -102,7 +102,7 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
 
     const config = useMemo(() => (component?.config || {}) as Record<string, unknown>, [component?.config]);
     const position = component?.position;
-    const { artboards, dataSourceConfig } = useArtboardContext();
+    const { artboards, dataSourceConfig } = useArtboardState();
 
     // Resizable panel
     const { width, isResizing, handleProps } = useResizable({

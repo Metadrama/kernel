@@ -9,14 +9,15 @@ import {
     DialogTrigger,
 } from '@/modules/DesignSystem/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/modules/DesignSystem/ui/tabs';
-import { useArtboardContext } from '@/modules/Artboard/context/ArtboardContext';
+import { useArtboardState, useArtboardActions } from '@/modules/Artboard/context/ArtboardContext';
 import { DataSourceConfig } from '@/modules/DataLayer/components/DataSourceConfig';
 import { Switch } from '@/modules/DesignSystem/ui/switch';
 import { Settings } from 'lucide-react';
 import { useState } from 'react';
 
 export function WorkspaceSettingsDialog() {
-    const { dataSourceConfig, setDataSourceConfig, autosaveEnabled, setAutosaveEnabled } = useArtboardContext();
+    const { dataSourceConfig, autosaveEnabled } = useArtboardState();
+    const { setDataSourceConfig, setAutosaveEnabled } = useArtboardActions();
     const [open, setOpen] = useState(false);
 
     // Default to 'static' if not set

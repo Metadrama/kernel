@@ -1,5 +1,5 @@
 import { MOCK_CHART_DATA, useGoogleSheetsData } from '@/modules/Widgets/hooks/useGoogleSheetsChartData';
-import { useArtboardContext } from '@/modules/Artboard/context/ArtboardContext';
+import { useArtboardState } from '@/modules/Artboard/context/ArtboardContext';
 import type { GaugeChartConfig, GoogleSheetsDataSource } from '@/modules/DataLayer/types/component-config';
 import { Loader2 } from 'lucide-react';
 import { useMemo } from 'react';
@@ -60,7 +60,7 @@ export default function GaugeChartComponent({ config }: GaugeChartComponentProps
   const safeConfig = config || { dataSource: { type: 'static' } };
 
   // Merge Global Data Source
-  const { dataSourceConfig: globalDataSource } = useArtboardContext();
+  const { dataSourceConfig: globalDataSource } = useArtboardState();
   const localDataSource = safeConfig.dataSource || {};
 
   const dataSource = useMemo(() => {

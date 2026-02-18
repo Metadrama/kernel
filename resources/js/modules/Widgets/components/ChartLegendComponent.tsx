@@ -1,10 +1,10 @@
 ﻿import { useMemo } from 'react';
 import { useChartData } from '@/modules/Widgets/hooks/useChartData';
 import { getChartColors } from '@/modules/Widgets/lib/chart-utils';
-import { useArtboardContext } from '@/modules/Artboard/context/ArtboardContext';
+import { useArtboardState } from '@/modules/Artboard/context/ArtboardContext';
 
 export default function ChartLegendComponent({ config }: { config?: any }) {
-    const { artboards } = useArtboardContext();
+    const { artboards } = useArtboardState();
 
     // Resolve linked chart config if selected
     const effectiveConfig = useMemo(() => {

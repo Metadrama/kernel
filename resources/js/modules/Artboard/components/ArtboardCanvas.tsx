@@ -7,7 +7,7 @@
 
 import { ComponentInspector } from '@/modules/DataLayer/components/ComponentInspector';
 import FloatingToolbar, { ToolType } from '@/modules/Dashboard/components/FloatingToolbar';
-import { useArtboardContext } from '@/modules/Artboard/context/ArtboardContext';
+import { useArtboardState, useArtboardSelection, useArtboardActions } from '@/modules/Artboard/context/ArtboardContext';
 import { useCanvasPan } from '@/modules/Artboard/hooks/useCanvasPan';
 import { useCanvasZoom } from '@/modules/Artboard/hooks/useCanvasZoom';
 import { createArtboard } from '@/modules/Artboard/lib/artboard-utils';
@@ -26,18 +26,14 @@ export default function ArtboardCanvas() {
     const currentDashboardId = page.props.currentDashboard?.id ?? 'default';
     const currentDashboardName = page.props.currentDashboard?.name ?? 'Untitled Dashboard';
 
+    const { artboards, artboardStackOrder, dataSourceConfig, autosaveEnabled } = useArtboardState();
+    const { selectedArtboardId, selectedComponentId } = useArtboardSelection();
     const {
-        artboards,
         setArtboards,
-        selectedArtboardId,
         setSelectedArtboardId,
-        selectedComponentId,
         setSelectedComponentId,
-        artboardStackOrder,
         bringArtboardToFront,
-        dataSourceConfig,
-        autosaveEnabled
-    } = useArtboardContext();
+    } = useArtboardActions();
 
     // Component transfer - simplified without widget archiving
     // Components are now placed directly on artboards

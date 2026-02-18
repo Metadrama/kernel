@@ -18,25 +18,43 @@ function withArtboardsDefaults(artboards: Artboard[]): Artboard[] {
     return artboards.map(withArtboardDefaults);
 }
 
-interface ArtboardContextValue {
+// ----------------------------------------------------------------------------
+// 1. Split Context Definitions
+// ----------------------------------------------------------------------------
+
+interface ArtboardStateValue {
     artboards: Artboard[];
-    setArtboards: React.Dispatch<React.SetStateAction<Artboard[]>>;
-    selectedArtboardId: string | null;
-    setSelectedArtboardId: React.Dispatch<React.SetStateAction<string | null>>;
     artboardStackOrder: string[];
+    dataSourceConfig: DataSource | null;
+    autosaveEnabled: boolean;
+}
+
+interface ArtboardSelectionValue {
+    selectedArtboardId: string | null;
+    selectedComponentId: string | null;
+}
+
+interface ArtboardActionValue {
+    setArtboards: React.Dispatch<React.SetStateAction<Artboard[]>>;
+    setSelectedArtboardId: React.Dispatch<React.SetStateAction<string | null>>;
+    setSelectedComponentId: React.Dispatch<React.SetStateAction<string | null>>;
+    setDataSourceConfig: React.Dispatch<React.SetStateAction<DataSource | null>>;
+    setAutosaveEnabled: React.Dispatch<React.SetStateAction<boolean>>;
     bringArtboardToFront: (artboardId: string) => void;
     moveArtboardLayer: (artboardId: string, direction: 'up' | 'down') => void;
     duplicateArtboard: (artboardId: string, count: number) => void;
-    dataSourceConfig: DataSource | null;
-    setDataSourceConfig: React.Dispatch<React.SetStateAction<DataSource | null>>;
-    autosaveEnabled: boolean;
-    setAutosaveEnabled: React.Dispatch<React.SetStateAction<boolean>>;
-    // Component selection
-    selectedComponentId: string | null;
-    setSelectedComponentId: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
-const ArtboardContext = createContext<ArtboardContextValue | undefined>(undefined);
+// Combined type for backward compatibility
+type ArtboardContextValue = ArtboardStateValue & ArtboardSelectionValue & ArtboardActionValue;
+
+const ArtboardStateContext = createContext<ArtboardStateValue | undefined>(undefined);
+const ArtboardSelectionContext = createContext<ArtboardSelectionValue | undefined>(undefined);
+const ArtboardActionContext = createContext<ArtboardActionValue | undefined>(undefined);
+
+// ----------------------------------------------------------------------------
+// 2. Provider Implementation
+// ----------------------------------------------------------------------------
 
 interface InitialData {
     dashboardId?: string;
@@ -66,8 +84,6 @@ const loadArtboards = (initialData?: InitialData): Artboard[] => {
     }
 
     // Fallback to localStorage (DISABLED)
-    // We do not want workspaces to "share" stale local state across different workspace IDs.
-    // The server-provided `initialData` should be the source of truth for workspace content.
     if (!ENABLE_LOCALSTORAGE_FALLBACK || typeof window === 'undefined') {
         return [];
     }
@@ -112,7 +128,9 @@ export function ArtboardProvider({ children, initialData }: ArtboardProviderProp
         if (stored === null) return true;
         return stored === 'true';
     });
+    const [dataSourceConfig, setDataSourceConfig] = useState<DataSource | null>(initialData?.dataSourceConfig || null);
 
+    // Stack order maintenance
     useEffect(() => {
         setArtboardStackOrder((prev) => {
             if (artboards.length === 0) {
@@ -133,8 +151,8 @@ export function ArtboardProvider({ children, initialData }: ArtboardProviderProp
         });
     }, [artboards]);
 
+    // Persistence (if enabled)
     useEffect(() => {
-        // Persisting to localStorage is disabled to prevent cross-workspace leakage.
         if (!ENABLE_LOCALSTORAGE_PERSIST || typeof window === 'undefined') {
             return;
         }
@@ -156,6 +174,13 @@ export function ArtboardProvider({ children, initialData }: ArtboardProviderProp
         };
     }, [artboards]);
 
+    // Autosave preference persistence
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        window.localStorage.setItem(`${AUTOSAVE_STORAGE_PREFIX}${dashboardId}`, String(autosaveEnabled));
+    }, [autosaveEnabled, dashboardId]);
+
+    // Actions
     const bringArtboardToFront = useCallback((artboardId: string) => {
         setArtboardStackOrder((prev) => {
             if (!prev.includes(artboardId)) {
@@ -185,7 +210,6 @@ export function ArtboardProvider({ children, initialData }: ArtboardProviderProp
         });
     }, []);
 
-    // Deep duplicate artboard with new IDs
     const duplicateArtboard = useCallback((artboardId: string, count: number) => {
         setArtboards((prev) => {
             const source = prev.find((a) => a.id === artboardId);
@@ -194,26 +218,23 @@ export function ArtboardProvider({ children, initialData }: ArtboardProviderProp
             const newArtboards: Artboard[] = [];
             const now = new Date().toISOString();
 
-            // Find the rightmost position to append the duplicates
             let maxX = source.position.x;
             prev.forEach((a) => {
                 const right = a.position.x + a.dimensions.widthPx;
                 if (right > maxX) maxX = right;
             });
-            // Start duplicates after the global rightmost element with gap
             let startX = maxX + 100;
 
             for (let i = 0; i < count; i++) {
-                // Deep clone components
                 const newComponents = source.components.map((c) => ({
                     ...c,
-                    instanceId: `component - ${Date.now()} -${Math.random().toString(36).substr(2, 9)} `,
+                    instanceId: `component-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                 }));
 
                 const newArtboard: Artboard = {
                     ...source,
-                    id: `artboard - ${Date.now()} -${Math.random().toString(36).substr(2, 9)} `,
-                    name: `${source.name} Copy${count > 1 ? ` ${i + 1}` : ''} `,
+                    id: `artboard-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    name: `${source.name} Copy${count > 1 ? ` ${i + 1}` : ''}`,
                     position: {
                         x: startX,
                         y: source.position.y,
@@ -221,63 +242,100 @@ export function ArtboardProvider({ children, initialData }: ArtboardProviderProp
                     components: newComponents,
                     createdAt: now,
                     updatedAt: now,
-                    // Reset interaction states
                     locked: false,
                 };
 
                 newArtboards.push(newArtboard);
-                startX += newArtboard.dimensions.widthPx + 100; // Increment for next copy
+                startX += newArtboard.dimensions.widthPx + 100;
             }
 
             return [...prev, ...newArtboards];
         });
     }, []);
 
-    const [dataSourceConfig, setDataSourceConfig] = useState<DataSource | null>(initialData?.dataSourceConfig || null);
+    // ------------------------------------------------------------------------
+    // Memoized Values for Contexts
+    // ------------------------------------------------------------------------
 
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-        window.localStorage.setItem(`${AUTOSAVE_STORAGE_PREFIX}${dashboardId}`, String(autosaveEnabled));
-    }, [autosaveEnabled, dashboardId]);
+    const stateValue = useMemo<ArtboardStateValue>(() => ({
+        artboards,
+        artboardStackOrder,
+        dataSourceConfig,
+        autosaveEnabled,
+    }), [artboards, artboardStackOrder, dataSourceConfig, autosaveEnabled]);
 
-    const value = useMemo<ArtboardContextValue>(
-        () => ({
-            artboards,
-            setArtboards,
-            selectedArtboardId,
-            setSelectedArtboardId,
-            artboardStackOrder,
-            bringArtboardToFront,
-            moveArtboardLayer,
-            duplicateArtboard,
-            dataSourceConfig,
-            setDataSourceConfig,
-            autosaveEnabled,
-            setAutosaveEnabled,
-            selectedComponentId,
-            setSelectedComponentId,
-        }),
-        [
-            artboards,
-            selectedArtboardId,
-            selectedComponentId,
-            artboardStackOrder,
-            bringArtboardToFront,
-            moveArtboardLayer,
-            duplicateArtboard,
-            dataSourceConfig,
-            autosaveEnabled,
-        ],
+    const selectionValue = useMemo<ArtboardSelectionValue>(() => ({
+        selectedArtboardId,
+        selectedComponentId,
+    }), [selectedArtboardId, selectedComponentId]);
+
+    const actionValue = useMemo<ArtboardActionValue>(() => ({
+        setArtboards,
+        setSelectedArtboardId,
+        setSelectedComponentId,
+        setDataSourceConfig,
+        setAutosaveEnabled,
+        bringArtboardToFront,
+        moveArtboardLayer,
+        duplicateArtboard,
+    }), [bringArtboardToFront, moveArtboardLayer, duplicateArtboard]);
+
+    return (
+        <ArtboardActionContext.Provider value={actionValue}>
+            <ArtboardStateContext.Provider value={stateValue}>
+                <ArtboardSelectionContext.Provider value={selectionValue}>
+                    {children}
+                </ArtboardSelectionContext.Provider>
+            </ArtboardStateContext.Provider>
+        </ArtboardActionContext.Provider>
     );
-
-    return <ArtboardContext.Provider value={value}>{children}</ArtboardContext.Provider>;
 }
 
-export function useArtboardContext() {
-    const context = useContext(ArtboardContext);
+// ----------------------------------------------------------------------------
+// 3. Hooks
+// ----------------------------------------------------------------------------
+
+export function useArtboardState() {
+    const context = useContext(ArtboardStateContext);
     if (!context) {
-        throw new Error('useArtboardContext must be used within an ArtboardProvider');
+        throw new Error('useArtboardState must be used within an ArtboardProvider');
     }
     return context;
 }
 
+export function useArtboardSelection() {
+    const context = useContext(ArtboardSelectionContext);
+    if (!context) {
+        throw new Error('useArtboardSelection must be used within an ArtboardProvider');
+    }
+    return context;
+}
+
+export function useArtboardActions() {
+    const context = useContext(ArtboardActionContext);
+    if (!context) {
+        throw new Error('useArtboardActions must be used within an ArtboardProvider');
+    }
+    return context;
+}
+
+/**
+ * @deprecated Use useArtboardState, useArtboardSelection, or useArtboardActions instead.
+ * This hook is maintained for backward compatibility during migration.
+ */
+export function useArtboardContext(): ArtboardContextValue {
+    const state = useContext(ArtboardStateContext);
+    const selection = useContext(ArtboardSelectionContext);
+    const actions = useContext(ArtboardActionContext);
+
+    if (!state || !selection || !actions) {
+        throw new Error('useArtboardContext must be used within an ArtboardProvider');
+    }
+
+    // Combine all contexts into one object to match the old interface
+    return {
+        ...state,
+        ...selection,
+        ...actions,
+    };
+}

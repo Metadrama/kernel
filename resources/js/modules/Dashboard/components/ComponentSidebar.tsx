@@ -3,7 +3,7 @@
  */
 
 import { Button } from '@/modules/DesignSystem/ui/button';
-import { useArtboardContext } from '@/modules/Artboard/context/ArtboardContext';
+import { useArtboardState, useArtboardSelection, useArtboardActions } from '@/modules/Artboard/context/ArtboardContext';
 import { useResizable } from '@/modules/DesignSystem/hooks/useResizable';
 import { PanelLeft, PanelLeftClose } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -11,17 +11,15 @@ import { ComponentsPanel, LayersPanel } from '.';
 import { ComponentContextMenuActions } from './ComponentContextMenu';
 
 export default function ComponentSidebar() {
+    const { artboards, artboardStackOrder } = useArtboardState();
+    const { selectedArtboardId, selectedComponentId } = useArtboardSelection();
     const {
-        artboards,
         setArtboards,
-        selectedArtboardId,
         setSelectedArtboardId,
-        selectedComponentId,
         setSelectedComponentId,
-        artboardStackOrder,
         bringArtboardToFront,
-        moveArtboardLayer
-    } = useArtboardContext();
+        moveArtboardLayer,
+    } = useArtboardActions();
 
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [activePanel, setActivePanel] = useState<'components' | 'layers'>('components');
@@ -103,7 +101,7 @@ export default function ComponentSidebar() {
             } : a)));
             // We need to check the current value from the callback or ref, but here we only have the closure value.
             // Since we depend on selectedComponentId in the useCallback array, it's fine.
-             setSelectedComponentId((currentId) => currentId === componentId ? null : currentId);
+            setSelectedComponentId((currentId) => currentId === componentId ? null : currentId);
         },
     }), [setArtboards, setSelectedComponentId]);
 

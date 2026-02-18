@@ -1,6 +1,6 @@
 import { MOCK_CHART_DATA, useGoogleSheetsData } from '@/modules/Widgets/hooks/useGoogleSheetsChartData';
 import type { TableConfig, TableColumnConfig, GoogleSheetsDataSource } from '@/modules/DataLayer/types/component-config';
-import { useArtboardContext } from '@/modules/Artboard/context/ArtboardContext';
+import { useArtboardState } from '@/modules/Artboard/context/ArtboardContext';
 import { Loader2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { cn } from '@/modules/DesignSystem/lib/utils';
@@ -70,7 +70,7 @@ export default function TableComponent({ config }: TableComponentProps) {
   const safeConfig = config || { dataSource: { type: 'static' }, columns: [] };
 
   // Merge Global Data Source
-  const { dataSourceConfig: globalDataSource } = useArtboardContext();
+  const { dataSourceConfig: globalDataSource } = useArtboardState();
   const localDataSource = safeConfig.dataSource || {};
 
   const dataSource = useMemo(() => {

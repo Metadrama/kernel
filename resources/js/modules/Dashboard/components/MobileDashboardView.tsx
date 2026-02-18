@@ -1,12 +1,10 @@
 ﻿import { useMemo } from 'react';
-import { useArtboardContext } from '@/modules/Artboard/context/ArtboardContext';
+import { useArtboardState, useArtboardSelection } from '@/modules/Artboard/context/ArtboardContext';
 import { DirectComponent } from '@/modules/Artboard/components/DirectComponent';
 
 export default function MobileDashboardView() {
-    const {
-        artboards,
-        selectedArtboardId,
-    } = useArtboardContext();
+    const { artboards } = useArtboardState();
+    const { selectedArtboardId } = useArtboardSelection();
 
     // Pick active artboard or first one
     const activeArtboard = useMemo(() => {

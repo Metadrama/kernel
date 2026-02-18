@@ -1,6 +1,6 @@
 import { MOCK_CHART_DATA, useGoogleSheetsData } from '@/modules/Widgets/hooks/useGoogleSheetsChartData';
 import type { BarChartConfig, ChartConfig, ComboChartConfig, DoughnutChartConfig, GoogleSheetsDataSource, LineChartConfig } from '@/modules/DataLayer/types/component-config';
-import { useArtboardContext } from '@/modules/Artboard/context/ArtboardContext';
+import { useArtboardState } from '@/modules/Artboard/context/ArtboardContext';
 import { Loader2 } from 'lucide-react';
 import { memo, useMemo } from 'react';
 import {
@@ -145,7 +145,7 @@ function ChartComponent({ config, isSelected }: ChartComponentProps) {
     const safeConfig = config || { chartType: 'line', dataSource: { type: 'static' } };
 
     // Merge Global Data Source
-    const { dataSourceConfig: globalDataSource } = useArtboardContext();
+    const { dataSourceConfig: globalDataSource } = useArtboardState();
     const localDataSource = safeConfig.dataSource || EMPTY_DATA_SOURCE;
 
     const dataSource = useMemo(() => {

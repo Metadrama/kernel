@@ -1,6 +1,6 @@
 import { MOCK_CHART_DATA, useGoogleSheetsData } from '@/modules/Widgets/hooks/useGoogleSheetsChartData';
 import type { KpiConfig, GoogleSheetsDataSource } from '@/modules/DataLayer/types/component-config';
-import { useArtboardContext } from '@/modules/Artboard/context/ArtboardContext';
+import { useArtboardState } from '@/modules/Artboard/context/ArtboardContext';
 import { Loader2, TrendingDown, TrendingUp } from 'lucide-react';
 import { useMemo } from 'react';
 
@@ -59,7 +59,7 @@ export default function KpiComponent({ config }: KpiComponentProps) {
   const safeConfig = config || { dataSource: { type: 'static' } };
 
   // Merge Global Data Source
-  const { dataSourceConfig: globalDataSource } = useArtboardContext();
+  const { dataSourceConfig: globalDataSource } = useArtboardState();
   const localDataSource = safeConfig.dataSource || {};
 
   const dataSource = useMemo(() => {
