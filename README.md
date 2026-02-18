@@ -21,7 +21,7 @@ Think of it less like a static webpage and more like a **trading terminal** or a
 
 ### Current Features
 - 📐 **Multi-Format Artboards**: Create dashboards for print (A4, A3, A2), presentations (16:9, 4:3), web, display/TV (FHD, 4K), and mobile formats
-- 🧱 **Drag & Drop Widget System**: Powered by GridStack for smooth collision detection, snapping, and dragging
+- 🎨 **Infinite Canvas**: Custom high-performance layout engine with smart snapping and alignment guides
 - 📊 **Chart Components**: Line, Bar, and Doughnut charts using Chart.js with multiple color palettes
 - 📝 **Text Components**: Editable headings for dashboard titles and labels
 - 📋 **Google Sheets Integration**: Connect charts to live Google Sheets data sources
@@ -44,12 +44,52 @@ Think of it less like a static webpage and more like a **trading terminal** or a
 | **Bridge** | Inertia.js | SPA-like experience without separate REST API |
 | **Frontend** | React 19 | UI rendering and interactivity |
 | **UI Components** | Radix UI + Tailwind CSS 4 | Polished, accessible component library |
-| **Grid Layout** | GridStack | Drag-and-drop, collision detection, widget positioning |
+| **Layout Engine** | Custom (React) | Infinite canvas, alignment guides, collision handling |
 | **Charts** | Chart.js + react-chartjs-2 | Data visualization |
 | **Build Tool** | Vite 7 | Fast development and production builds |
 | **Type Safety** | TypeScript | Static typing for React components |
 
-## 📁 Project Structure
+## 🏗️ Architecture
+53: 
+54: ### Frontend State Management
+55: 
+56: The application uses a split-context architecture to optimize performance and prevent unnecessary re-renders.
+57: 
+58: ```mermaid
+59: graph TD
+60:     subgraph "Context Layer"
+61:         State[State Context<br/>(Heavy Data)]
+62:         Select[Selection Context<br/>(UI State)]
+63:         Action[Action Context<br/>(Stable Dispatch)]
+64:     end
+65: 
+66:     subgraph "UI Components"
+67:         Sidebar[Component Sidebar]
+68:         Inspector[Inspector Panel]
+69:     end
+70: 
+71:     subgraph "Canvas Layer"
+72:         Canvas[Infinite Canvas]
+73:         Widgets[Widgets<br/>(Charts, KPIs)]
+74:     end
+75: 
+76:     State -->|Updates| Canvas
+77:     State -->|Updates| Widgets
+78:     
+79:     Select -->|Updates| Sidebar
+80:     Select -->|Updates| Inspector
+81:     
+82:     Action -.->|Events| Sidebar
+83:     Action -.->|Events| Inspector
+84:     Action -.->|Events| Canvas
+85: ```
+86: 
+87: ### Performance Features
+88: - **Split Contexts**: Heavy data state is isolated from high-frequency selection state.
+89: - **Lazy Loading**: Major route components (`ArtboardCanvas`, `Sidebar`) are code-split and lazy loaded.
+90: - **Conditional Hydration**: Mobile and Desktop views are conditionally hydrated to minimize TBT (Total Blocking Time).
+91: 
+92: ## 📁 Project Structure
 
 ```
 kernel/
@@ -214,7 +254,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - [Laravel](https://laravel.com/) - The PHP framework
 - [Inertia.js](https://inertiajs.com/) - The modern monolith
-- [GridStack](https://gridstackjs.com/) - Dashboard layout engine
 - [Chart.js](https://www.chartjs.org/) - Charting library
 - [Radix UI](https://www.radix-ui.com/) - Accessible component primitives
 - [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS

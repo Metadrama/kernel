@@ -1,11 +1,14 @@
-﻿import ComponentSidebar from '@/modules/Dashboard/components/ComponentSidebar';
-import ArtboardCanvas from '@/modules/Artboard/components/ArtboardCanvas';
-import MobileDashboardView from '@/modules/Dashboard/components/MobileDashboardView';
+﻿import type { DashboardLayout } from '@/modules/Dashboard/types/dashboard';
+import { Head } from '@inertiajs/react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { ArtboardProvider } from '@/modules/Artboard/context/ArtboardContext';
 import { DragDropProvider } from '@/modules/Artboard/context/DragDropContext';
-import type { DashboardLayout } from '@/modules/Dashboard/types/dashboard';
-import { Head } from '@inertiajs/react';
-import { useEffect } from 'react';
+import { useMediaQuery } from '@/modules/DesignSystem/hooks/useMediaQuery';
+import { Loader2 } from 'lucide-react';
+
+const ComponentSidebar = lazy(() => import('@/modules/Dashboard/components/ComponentSidebar'));
+const ArtboardCanvas = lazy(() => import('@/modules/Artboard/components/ArtboardCanvas'));
+const MobileDashboardView = lazy(() => import('@/modules/Dashboard/components/MobileDashboardView'));
 
 interface SavedDashboard {
     id: string;
@@ -21,7 +24,22 @@ interface DashboardProps {
 
 const LAST_WORKSPACE_KEY = 'last-workspace-id';
 
+function DashboardSkeleton() {
+    return (
+        <div className="flex h-screen items-center justify-center bg-background text-muted-foreground">
+            <Loader2 className="h-8 w-8 animate-spin" />
+            <span className="ml-2 text-sm font-medium">Loading Workspace...</span>
+        </div>
+    );
+}
+
 export default function Dashboard({ currentDashboard }: DashboardProps) {
+    // Media query matches Tailwind's 'md' breakpoint (768px)
+    // Note: Default to true (Desktop) for SSR to match the most common use case 
+    // or handle hydration mismatch carefully.
+    // For now, we'll let it hydrate.
+    const isDesktop = useMediaQuery('(min-width: 768px)');
+
     // Prepare initial data from server props
     const initialData = currentDashboard
         ? {
@@ -63,16 +81,18 @@ export default function Dashboard({ currentDashboard }: DashboardProps) {
             <Head title="Dashboard Builder" />
             <ArtboardProvider initialData={initialData}>
                 <DragDropProvider>
-                    {/* Desktop View */}
-                    <div className="hidden h-screen overflow-hidden bg-background md:flex">
-                        <ComponentSidebar />
-                        <ArtboardCanvas />
-                    </div>
-
-                    {/* Mobile View */}
-                    <div className="flex h-screen overflow-hidden bg-background md:hidden">
-                        <MobileDashboardView />
-                    </div>
+                    <Suspense fallback={<DashboardSkeleton />}>
+                        {isDesktop ? (
+                            <div className="flex h-screen overflow-hidden bg-background">
+                                <ComponentSidebar />
+                                <ArtboardCanvas />
+                            </div>
+                        ) : (
+                            <div className="flex h-screen overflow-hidden bg-background">
+                                <MobileDashboardView />
+                            </div>
+                        )}
+                    </Suspense>
                 </DragDropProvider>
             </ArtboardProvider>
         </>
