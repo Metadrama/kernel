@@ -2,7 +2,7 @@ import { MOCK_CHART_DATA, useGoogleSheetsData } from '@/modules/Widgets/hooks/us
 import type { BarChartConfig, ChartConfig, ComboChartConfig, DoughnutChartConfig, GoogleSheetsDataSource, LineChartConfig } from '@/modules/DataLayer/types/component-config';
 import { useArtboardContext } from '@/modules/Artboard/context/ArtboardContext';
 import { Loader2 } from 'lucide-react';
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import {
     Bar,
     CartesianGrid,
@@ -76,6 +76,62 @@ function formatNumber(value: number, options?: { compact?: boolean; decimals?: n
 }
 
 // ============================================================================
+// Stable empty object to prevent useMemo invalidation
+// ============================================================================
+
+const EMPTY_DATA_SOURCE = {} as const;
+
+// ============================================================================
+// CustomTooltip — extracted to module level to prevent unmount/remount
+// ============================================================================
+
+interface CustomTooltipProps {
+    active?: boolean;
+    payload?: any[];
+    label?: string;
+    safeConfig: ChartConfig;
+    dataSourceCurrency?: string;
+    isLineSwapAxes: boolean;
+}
+
+function CustomTooltip({ active, payload, label, safeConfig, dataSourceCurrency, isLineSwapAxes }: CustomTooltipProps) {
+    if (active && payload && payload.length) {
+        const resolvedLabel = payload[0]?.payload?.label ?? label;
+        return (
+            <div className="rounded-lg border bg-popover/95 px-3 py-2 shadow-xl backdrop-blur-sm">
+                <p className="mb-2 text-xs font-semibold text-foreground">{resolvedLabel}</p>
+                {payload.map((entry: any, index: number) => (
+                    <div key={index} className="flex items-center gap-2 text-xs">
+                        <div className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }} />
+                        <span className="text-muted-foreground capitalize">{entry.name}:</span>
+                        <span className="font-mono font-medium">
+                            {(() => {
+                                const isSecondary = entry.dataKey === 'secondaryValue' || entry.name === 'Trend';
+                                const axisConfig = isSecondary
+                                    ? (safeConfig as ComboChartConfig).rightAxis
+                                    : (isLineSwapAxes ? (safeConfig as any).xAxis : (safeConfig as any).yAxis);
+                                const style = axisConfig?.formatType === 'currency'
+                                    ? 'currency'
+                                    : axisConfig?.formatType === 'percent'
+                                        ? 'percent'
+                                        : 'decimal';
+
+                                return formatNumber(entry.value, {
+                                    style,
+                                    currency: axisConfig?.currencyCode || dataSourceCurrency || 'USD',
+                                    decimals: axisConfig?.decimals,
+                                });
+                            })()}
+                        </span>
+                    </div>
+                ))}
+            </div>
+        );
+    }
+    return null;
+}
+
+// ============================================================================
 // Component
 // ============================================================================
 
@@ -84,13 +140,13 @@ interface ChartComponentProps {
     isSelected?: boolean;
 }
 
-export default function ChartComponent({ config, isSelected }: ChartComponentProps) {
+function ChartComponent({ config, isSelected }: ChartComponentProps) {
     // Validate config and provide safe defaults
     const safeConfig = config || { chartType: 'line', dataSource: { type: 'static' } };
 
     // Merge Global Data Source
     const { dataSourceConfig: globalDataSource } = useArtboardContext();
-    const localDataSource = safeConfig.dataSource || {};
+    const localDataSource = safeConfig.dataSource || EMPTY_DATA_SOURCE;
 
     const dataSource = useMemo(() => {
         if (!globalDataSource) return localDataSource;
@@ -195,7 +251,7 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
 
     // Chart Type Specifics
     const isHorizontal = (safeConfig as BarChartConfig).horizontal;
-    const isLineSwapAxes = safeConfig.chartType === 'line' && (safeConfig as LineChartConfig).swapAxes;
+    const isLineSwapAxes = safeConfig.chartType === 'line' && !!(safeConfig as LineChartConfig).swapAxes;
 
     // Axis Formatters
     const getAxisFormatter = (axisConfig?: { formatType?: string; currencyCode?: string; decimals?: number }) => {
@@ -219,6 +275,7 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
     const yAxisFormatter = getAxisFormatter((safeConfig as any).yAxis);
     const rightAxisFormatter = getAxisFormatter((safeConfig as ComboChartConfig).rightAxis);
 
+    // Axis label text
     const xAxisLabelText = isLineSwapAxes ? (safeConfig as any).yAxis?.label : (safeConfig as any).xAxis?.label;
     const yAxisLabelText = isLineSwapAxes ? (safeConfig as any).xAxis?.label : (safeConfig as any).yAxis?.label;
 
@@ -234,44 +291,6 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
     };
 
     const legendProps = getLegendProps((safeConfig as any).legendPosition);
-
-    // Common Tooltip
-    const CustomTooltip = ({ active, payload, label }: any) => {
-        if (active && payload && payload.length) {
-            const resolvedLabel = payload[0]?.payload?.label ?? label;
-            return (
-                <div className="rounded-lg border bg-popover/95 px-3 py-2 shadow-xl backdrop-blur-sm">
-                    <p className="mb-2 text-xs font-semibold text-foreground">{resolvedLabel}</p>
-                    {payload.map((entry: any, index: number) => (
-                        <div key={index} className="flex items-center gap-2 text-xs">
-                            <div className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }} />
-                            <span className="text-muted-foreground capitalize">{entry.name}:</span>
-                            <span className="font-mono font-medium">
-                                {(() => {
-                                    const isSecondary = entry.dataKey === 'secondaryValue' || entry.name === 'Trend';
-                                    const axisConfig = isSecondary
-                                        ? (safeConfig as ComboChartConfig).rightAxis
-                                        : (isLineSwapAxes ? (safeConfig as any).xAxis : (safeConfig as any).yAxis);
-                                    const style = axisConfig?.formatType === 'currency'
-                                        ? 'currency'
-                                        : axisConfig?.formatType === 'percent'
-                                            ? 'percent'
-                                            : 'decimal';
-
-                                    return formatNumber(entry.value, {
-                                        style,
-                                        currency: axisConfig?.currencyCode || dataSourceCurrency || 'USD',
-                                        decimals: axisConfig?.decimals,
-                                    });
-                                })()}
-                            </span>
-                        </div>
-                    ))}
-                </div>
-            );
-        }
-        return null;
-    };
 
     // ------------------------------------------------------------------------
     // RENDER: Cartesian Charts (Line, Bar, Combo, Area)
@@ -369,7 +388,7 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
                         />
                     )}
 
-                    <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted)/0.2)' }} />
+                    <Tooltip content={<CustomTooltip safeConfig={safeConfig} dataSourceCurrency={dataSourceCurrency} isLineSwapAxes={isLineSwapAxes} />} cursor={{ fill: 'hsl(var(--muted)/0.2)' }} />
                     {(safeConfig.showLegend ?? false) && <Legend {...legendProps} />}
 
                     {/* BAR SERIES */}
@@ -442,7 +461,7 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
                             <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
                         ))}
                     </Pie>
-                    <Tooltip content={<CustomTooltip />} />
+                    <Tooltip content={<CustomTooltip safeConfig={safeConfig} dataSourceCurrency={dataSourceCurrency} isLineSwapAxes={isLineSwapAxes} />} />
                     {(safeConfig.showLegend ?? false) && <Legend {...legendProps} />}
                 </PieChart>
             </ResponsiveContainer>
@@ -452,4 +471,4 @@ export default function ChartComponent({ config, isSelected }: ChartComponentPro
     return <div>Unknown Chart Type</div>;
 }
 
-
+export default memo(ChartComponent);

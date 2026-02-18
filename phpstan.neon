@@ -1,0 +1,13 @@
+includes:
+  - vendor/larastan/larastan/extension.neon
+
+parameters:
+  paths:
+    - app/
+
+  level: 5
+
+  tmpDir: .phpstan-cache
+
+  parallel:
+    maximumNumberOfProcesses: 1

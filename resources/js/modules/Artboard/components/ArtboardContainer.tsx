@@ -9,6 +9,7 @@ import { useArtboardDrag } from '@/modules/Artboard/hooks/useArtboardDrag';
 import { useDragDropHandler } from '@/modules/Artboard/hooks/useDragDropHandler';
 import { getDefaultSize } from '@/modules/Artboard/lib/component-sizes';
 import type { Artboard, ArtboardComponent } from '@/modules/Artboard/types/artboard';
+import type { AlignmentGuide } from '@/modules/Artboard/lib/alignment-helpers';
 import { Lock, Trash2, Unlock } from 'lucide-react';
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import AlignmentGuidesOverlay from './AlignmentGuidesOverlay';
@@ -196,6 +197,16 @@ function ArtboardContainer({
         [artboard.components, artboard.id, onUpdate]
     );
 
+    // Axis-specific flip callbacks for stable references
+    const flipComponentX = useCallback(
+        (instanceId: string) => flipComponent(instanceId, 'x'),
+        [flipComponent]
+    );
+    const flipComponentY = useCallback(
+        (instanceId: string) => flipComponent(instanceId, 'y'),
+        [flipComponent]
+    );
+
     // Live position during drag/resize for internal alignment guides
     const [internalGuides, setInternalGuides] = useState<AlignmentGuide[]>([]);
 
@@ -326,26 +337,19 @@ function ArtboardContainer({
                                     scaleWithZoom={scaleWithZoom}
                                     siblingBounds={siblingBounds}
                                     onGuidesChange={setInternalGuides}
-                                    onSelect={() => {
-                                        onSelectComponent?.(component.instanceId);
-                                    }}
-                                    onPositionChange={(pos) => updateComponentPosition(component.instanceId, pos)}
-                                    onLivePositionChange={(pos) => {
-                                        if (pos) {
-                                            onLivePositionChange?.({ componentId: component.instanceId, position: pos });
-                                        } else {
-                                            onLivePositionChange?.(null);
-                                        }
-                                    }}
-                                    onConfigChange={(config) => updateComponentConfig(component.instanceId, config)}
-                                    onDelete={() => deleteComponent(component.instanceId)}
-                                    onZOrderChange={(op) => updateComponentZOrder(component.instanceId, op)}
-                                    onCopy={() => onCopyComponent?.(component.instanceId)}
-                                    onPaste={() => onPasteComponent?.(artboard.id)}
-                                    onToggleVisibility={() => toggleComponentVisibility(component.instanceId)}
-                                    onToggleLock={() => toggleComponentLock(component.instanceId)}
-                                    onFlipHorizontal={() => flipComponent(component.instanceId, 'x')}
-                                    onFlipVertical={() => flipComponent(component.instanceId, 'y')}
+                                    artboardId={artboard.id}
+                                    onSelect={onSelectComponent!}
+                                    onPositionChange={updateComponentPosition}
+                                    onLivePositionChange={onLivePositionChange}
+                                    onConfigChange={updateComponentConfig}
+                                    onDelete={deleteComponent}
+                                    onZOrderChange={updateComponentZOrder}
+                                    onCopy={onCopyComponent}
+                                    onPaste={onPasteComponent}
+                                    onToggleVisibility={toggleComponentVisibility}
+                                    onToggleLock={toggleComponentLock}
+                                    onFlipHorizontal={flipComponentX}
+                                    onFlipVertical={flipComponentY}
                                     hasClipboard={hasClipboard}
                                 />
                             ))}

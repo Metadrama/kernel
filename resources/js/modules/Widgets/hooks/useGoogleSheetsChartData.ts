@@ -196,7 +196,16 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
       headerRow: dataSource.headerRow,
       dataStartRow: dataSource.dataStartRow,
     });
-  }, [dataSource]);
+  }, [
+    dataSource.spreadsheetId,
+    dataSource.sheetName,
+    dataSource.labelColumn,
+    dataSource.valueColumn,
+    dataSource.filterColumn,
+    dataSource.filterValue,
+    dataSource.headerRow,
+    dataSource.dataStartRow,
+  ]);
 
   useEffect(() => {
     const {
@@ -221,6 +230,8 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
     }
 
     let cancelled = false;
+    const controller = new AbortController();
+    const { signal } = controller;
 
     async function fetchData() {
       setLoading(true);
@@ -235,6 +246,7 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
         const headerResponse = await fetch('/api/sheets/read', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal,
           body: JSON.stringify({
             spreadsheet_id: spreadsheetId,
             range: headerRange,
@@ -272,6 +284,7 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
         const dataResponse = await fetch('/api/sheets/read', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal,
           body: JSON.stringify({
             spreadsheet_id: spreadsheetId,
             range: dataRange,
@@ -587,6 +600,7 @@ export function useGoogleSheetsData(options: UseGoogleSheetsOptions): UseGoogleS
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [configKey, effectiveAggregation, sortBy, sortOrder, limit, showOther, secondValueColumn, fetchKey]);
 

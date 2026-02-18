@@ -8,7 +8,7 @@
  * - Component rendering
  */
 
-import { memo, useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 import { cn } from '@/modules/DesignSystem/lib/utils';
 import type { ArtboardComponent } from '@/modules/Artboard/types/artboard';
 import type { ComponentBounds, AlignmentGuide } from '@/modules/Artboard/lib/alignment-helpers';
@@ -50,23 +50,24 @@ interface DirectComponentProps {
     scaleWithZoom: boolean;
     siblingBounds?: ComponentBounds[];
     onGuidesChange?: (guides: AlignmentGuide[]) => void;
-    onSelect: () => void;
-    onPositionChange: (position: { x: number; y: number; width: number; height: number }) => void;
-    onLivePositionChange?: (position: { x: number; y: number; width: number; height: number } | null) => void;
-    onConfigChange?: (config: Record<string, unknown>) => void;
-    onDelete: () => void;
-    onZOrderChange?: (operation: 'front' | 'forward' | 'back' | 'backward') => void;
-    // Context menu actions passed from parent
-    onCopy?: () => void;
-    onPaste?: () => void;
-    onToggleVisibility?: () => void;
-    onToggleLock?: () => void;
-    onFlipHorizontal?: () => void;
-    onFlipVertical?: () => void;
+    // Callbacks now accept componentId as first arg for stable references
+    onSelect: (componentId: string) => void;
+    onPositionChange: (componentId: string, position: { x: number; y: number; width: number; height: number }) => void;
+    onLivePositionChange?: (data: { componentId: string; position: { x: number; y: number; width: number; height: number } } | null) => void;
+    onConfigChange?: (componentId: string, config: Record<string, unknown>) => void;
+    onDelete: (componentId: string) => void;
+    onZOrderChange?: (componentId: string, operation: 'front' | 'forward' | 'back' | 'backward') => void;
+    onCopy?: (componentId: string) => void;
+    onPaste?: (artboardId: string) => void;
+    onToggleVisibility?: (componentId: string) => void;
+    onToggleLock?: (componentId: string) => void;
+    onFlipHorizontal?: (componentId: string) => void;
+    onFlipVertical?: (componentId: string) => void;
     hasClipboard?: boolean;
+    artboardId: string;
 }
 
-export function DirectComponent({
+export const DirectComponent = memo(function DirectComponent({
     component,
     isSelected,
     scale,
@@ -86,23 +87,57 @@ export function DirectComponent({
     onFlipHorizontal,
     onFlipVertical,
     hasClipboard,
+    artboardId,
 }: DirectComponentProps) {
     const { position, componentType, locked, hidden, flipX, flipY } = component;
+    const instanceId = component.instanceId;
 
     // Hidden components are invisible but still occupy space in the DOM
     if (hidden && !isSelected) return null;
+
+    // Stable internal callbacks that bind instanceId
+    const handleSelect = useCallback(() => onSelect(instanceId), [onSelect, instanceId]);
+    const handlePositionChange = useCallback(
+        (pos: { x: number; y: number; width: number; height: number }) => onPositionChange(instanceId, pos),
+        [onPositionChange, instanceId]
+    );
+    const handleLivePositionChange = useCallback(
+        (pos: { x: number; y: number; width: number; height: number } | null) => {
+            if (pos) {
+                onLivePositionChange?.({ componentId: instanceId, position: pos });
+            } else {
+                onLivePositionChange?.(null);
+            }
+        },
+        [onLivePositionChange, instanceId]
+    );
+    const handleConfigChange = useCallback(
+        (config: Record<string, unknown>) => onConfigChange?.(instanceId, config),
+        [onConfigChange, instanceId]
+    );
+    const handleDelete = useCallback(() => onDelete(instanceId), [onDelete, instanceId]);
+    const handleZOrderChange = useCallback(
+        (op: 'front' | 'forward' | 'back' | 'backward') => onZOrderChange?.(instanceId, op),
+        [onZOrderChange, instanceId]
+    );
+    const handleCopy = useCallback(() => onCopy?.(instanceId), [onCopy, instanceId]);
+    const handlePaste = useCallback(() => onPaste?.(artboardId), [onPaste, artboardId]);
+    const handleToggleVisibility = useCallback(() => onToggleVisibility?.(instanceId), [onToggleVisibility, instanceId]);
+    const handleToggleLock = useCallback(() => onToggleLock?.(instanceId), [onToggleLock, instanceId]);
+    const handleFlipH = useCallback(() => onFlipHorizontal?.(instanceId), [onFlipHorizontal, instanceId]);
+    const handleFlipV = useCallback(() => onFlipVertical?.(instanceId), [onFlipVertical, instanceId]);
 
     // Use extracted interaction hook for drag & resize
     const { isDragging, isResizing, displayRect, handleMouseDown, handleResizeStart } = useComponentInteraction({
         position,
         componentType,
-        componentId: component.instanceId,
+        componentId: instanceId,
         locked: !!locked,
         scale,
         siblingBounds,
-        onSelect,
-        onPositionChange,
-        onLivePositionChange,
+        onSelect: handleSelect,
+        onPositionChange: handlePositionChange,
+        onLivePositionChange: handleLivePositionChange,
         onGuidesChange,
     });
 
@@ -113,12 +148,12 @@ export function DirectComponent({
     const inverseScale = scaleWithZoom ? 1 : (scale === 0 ? 1 : 1 / scale);
 
     // Handle auto-resize requests from components (like text)
-    const handleDimensionsChange = (dims: { width?: number; height?: number }) => {
-        onPositionChange({
+    const handleDimensionsChange = useCallback((dims: { width?: number; height?: number }) => {
+        handlePositionChange({
             ...position,
             ...dims,
         });
-    };
+    }, [handlePositionChange, position]);
 
     // Build the flip transform for the content
     const flipTransform = [
@@ -131,20 +166,20 @@ export function DirectComponent({
 
     return (
         <ComponentContextMenu
-            onZOrderChange={onZOrderChange}
-            onDelete={onDelete}
-            onCopy={onCopy}
-            onPaste={onPaste}
-            onToggleVisibility={onToggleVisibility}
-            onToggleLock={onToggleLock}
-            onFlipHorizontal={onFlipHorizontal}
-            onFlipVertical={onFlipVertical}
+            onZOrderChange={handleZOrderChange}
+            onDelete={handleDelete}
+            onCopy={handleCopy}
+            onPaste={handlePaste}
+            onToggleVisibility={handleToggleVisibility}
+            onToggleLock={handleToggleLock}
+            onFlipHorizontal={handleFlipH}
+            onFlipVertical={handleFlipV}
             isLocked={!!locked}
             isHidden={!!hidden}
             hasClipboard={hasClipboard}
         >
             <div
-                data-component-id={component.instanceId}
+                data-component-id={instanceId}
                 className={cn(
                     'absolute select-none',
                     'transition-all duration-150 ease-out',
@@ -210,14 +245,14 @@ export function DirectComponent({
                     <MemoizedComponentContent
                         componentType={componentType}
                         config={component.config as Record<string, unknown>}
-                        onConfigChange={onConfigChange}
+                        onConfigChange={handleConfigChange}
                         onDimensionsChange={handleDimensionsChange}
                     />
                 </div>
             </div>
         </ComponentContextMenu>
     );
-}
+});
 
 
 

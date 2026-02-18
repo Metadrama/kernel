@@ -14,7 +14,7 @@ import { CONFIG_GROUPS, getConfigSchema, type ConfigGroupId } from '@/modules/Da
 import type { ArtboardComponent, ComponentPosition } from '@/modules/Artboard/types/artboard';
 import * as Icons from 'lucide-react';
 import { Settings2, X, Move } from 'lucide-react';
-import { useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import { FieldRenderer } from './FieldRenderer';
 import { PositionSection } from './PositionSection';
 
@@ -318,6 +318,5 @@ export function ComponentInspector({ component, onConfigChange, onPositionChange
     );
 }
 
-export default ComponentInspector;
-
+export default memo(ComponentInspector);
 

@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'google' => [
+        'verify_ssl' => env('GOOGLE_SHEETS_VERIFY_SSL', true),
+    ],
+
 ];

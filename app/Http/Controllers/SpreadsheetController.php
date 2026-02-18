@@ -43,7 +43,7 @@ class SpreadsheetController extends Controller
         try {
             $spreadsheet = $this->spreadsheetService->get($id);
 
-            if (!$spreadsheet) {
+            if (! $spreadsheet) {
                 return response()->json([
                     'success' => false,
                     'error' => 'Spreadsheet not found',
@@ -114,7 +114,7 @@ class SpreadsheetController extends Controller
                 'url' => $request->input('url'),
             ]);
 
-            if (!$spreadsheet) {
+            if (! $spreadsheet) {
                 return response()->json([
                     'success' => false,
                     'error' => 'Spreadsheet not found',
@@ -141,7 +141,7 @@ class SpreadsheetController extends Controller
         try {
             $deleted = $this->spreadsheetService->delete($id);
 
-            if (!$deleted) {
+            if (! $deleted) {
                 return response()->json([
                     'success' => false,
                     'error' => 'Spreadsheet not found',

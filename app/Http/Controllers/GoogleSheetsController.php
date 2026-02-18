@@ -23,7 +23,7 @@ class GoogleSheetsController extends Controller
         $spreadsheetId = $request->query('spreadsheet_id');
         $range = $request->query('range', 'Sheet1!A1:E10');
 
-        if (!$spreadsheetId) {
+        if (! $spreadsheetId) {
             return response()->json([
                 'success' => false,
                 'error' => 'Missing spreadsheet_id parameter. Usage: /api/sheets/test?spreadsheet_id=YOUR_SPREADSHEET_ID&range=Sheet1!A1:E10',
@@ -31,14 +31,14 @@ class GoogleSheetsController extends Controller
                     'spreadsheet_id' => 'The ID from the Google Sheets URL (e.g., from https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit)',
                     'range' => 'Optional. A1 notation range to read (default: Sheet1!A1:E10)',
                     'note' => 'Make sure to share the spreadsheet with the service account email from your google-service-account.json file',
-                ]
+                ],
             ], 400);
         }
 
         try {
             // Get metadata first
             $metadata = $this->sheetsService->getMetadata($spreadsheetId);
-            
+
             // Read the specified range
             $data = $this->sheetsService->read($spreadsheetId, $range);
 
@@ -47,7 +47,7 @@ class GoogleSheetsController extends Controller
                 'spreadsheet' => [
                     'id' => $metadata['spreadsheetId'],
                     'title' => $metadata['title'],
-                    'sheets' => array_map(fn($s) => $s['title'], $metadata['sheets']),
+                    'sheets' => array_map(fn ($s) => $s['title'], $metadata['sheets']),
                 ],
                 'range' => $range,
                 'data' => $data,
@@ -62,7 +62,7 @@ class GoogleSheetsController extends Controller
                     'Ensure the spreadsheet is shared with the service account email',
                     'Verify the range format is correct (e.g., Sheet1!A1:D10)',
                     'Check that google-service-account.json exists in storage/app/',
-                ]
+                ],
             ], 500);
         }
     }
@@ -102,9 +102,10 @@ class GoogleSheetsController extends Controller
     public function write(Request $request): JsonResponse
     {
         $request->validate([
-            'spreadsheet_id' => 'required|string',
-            'range' => 'required|string',
-            'values' => 'required|array',
+            'spreadsheet_id' => ['required', 'string', 'regex:/^[a-zA-Z0-9_-]+$/'],
+            'range' => 'required|string|max:255',
+            'values' => 'required|array|max:1000',
+            'values.*' => 'array|max:100',
         ]);
 
         try {
@@ -132,9 +133,10 @@ class GoogleSheetsController extends Controller
     public function append(Request $request): JsonResponse
     {
         $request->validate([
-            'spreadsheet_id' => 'required|string',
-            'range' => 'required|string',
-            'values' => 'required|array',
+            'spreadsheet_id' => ['required', 'string', 'regex:/^[a-zA-Z0-9_-]+$/'],
+            'range' => 'required|string|max:255',
+            'values' => 'required|array|max:1000',
+            'values.*' => 'array|max:100',
         ]);
 
         try {

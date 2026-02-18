@@ -43,7 +43,7 @@ class DataSourceController extends Controller
         try {
             $dataSource = $this->dataSourceService->get($id);
 
-            if (!$dataSource) {
+            if (! $dataSource) {
                 return response()->json([
                     'success' => false,
                     'error' => 'Data source not found',
@@ -110,7 +110,7 @@ class DataSourceController extends Controller
                 'config' => $request->input('config'),
             ]);
 
-            if (!$dataSource) {
+            if (! $dataSource) {
                 return response()->json([
                     'success' => false,
                     'error' => 'Data source not found',
@@ -137,7 +137,7 @@ class DataSourceController extends Controller
         try {
             $deleted = $this->dataSourceService->delete($id);
 
-            if (!$deleted) {
+            if (! $deleted) {
                 return response()->json([
                     'success' => false,
                     'error' => 'Data source not found',

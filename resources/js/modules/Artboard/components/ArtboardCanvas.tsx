@@ -470,7 +470,7 @@ export default function ArtboardCanvas() {
         );
     }, [selectedComponent, setArtboards]);
 
-    // Track artboard changes for undo/redo history
+    // Track artboard changes for undo/redo history (debounced)
     useEffect(() => {
         // Skip if this change is from undo/redo
         if (isUndoRedoRef.current) {
@@ -478,21 +478,25 @@ export default function ArtboardCanvas() {
             return;
         }
 
-        const currentSnapshot = JSON.stringify(artboards);
+        const timer = setTimeout(() => {
+            const currentSnapshot = JSON.stringify(artboards);
 
-        // Skip if artboards haven't actually changed
-        if (currentSnapshot === lastArtboardsRef.current) {
-            return;
-        }
+            // Skip if artboards haven't actually changed
+            if (currentSnapshot === lastArtboardsRef.current) {
+                return;
+            }
 
-        // If we have a previous state, push it to history
-        if (lastArtboardsRef.current !== '') {
-            const previousArtboards = JSON.parse(lastArtboardsRef.current) as Artboard[];
-            setHistory(prev => [...prev.slice(-49), previousArtboards]); // Keep max 50 history entries
-            setFuture([]); // Clear redo stack on new change
-        }
+            // If we have a previous state, push it to history
+            if (lastArtboardsRef.current !== '') {
+                const previousArtboards = JSON.parse(lastArtboardsRef.current) as Artboard[];
+                setHistory(prev => [...prev.slice(-49), previousArtboards]); // Keep max 50 history entries
+                setFuture([]); // Clear redo stack on new change
+            }
 
-        lastArtboardsRef.current = currentSnapshot;
+            lastArtboardsRef.current = currentSnapshot;
+        }, 300);
+
+        return () => clearTimeout(timer);
     }, [artboards]);
 
     // Undo handler
@@ -789,14 +793,10 @@ export default function ArtboardCanvas() {
                         }}
                         onClick={handleCanvasClick}
                     >
-                        {/* Grid Background */}
+                        {/* Grid Background (CSS on parent avoids a 20000x20000 DOM element) */}
                         <div
-                            className="pointer-events-none absolute opacity-[0.015]"
+                            className="pointer-events-none absolute inset-0 opacity-[0.015]"
                             style={{
-                                left: -10000,
-                                top: -10000,
-                                width: 20000,
-                                height: 20000,
                                 backgroundImage: `linear-gradient(to right, hsl(var(--foreground)) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--foreground)) 1px, transparent 1px)`,
                                 backgroundSize: '8px 8px',
                             }}
@@ -820,9 +820,9 @@ export default function ArtboardCanvas() {
                         showInspector && selectedComponent
                             ? livePosition && livePosition.componentId === selectedComponent.component.instanceId
                                 ? {
-                                      ...selectedComponent.component,
-                                      position: { ...selectedComponent.component.position, ...livePosition.position },
-                                  }
+                                    ...selectedComponent.component,
+                                    position: { ...selectedComponent.component.position, ...livePosition.position },
+                                }
                                 : selectedComponent.component
                             : null
                     }

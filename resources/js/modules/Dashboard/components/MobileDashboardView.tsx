@@ -56,6 +56,7 @@ export default function MobileDashboardView() {
                             isSelected={false}
                             scale={1}
                             scaleWithZoom={true}
+                            artboardId={activeArtboard.id}
                             onSelect={() => { }}
                             onPositionChange={() => { }}
                             onConfigChange={() => { }}

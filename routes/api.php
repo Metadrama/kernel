@@ -1,7 +1,7 @@
 <?php
 
-use App\Http\Controllers\GoogleSheetsController;
 use App\Http\Controllers\DataSourceController;
+use App\Http\Controllers\GoogleSheetsController;
 use App\Http\Controllers\SpreadsheetController;
 use Illuminate\Support\Facades\Route;
 
