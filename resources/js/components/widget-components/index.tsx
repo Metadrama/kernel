@@ -1,65 +1,63 @@
-// Widget Component Registry
-// Maps component IDs to their React component implementations
+import {
+    BarChart3,
+    Type,
+    PieChart,
+    Activity,
+    Table as TableIcon,
+    List,
+    TrendingUp,
+    Layout
+} from 'lucide-react';
+import ChartComponent from './ChartComponent';
+// import ChartLegendComponent from './ChartLegendComponent';
+import {
+    DEFAULT_BAR_CHART_CONFIG,
+    DEFAULT_LINE_CHART_CONFIG,
+    DEFAULT_DOUGHNUT_CHART_CONFIG,
+    DEFAULT_HEADING_CONFIG,
+    DEFAULT_KPI_CONFIG,
+    // DEFAULT_TABLE_CONFIG // removed for now
+} from '@/types/component-config';
 
-import { lazy, Suspense } from 'react';
-
-// Lazy load components for better performance
-const ChartComponent = lazy(() => import('./ChartComponent'));
-const ChartLegendComponent = lazy(() => import('./ChartLegendComponent'));
-const HeadingComponent = lazy(() => import('./HeadingComponent'));
-
-// Loading placeholder
-function ComponentLoader() {
-  return (
-    <div className="h-full w-full flex items-center justify-center">
-      <div className="animate-pulse flex flex-col items-center gap-2">
-        <div className="h-8 w-8 rounded-full bg-muted" />
-        <div className="h-2 w-16 rounded bg-muted" />
-      </div>
-    </div>
-  );
-}
-
-// Component registry - maps component type IDs to renderers
-export const COMPONENT_REGISTRY: Record<string, React.ComponentType<{ config?: Record<string, unknown> }>> = {
-  'chart': ({ config }) => (
-    <Suspense fallback={<ComponentLoader />}>
-      <ChartComponent config={{ ...config, chartType: (config?.chartType as 'line' | 'bar' | 'doughnut') || 'line' }} />
-    </Suspense>
-  ),
-  'chart-line': ({ config }) => (
-    <Suspense fallback={<ComponentLoader />}>
-      <ChartComponent config={{ ...config, chartType: 'line' }} />
-    </Suspense>
-  ),
-  'chart-bar': ({ config }) => (
-    <Suspense fallback={<ComponentLoader />}>
-      <ChartComponent config={{ ...config, chartType: 'bar' }} />
-    </Suspense>
-  ),
-  'chart-doughnut': ({ config }) => (
-    <Suspense fallback={<ComponentLoader />}>
-      <ChartComponent config={{ ...config, chartType: 'doughnut' }} />
-    </Suspense>
-  ),
-  'heading': ({ config }) => (
-    <Suspense fallback={<ComponentLoader />}>
-      <HeadingComponent config={config} />
-    </Suspense>
-  ),
-  'chart-legend': ({ config }) => (
-    <Suspense fallback={<ComponentLoader />}>
-      <ChartLegendComponent config={config} />
-    </Suspense>
-  ),
+// Registry of available components for the builder
+export const COMPONENT_REGISTRY = {
+    'chart-line': {
+        name: 'Line Chart',
+        icon: Activity,
+        component: ChartComponent,
+        defaultConfig: DEFAULT_LINE_CHART_CONFIG,
+    },
+    'chart-bar': {
+        name: 'Bar Chart',
+        icon: BarChart3,
+        component: ChartComponent,
+        defaultConfig: DEFAULT_BAR_CHART_CONFIG,
+    },
+    'chart-doughnut': {
+        name: 'Doughnut Chart',
+        icon: PieChart,
+        component: ChartComponent,
+        defaultConfig: DEFAULT_DOUGHNUT_CHART_CONFIG,
+    },
+    'heading': {
+        name: 'Heading',
+        icon: Type,
+        // component: HeadingComponent, // Placeholder
+        defaultConfig: DEFAULT_HEADING_CONFIG,
+    },
+    'kpi': {
+        name: 'Metric / KPI',
+        icon: TrendingUp,
+        // component: KpiComponent, // Placeholder
+        defaultConfig: DEFAULT_KPI_CONFIG,
+    }
 };
 
-// Check if a component type is registered
-export function isComponentRegistered(componentType: string): boolean {
-  return componentType in COMPONENT_REGISTRY;
-}
+export const getComponent = (type: string) => {
+    // @ts-ignore
+    return COMPONENT_REGISTRY[type]?.component || null;
+};
 
-// Get a component by type
-export function getComponent(componentType: string): React.ComponentType<{ config?: Record<string, unknown> }> | null {
-  return COMPONENT_REGISTRY[componentType] || null;
-}
+export const isComponentRegistered = (type: string) => {
+    return type in COMPONENT_REGISTRY;
+};
