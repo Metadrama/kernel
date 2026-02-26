@@ -1,10 +1,7 @@
-# Kernel - Dynamic Dashboard Builder
 
-A **modern dashboard builder** that separates layout from content, allowing users to create customizable data visualizations with drag-and-drop functionality. Built with Laravel, Inertia.js, and React.
+ **Work In Progress (WIP)**: This project is under active development. Core features are functional but the application is not yet production-ready. See [Project Status](#project-status) for details.
 
-> ⚠️ **Work In Progress (WIP)**: This project is under active development. Core features are functional but the application is not yet production-ready. See [Project Status](#project-status) for details.
-
-## 🎯 Overview
+##  Overview
 
 Kernel is a dynamic dashboard builder that provides a sandbox environment for creating data-driven dashboards. Instead of hard-coded layouts, users define grid structures first (containers/artboards) and then inject specific functionality (widgets with charts, text, etc.) into those containers.
 
@@ -17,16 +14,16 @@ Think of it less like a static webpage and more like a **trading terminal** or a
 - **Components**: The actual content (charts, headings, etc.) that render inside widgets
 - **Schema-Driven**: Dashboard layouts are stored as JSON, making them lightweight and easy to backup/duplicate
 
-## ✨ Features
+##  Features
 
 ### Current Features
-- 📐 **Multi-Format Artboards**: Create dashboards for print (A4, A3, A2), presentations (16:9, 4:3), web, display/TV (FHD, 4K), and mobile formats
-- 🧱 **Drag & Drop Widget System**: Powered by GridStack for smooth collision detection, snapping, and dragging
-- 📊 **Chart Components**: Line, Bar, and Doughnut charts using Chart.js with multiple color palettes
-- 📝 **Text Components**: Editable headings for dashboard titles and labels
-- 📋 **Google Sheets Integration**: Connect charts to live Google Sheets data sources
-- 🗂️ **Layer Management**: Organize and reorder artboards with a dedicated layers panel
-- 💾 **Auto-Save**: Dashboard layouts persist to session storage and localStorage
+-  **Multi-Format Artboards**: Create dashboards for print (A4, A3, A2), presentations (16:9, 4:3), web, display/TV (FHD, 4K), and mobile formats
+-  **Drag & Drop Widget System**: Powered by GridStack for smooth collision detection, snapping, and dragging
+-  **Chart Components**: Line, Bar, and Doughnut charts using Chart.js with multiple color palettes
+-  **Text Components**: Editable headings for dashboard titles and labels
+-  **Google Sheets Integration**: Connect charts to live Google Sheets data sources
+-  **Layer Management**: Organize and reorder artboards with a dedicated layers panel
+-  **Auto-Save**: Dashboard layouts persist to session storage and localStorage
 
 ### Planned Features
 - User authentication and multi-user support
@@ -36,7 +33,7 @@ Think of it less like a static webpage and more like a **trading terminal** or a
 - Database persistence for dashboards
 - Custom component creation
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 | Layer | Technology | Purpose |
 |-------|------------|---------|
@@ -49,7 +46,7 @@ Think of it less like a static webpage and more like a **trading terminal** or a
 | **Build Tool** | Vite 7 | Fast development and production builds |
 | **Type Safety** | TypeScript | Static typing for React components |
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 kernel/
@@ -82,7 +79,7 @@ kernel/
     └── app/                  # Google service account credentials
 ```
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### Prerequisites
 
@@ -164,15 +161,15 @@ This project is in **active development** (Work In Progress). Here's the current
 
 | Feature | Status |
 |---------|--------|
-| Artboard system | ✅ Complete |
-| Widget drag & drop | ✅ Complete |
-| Chart components | ✅ Complete |
-| Google Sheets integration | ✅ Complete |
-| Layer management | ✅ Complete |
-| User authentication | 🚧 Not started |
-| Database persistence | 🚧 Partial (session only) |
-| Export functionality | 🚧 Not started |
-| Multi-user collaboration | 🚧 Not started |
+| Artboard system |  Complete |
+| Widget drag & drop |  Complete |
+| Chart components |  Complete |
+| Google Sheets integration |  Complete |
+| Layer management |  Complete |
+| User authentication |  Not started |
+| Database persistence |  Partial (session only) |
+| Export functionality |  Not started |
+| Multi-user collaboration |  Not started |
 
 ### Known Limitations
 
@@ -181,7 +178,7 @@ This project is in **active development** (Work In Progress). Here's the current
 - Limited to predefined component types
 - No mobile-optimized editing experience
 
-## 🧪 Development
+##  Development
 
 ### Running Tests
 ```bash
@@ -210,7 +207,7 @@ npm run build:ssr
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+##  Acknowledgments
 
 - [Laravel](https://laravel.com/) - The PHP framework
 - [Inertia.js](https://inertiajs.com/) - The modern monolith
