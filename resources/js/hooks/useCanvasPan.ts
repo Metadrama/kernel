@@ -8,30 +8,42 @@ import { useEffect, useRef, useState } from 'react';
 import type { CanvasPosition } from '@/types/artboard';
 
 export interface UseCanvasPanOptions {
-    /** Whether hand tool is active */
-    isHandMode: boolean;
-    /** Current pan state */
-    pan: CanvasPosition;
-    /** Set pan state */
-    setPan: React.Dispatch<React.SetStateAction<CanvasPosition>>;
+    /** Reference to the container element */
+    containerRef: React.RefObject<HTMLElement | null>;
+    /** Reference to the content element */
+    contentRef?: React.RefObject<HTMLElement | null>;
+    /** Initial pan position */
+    initialPosition?: CanvasPosition;
+    /** Current scale */
+    scale?: number;
+    /** Whether panning is enabled (e.g., spacebar or tool active) */
+    enabled?: boolean;
 }
 
 export interface UseCanvasPanReturn {
     /** Whether currently panning */
     isPanning: boolean;
     /** Handle mouse down on canvas */
-    handleCanvasMouseDown: (e: React.MouseEvent) => void;
+    handleMouseDown: (e: React.MouseEvent) => void;
+    /** Current pan position */
+    panPosition: CanvasPosition;
 }
 
-export function useCanvasPan({ isHandMode, pan, setPan }: UseCanvasPanOptions): UseCanvasPanReturn {
+export function useCanvasPan({
+    containerRef,
+    initialPosition = { x: 0, y: 0 },
+    enabled = false
+}: UseCanvasPanOptions): UseCanvasPanReturn {
     const [isPanning, setIsPanning] = useState(false);
+    const [panPosition, setPanPosition] = useState<CanvasPosition>(initialPosition);
     const lastMousePos = useRef<{ x: number; y: number } | null>(null);
 
-    const handleCanvasMouseDown = (e: React.MouseEvent) => {
+    const handleMouseDown = (e: React.MouseEvent) => {
+        if (!enabled) return;
         const isMiddleClick = e.button === 1;
         const isLeftClick = e.button === 0;
 
-        if (isMiddleClick || (isLeftClick && isHandMode)) {
+        if (isMiddleClick || isLeftClick) {
             e.preventDefault();
             setIsPanning(true);
             lastMousePos.current = { x: e.clientX, y: e.clientY };
@@ -49,7 +61,7 @@ export function useCanvasPan({ isHandMode, pan, setPan }: UseCanvasPanOptions): 
 
             lastMousePos.current = { x: e.clientX, y: e.clientY };
 
-            setPan((prev) => ({
+            setPanPosition((prev) => ({
                 x: prev.x + deltaX,
                 y: prev.y + deltaY,
             }));
@@ -67,10 +79,11 @@ export function useCanvasPan({ isHandMode, pan, setPan }: UseCanvasPanOptions): 
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
         };
-    }, [isPanning, setPan]);
+    }, [isPanning]);
 
     return {
         isPanning,
-        handleCanvasMouseDown,
+        handleMouseDown,
+        panPosition
     };
 }

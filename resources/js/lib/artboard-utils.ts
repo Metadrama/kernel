@@ -1,165 +1,20 @@
-/**
- * Artboard Utility Functions
- * 
- * Helper functions for artboard operations:
- * - Creation with defaults
- * - Dimension calculations
- * - Position utilities
- * - Validation
- */
-
-import type {
-    ArtboardSchema,
-    ArtboardFormat,
-    CreateArtboardOptions,
-    CanvasPosition,
-    ArtboardDimensions,
-} from '@/types/artboard';
-import { getArtboardPreset } from '@/constants/artboard-presets';
+import type { ArtboardSchema, ArtboardDimensions, CanvasPosition } from '@/types/artboard';
 
 /**
- * Generate unique artboard ID
- */
-export function generateArtboardId(): string {
-    return `artboard-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-}
-
-/**
- * Get default artboard name based on format
- */
-export function getDefaultArtboardName(format: ArtboardFormat): string {
-    const preset = getArtboardPreset(format);
-    if (!preset) return 'Untitled Artboard';
-
-    const categoryLabels: Record<string, string> = {
-        print: 'Print',
-        presentation: 'Slide',
-        web: 'Web',
-        display: 'Display',
-        mobile: 'Mobile',
-    };
-
-    return `${categoryLabels[preset.category] || 'Artboard'}`;
-}
-
-/**
- * Calculate default position for new artboard
- * Places artboards in a horizontal flow layout (like Figma)
- */
-export function calculateDefaultPosition(
-    existingArtboards: ArtboardSchema[],
-    dimensions: ArtboardDimensions
-): CanvasPosition {
-    if (existingArtboards.length === 0) {
-        // First artboard: start at top-left with padding
-        return { x: 100, y: 100 };
-    }
-
-    // Horizontal flow: place to the right of the last artboard
-    const spacing = 100; // Gap between artboards
-    const lastArtboard = existingArtboards[existingArtboards.length - 1];
-
-    return {
-        x: lastArtboard.position.x + lastArtboard.dimensions.widthPx + spacing,
-        y: lastArtboard.position.y, // Same vertical position
-    };
-}
-
-/**
- * Create a new artboard with defaults
- */
-export function createArtboard(
-    options: CreateArtboardOptions,
-    existingArtboards: ArtboardSchema[] = []
-): ArtboardSchema {
-    const preset = getArtboardPreset(options.format);
-
-    if (!preset) {
-        throw new Error(`Invalid artboard format: ${options.format}`);
-    }
-
-    const dimensions = preset.dimensions;
-    const position = options.position || calculateDefaultPosition(existingArtboards, dimensions);
-    const name = options.name || getDefaultArtboardName(options.format);
-
-    const now = new Date().toISOString();
-
-    return {
-        id: generateArtboardId(),
-        name,
-        format: options.format,
-        dimensions,
-        position,
-        zoom: 1,
-        backgroundColor: options.backgroundColor || '#ffffff',
-        widgets: [],
-        locked: false,
-        visible: true,
-        showGrid: true,
-        showRulers: false,
-        gridPadding: ARTBOARD_CONTAINER_PADDING,
-        createdAt: now,
-        updatedAt: now,
-    };
-}
-
-/**
- * Calculate artboard bounds (for collision detection, viewport checks)
- */
-export interface ArtboardBounds {
-    left: number;
-    top: number;
-    right: number;
-    bottom: number;
-    width: number;
-    height: number;
-}
-
-export function getArtboardBounds(artboard: ArtboardSchema): ArtboardBounds {
-    const { position, dimensions } = artboard;
-
-    return {
-        left: position.x,
-        top: position.y,
-        right: position.x + dimensions.widthPx,
-        bottom: position.y + dimensions.heightPx,
-        width: dimensions.widthPx,
-        height: dimensions.heightPx,
-    };
-}
-
-/**
- * Check if a point is within artboard bounds
+ * Check if a point is inside an artboard
  */
 export function isPointInArtboard(
     point: CanvasPosition,
     artboard: ArtboardSchema
 ): boolean {
-    const bounds = getArtboardBounds(artboard);
+    const { x, y } = artboard.position;
+    const { widthPx, heightPx } = artboard.dimensions;
 
     return (
-        point.x >= bounds.left &&
-        point.x <= bounds.right &&
-        point.y >= bounds.top &&
-        point.y <= bounds.bottom
-    );
-}
-
-/**
- * Check if two artboards overlap
- */
-export function doArtboardsOverlap(
-    artboard1: ArtboardSchema,
-    artboard2: ArtboardSchema
-): boolean {
-    const bounds1 = getArtboardBounds(artboard1);
-    const bounds2 = getArtboardBounds(artboard2);
-
-    return !(
-        bounds1.right < bounds2.left ||
-        bounds1.left > bounds2.right ||
-        bounds1.bottom < bounds2.top ||
-        bounds1.top > bounds2.bottom
+        point.x >= x &&
+        point.x <= x + widthPx &&
+        point.y >= y &&
+        point.y <= y + heightPx
     );
 }
 
@@ -199,10 +54,7 @@ export function validateArtboardPosition(
 
 /**
  * Calculate grid cell size for artboard
- * Used for GridStack configuration within artboard
- * 
- * Uses small cells (8px) for near-pixel freeform placement while
- * maintaining GridStack drag/resize/transfer capabilities.
+ * Used for manual grid calculations (legacy or new absolute positioning logic)
  */
 export function calculateArtboardGridConfig(dimensions: ArtboardDimensions) {
     // Small cell size for freeform placement (near-pixel precision)
@@ -222,15 +74,12 @@ export function calculateArtboardGridConfig(dimensions: ArtboardDimensions) {
 
 /**
  * Artboard container padding (from Tailwind p-4 class)
- * This padding reduces the actual available space for GridStack
+ * This padding reduces the actual available space
  */
 export const ARTBOARD_CONTAINER_PADDING = 16; // px (p-4 = 16px)
 
 /**
  * Calculate effective grid configuration accounting for container padding
- * 
- * The GridStack container has padding which reduces available space.
- * This function calculates the true dimensions GridStack can use.
  */
 export function calculateEffectiveGridConfig(dimensions: ArtboardDimensions, padding: number = ARTBOARD_CONTAINER_PADDING) {
     // Account for container padding on both sides
@@ -297,7 +146,6 @@ export function artboardToCanvasCoords(
 
 /**
  * Find the next available non-overlapping position for a widget
- * Uses a radial search pattern starting from the preferred "Right" position.
  */
 export function findNextAvailablePosition(
     sourceWidget: { x: number; y: number; w: number; h: number },
@@ -330,57 +178,7 @@ export function findNextAvailablePosition(
         }
     }
 
-    // 2. Radial Search (Spiral)
-    // We search in expanding concentric layers around the center (x, y)
-    // Step size = 1 grid unit (cellHeight/8px is small, maybe use w/2 or fixed step?)
-    // Actually, searching every single grid unit is expensive if layer is huge.
-    // But grid units are the atomic unit.
-
-    // Optimization: Scan in larger steps first? No, GridStack aligns to 1 unit.
-
-    // Limit search radius
-    const maxRadius = Math.max(columns, maxRows);
-
-    // Start from radius 1 (we already checked immediate attached spots, but simple spiral covers them too)
-    // We want to find NEAREST valid hole.
-    // We can just BFS/flood fill the grid state? No, simply iterate distance.
-
-    // Simplified Spiral:
-    // Iterate d from 1 to maxRadius
-    // Check perimeter: (x-d, y-d) to (x+d, y+d)
-
-    // To optimize for "Reading Order" (Right/Down preference), we can sort checks.
-
-    // Let's rely on a simpler Grid Scan starting from top-left of the bounding area of the widget
-    // But scan OUTWARDS.
-
-    for (let r = 1; r < 200; r++) { // Hard limit 200 units radius
-        // Check X direction (Right and Left sides of the box)
-        for (let dy = -r; dy <= r; dy++) {
-            // Right Side
-            let tx = x + r;
-            let ty = y + dy;
-            if (tx >= 0 && tx + w <= columns && ty >= 0 && ty + h <= maxRows && !isOccupied(tx, ty)) return { x: tx, y: ty };
-
-            // Left Side
-            tx = x - r;
-            if (tx >= 0 && tx + w <= columns && ty >= 0 && ty + h <= maxRows && !isOccupied(tx, ty)) return { x: tx, y: ty };
-        }
-
-        // Check Y direction (Bottom and Top sides of the box)
-        for (let dx = -r + 1; dx <= r - 1; dx++) { // Avoid corners already checked
-            // Bottom Side
-            let tx = x + dx;
-            let ty = y + r;
-            if (tx >= 0 && tx + w <= columns && ty >= 0 && ty + h <= maxRows && !isOccupied(tx, ty)) return { x: tx, y: ty };
-
-            // Top Side
-            ty = y - r;
-            if (tx >= 0 && tx + w <= columns && ty >= 0 && ty + h <= maxRows && !isOccupied(tx, ty)) return { x: tx, y: ty };
-        }
-    }
-
-    // Fallback: Just return offset (should catch above unless full)
+    // 2. Simple fallback: Just return offset
     return { x: x + 2, y: y + 2 };
 }
 

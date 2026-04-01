@@ -1,13 +1,6 @@
-/**
- * Component Configuration Type System
- * Defines typed schemas for all component configurations
- */
-
 // ============================================================================
-// Data Source Types
+// Data Source Configuration Types
 // ============================================================================
-
-export type DataSourceType = 'static' | 'google-sheets' | 'api';
 
 export interface StaticDataSource {
   type: 'static';
@@ -17,7 +10,7 @@ export interface GoogleSheetsDataSource {
   type: 'google-sheets';
   spreadsheetId: string;
   sheetName: string;
-  range: string;
+  range?: string; // Made optional as it's often calculated
   // Column mappings (letter or header name)
   labelColumn?: string;
   valueColumn?: string;
@@ -69,6 +62,7 @@ export interface ChartColorsConfig {
   primary?: string;
   secondary?: string;
   palette?: string[]; // For multi-series or doughnut/pie
+  colorPalette?: string; // Name of the palette (e.g. 'vibrant', 'pastel')
   backgroundColor?: string;
 }
 
@@ -126,7 +120,7 @@ export interface BarChartConfig extends BaseChartConfig {
 }
 
 export interface DoughnutChartConfig extends BaseChartConfig {
-  chartType: 'doughnut';
+  chartType: 'doughnut' | 'pie';
 
   // Doughnut specific
   cutout?: string | number; // e.g., '60%' or 60

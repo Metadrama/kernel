@@ -1,97 +1,68 @@
-/**
- * ArtboardCanvas - Infinite canvas container for multiple artboards
- * 
- * Refactored to use extracted hooks and sub-components.
- * Now focuses on orchestrating canvas state and rendering artboards.
- * 
- * Cross-artboard widget transfer is enabled via GridStack acceptWidgets.
- * State updates are deferred during drag to prevent React/DOM conflicts.
- */
-
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { Plus } from 'lucide-react';
-import ArtboardContainer from './ArtboardContainer';
-import ArtboardInspector from './ArtboardInspector';
-import { ComponentInspector } from '@/components/config-panel';
-import AddArtboardPanel from './AddArtboardPanel';
-import FloatingToolbar, { ToolType } from '@/components/FloatingToolbar';
-import CanvasTopBar from './CanvasTopBar';
-import CanvasScrollbars, { Universe } from './CanvasScrollbars';
-import CanvasEmptyState from './CanvasEmptyState';
-import { useCanvasZoom, useCanvasPan, useWidgetTransfer } from '@/hooks';
-import type { ArtboardSchema } from '@/types/artboard';
-import type { WidgetComponent, WidgetSchema } from '@/types/dashboard';
-import { createArtboard } from '@/lib/artboard-utils';
+import { useCallback, useRef, useState, useEffect } from 'react';
 import { useArtboardContext } from '@/context/ArtboardContext';
+import { useCanvasZoom, useCanvasPan } from '@/hooks';
+import ArtboardContainer from './ArtboardContainer';
+import { Plus, Minus, Move, Layout } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useKeyboardShortcuts } from '@/hooks';
+import type { ArtboardSchema } from '@/types/artboard';
+import type { WidgetComponent } from '@/types/dashboard';
 
 export default function ArtboardCanvas() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [isPanning, setIsPanning] = useState(false);
+
   const {
     artboards,
-    setArtboards,
-    archivedWidgets,
-    setArchivedWidgets,
+    updateArtboard,
+    deleteArtboard,
     selectedArtboardId,
     setSelectedArtboardId,
-    artboardStackOrder,
+    canvasScale,
+    setCanvasScale,
     bringArtboardToFront,
   } = useArtboardContext();
 
-  // Widget transfer hooks prepared for future custom implementation
-  // NOTE: GridStack acceptWidgets between independent grids conflicts with React
-  // These hooks are ready for a custom drag-out-of-bounds approach
-  const { transferWidget, archiveWidget, unarchiveWidget } = useWidgetTransfer({
-    artboards,
-    setArtboards,
-    archivedWidgets,
-    setArchivedWidgets,
+  const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(null);
+  const [selectedComponentId, setSelectedComponentId] = useState<string | undefined>(undefined);
+
+  // Zoom hook
+  const { zoomIn, zoomOut, resetZoom } = useCanvasZoom({
+    scale: canvasScale,
+    setScale: setCanvasScale,
+    minScale: 0.25,
+    maxScale: 3,
+    containerRef,
   });
 
-  // Canvas zoom/pan from extracted hook
-  const { scale, pan, setPan, viewportSize, adjustScale, canvasRef } = useCanvasZoom();
-
-  // Tool state
-  const [activeTool, setActiveTool] = useState<ToolType>('pointer');
-  const [isSpacePressed, setIsSpacePressed] = useState(false);
-
-  // Panel visibility
-  const [showAddArtboard, setShowAddArtboard] = useState(false);
-  const [showInspector, setShowInspector] = useState(false);
-
-  // Save state
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-
-  // Component selection state
-  const [selectedComponent, setSelectedComponent] = useState<{
-    artboardId: string;
-    widgetId: string;
-    component: WidgetComponent;
-  } | null>(null);
-
-  const selectedArtboard = artboards.find(a => a.id === selectedArtboardId) || null;
-
-  // Hand tool panning
-  const isHandMode = activeTool === 'hand' || isSpacePressed;
-  const { isPanning, handleCanvasMouseDown } = useCanvasPan({
-    isHandMode,
-    pan,
-    setPan,
+  // Pan hook
+  const { panPosition, handleMouseDown: handlePanStart, isPanning: isPanActive } = useCanvasPan({
+    containerRef,
+    contentRef,
+    initialPosition: { x: 0, y: 0 },
+    scale: canvasScale,
+    enabled: isPanning, // Only pan when spacebar held or pan tool active
   });
 
-  // Handle spacebar for temporary hand tool
+  // Keyboard shortcuts for canvas navigation
+  useKeyboardShortcuts({
+    onCopy: () => {}, // Handled by components
+    onPaste: () => {}, // Handled by components
+    onDelete: () => {}, // Handled by components
+  });
+
+  // Global spacebar for panning
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === ' ' && !isSpacePressed) {
-        setIsSpacePressed(true);
-      }
-      // Tool shortcuts
-      if (!e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
-        if (e.key.toLowerCase() === 'v') setActiveTool('pointer');
-        if (e.key.toLowerCase() === 'h') setActiveTool('hand');
+      if (e.code === 'Space' && !e.repeat && (e.target as HTMLElement).tagName !== 'INPUT') {
+        setIsPanning(true);
       }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === ' ') setIsSpacePressed(false);
+      if (e.code === 'Space') {
+        setIsPanning(false);
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
@@ -99,285 +70,84 @@ export default function ArtboardCanvas() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [isSpacePressed]);
+  }, []);
 
-  // Calculate scrollable universe
-  const universe: Universe = useMemo(() => {
-    let contentMinX = 0, contentMinY = 0, contentMaxX = 0, contentMaxY = 0;
-
-    if (artboards.length > 0) {
-      contentMinX = contentMinY = Infinity;
-      contentMaxX = contentMaxY = -Infinity;
-      artboards.forEach((a) => {
-        if (!a.visible) return;
-        contentMinX = Math.min(contentMinX, a.position.x);
-        contentMinY = Math.min(contentMinY, a.position.y);
-        contentMaxX = Math.max(contentMaxX, a.position.x + a.dimensions.widthPx);
-        contentMaxY = Math.max(contentMaxY, a.position.y + a.dimensions.heightPx);
-      });
-    }
-
-    const viewMinX = -pan.x / scale;
-    const viewMinY = -pan.y / scale;
-    const viewMaxX = (viewportSize.width - pan.x) / scale;
-    const viewMaxY = (viewportSize.height - pan.y) / scale;
-
-    const minX = artboards.length > 0 ? Math.min(contentMinX, viewMinX) : viewMinX;
-    const minY = artboards.length > 0 ? Math.min(contentMinY, viewMinY) : viewMinY;
-    const maxX = artboards.length > 0 ? Math.max(contentMaxX, viewMaxX) : viewMaxX;
-    const maxY = artboards.length > 0 ? Math.max(contentMaxY, viewMaxY) : viewMaxY;
-
-    return {
-      minX, minY, maxX, maxY,
-      width: maxX - minX,
-      height: maxY - minY,
-      viewMinX, viewMinY,
-      viewWidth: viewportSize.width / scale,
-      viewHeight: viewportSize.height / scale,
-    };
-  }, [artboards, pan, scale, viewportSize]);
-
-  // Artboard CRUD
-  const handleUpdateArtboard = useCallback((id: string, updates: Partial<ArtboardSchema>) => {
-    setArtboards((prev) =>
-      prev.map((a) => a.id === id ? { ...a, ...updates, updatedAt: new Date().toISOString() } : a)
-    );
-  }, [setArtboards]);
-
-  const handleDeleteArtboard = useCallback((id: string) => {
-    setArtboards((prev) => prev.filter((a) => a.id !== id));
-    if (selectedArtboardId === id) setSelectedArtboardId(null);
-  }, [selectedArtboardId, setArtboards, setSelectedArtboardId]);
-
-  const handleAddCard = useCallback(() => {
-    const targetId = selectedArtboardId || artboards[0]?.id;
-    if (!targetId) return;
-
-    const newWidget: WidgetSchema = {
-      id: `widget-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      x: 0, y: 0,
-      w: 60, // 60 * 8px = 480px width
-      h: 50, // 50 * 8px = 400px height
-      components: [],
-    };
-
-    setArtboards((prev) =>
-      prev.map((a) => a.id === targetId
-        ? { ...a, widgets: [...a.widgets, newWidget], updatedAt: new Date().toISOString() }
-        : a
-      )
-    );
-    if (!selectedArtboardId) setSelectedArtboardId(targetId);
-  }, [selectedArtboardId, artboards, setArtboards, setSelectedArtboardId]);
-
-  // NOTE: Cross-artboard transfer handlers removed
-  // GridStack's acceptWidgets between independent grids causes React/DOM conflicts
-  // TODO: Implement custom drag-out-of-bounds detection for seamless transfer
-
-  // Component selection
   const handleSelectComponent = useCallback((artboardId: string, widgetId: string, component: WidgetComponent) => {
-    setSelectedComponent({ artboardId, widgetId, component });
-    setShowInspector(true);
+    setSelectedArtboardId(artboardId);
+    setSelectedWidgetId(widgetId);
+    setSelectedComponentId(component.instanceId);
+  }, [setSelectedArtboardId]);
+
+  const handleDeselectComponent = useCallback(() => {
+    setSelectedComponentId(undefined);
   }, []);
 
-  const handleComponentConfigChange = useCallback((instanceId: string, config: Record<string, unknown>) => {
-    if (!selectedComponent) return;
-    setArtboards((prev) =>
-      prev.map((a) => {
-        if (a.id !== selectedComponent.artboardId) return a;
-        return {
-          ...a,
-          widgets: a.widgets.map((w) => {
-            if (w.id !== selectedComponent.widgetId) return w;
-            return {
-              ...w,
-              components: w.components.map((c) => c.instanceId === instanceId ? { ...c, config } : c),
-            };
-          }),
-          updatedAt: new Date().toISOString(),
-        };
-      })
-    );
-    setSelectedComponent((prev) =>
-      prev?.component.instanceId === instanceId
-        ? { ...prev, component: { ...prev.component, config } }
-        : prev
-    );
-  }, [selectedComponent, setArtboards]);
-
-  const handleCloseInspector = useCallback(() => {
-    setShowInspector(false);
-    setSelectedComponent(null);
-  }, []);
-
-  // Persistence - save to database
-  const handleSave = useCallback(async () => {
-    setIsSaving(true);
-    setSaveStatus('saving');
-    try {
-      // Get CSRF token from XSRF-TOKEN cookie (Laravel sets this automatically)
-      const getCookie = (name: string) => {
-        const value = `; ${document.cookie}`;
-        const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) return decodeURIComponent(parts.pop()?.split(';').shift() ?? '');
-        return '';
-      };
-      const csrfToken = getCookie('XSRF-TOKEN');
-
-      const response = await fetch('/dashboard/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-          'X-XSRF-TOKEN': csrfToken,
-        },
-        body: JSON.stringify({
-          id: 'default',
-          name: 'Untitled Dashboard',
-          artboards: artboards,
-          archivedWidgets: archivedWidgets,
-        }),
-      });
-      if (response.ok) {
-        setSaveStatus('saved');
-        // Reset to idle after 2 seconds
-        setTimeout(() => setSaveStatus('idle'), 2000);
-      } else {
-        console.error('Save failed:', await response.text());
-        setSaveStatus('error');
-        setTimeout(() => setSaveStatus('idle'), 3000);
-      }
-    } catch (error) {
-      console.error('Save error:', error);
-      setSaveStatus('error');
-      setTimeout(() => setSaveStatus('idle'), 3000);
-    } finally {
-      setIsSaving(false);
+  const handleCanvasClick = (e: React.MouseEvent) => {
+    if (e.target === containerRef.current || e.target === contentRef.current) {
+        setSelectedArtboardId(null);
+        setSelectedWidgetId(null);
+        setSelectedComponentId(undefined);
     }
-  }, [artboards, archivedWidgets]);
+  };
 
   return (
-    <div className="flex h-screen flex-1 overflow-hidden">
-      <div className="flex flex-1 flex-col overflow-hidden bg-muted/30">
-        <CanvasTopBar
-          artboardCount={artboards.length}
-          scale={scale}
-          onZoomIn={() => adjustScale((s) => s * 1.1)}
-          onZoomOut={() => adjustScale((s) => s * 0.9)}
-          onZoomReset={() => adjustScale(() => 1)}
-          onSave={handleSave}
-          isSaving={isSaving}
-          saveStatus={saveStatus}
-        />
-
-        <div
-          ref={canvasRef}
-          className={`relative flex-1 overflow-hidden ${isHandMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
-          onMouseDown={handleCanvasMouseDown}
-        >
-          {artboards.length === 0 && <CanvasEmptyState />}
-
-          {/* Infinite Canvas */}
-          <div
-            className="absolute inset-0"
-            style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
-              transformOrigin: '0 0',
-            }}
-          >
-            {/* Grid Background */}
-            <div
-              className="absolute opacity-[0.015] pointer-events-none"
-              style={{
-                left: -10000, top: -10000, width: 20000, height: 20000,
-                backgroundImage: `linear-gradient(to right, hsl(var(--foreground)) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--foreground)) 1px, transparent 1px)`,
-                backgroundSize: '24px 24px',
-              }}
+    <div
+        ref={containerRef}
+        className={`relative w-full h-full overflow-hidden bg-muted/20 ${isPanning || isPanActive ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
+        onMouseDown={isPanning ? handlePanStart : undefined}
+        onClick={handleCanvasClick}
+        onWheel={(e) => {
+            if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+                if (e.deltaY < 0) zoomIn();
+                else zoomOut();
+            }
+        }}
+    >
+      {/* Infinite Canvas Content Area */}
+      <div
+        ref={contentRef}
+        className="absolute origin-top-left w-full h-full will-change-transform"
+        style={{
+            transform: `translate(${panPosition.x}px, ${panPosition.y}px) scale(${canvasScale})`,
+        }}
+      >
+        {/* Render Artboards */}
+        {artboards.map((artboard) => (
+            <ArtboardContainer
+                key={artboard.id}
+                artboard={artboard}
+                isSelected={selectedArtboardId === artboard.id}
+                onUpdate={updateArtboard}
+                onDelete={deleteArtboard}
+                onSelectComponent={handleSelectComponent}
+                selectedWidgetId={selectedWidgetId}
+                selectedComponentId={selectedComponentId}
+                onDeselectComponent={handleDeselectComponent}
+                setSelectedWidgetId={setSelectedWidgetId}
             />
-
-            {/* Artboards */}
-            {artboardStackOrder
-              .map(id => artboards.find(a => a.id === id))
-              .filter((a): a is ArtboardSchema => !!a)
-              .map((artboard, index) => (
-                <ArtboardContainer
-                  key={artboard.id}
-                  artboard={artboard}
-                  isSelected={selectedArtboardId === artboard.id}
-                  canvasScale={scale}
-                  zIndex={index}
-                  onUpdate={handleUpdateArtboard}
-                  onDelete={handleDeleteArtboard}
-                  onSelect={() => {
-                    setSelectedArtboardId(artboard.id);
-                    bringArtboardToFront(artboard.id);
-                  }}
-                  onSelectComponent={handleSelectComponent}
-                  onDeselectComponent={() => setSelectedComponent(null)}
-                  selectedComponentId={
-                    selectedComponent?.artboardId === artboard.id
-                      ? selectedComponent.component.instanceId
-                      : undefined
-                  }
-                />
-              ))}
-          </div>
-
-          {/* Hand mode overlay */}
-          {isHandMode && (
-            <div className="absolute inset-0 z-40 bg-transparent cursor-grab active:cursor-grabbing" />
-          )}
-
-          <CanvasScrollbars
-            universe={universe}
-            viewportSize={viewportSize}
-            scale={scale}
-            pan={pan}
-            setPan={setPan}
-          />
-        </div>
+        ))}
       </div>
 
-      {/* Panels */}
-      {showInspector && selectedComponent && (
-        <ComponentInspector
-          component={selectedComponent.component}
-          onConfigChange={handleComponentConfigChange}
-          onClose={handleCloseInspector}
-        />
-      )}
-
-      {selectedArtboard && (
-        <ArtboardInspector
-          artboard={selectedArtboard}
-          onUpdate={(updates) => selectedArtboardId && handleUpdateArtboard(selectedArtboardId, updates)}
-          onClose={() => setSelectedArtboardId(null)}
-        />
-      )}
-
-      {showAddArtboard && (
-        <AddArtboardPanel
-          onAddArtboard={(format) => {
-            const newArtboard = createArtboard({ format }, artboards);
-            setArtboards((prev) => [...prev, newArtboard]);
-          }}
-          onClose={() => setShowAddArtboard(false)}
-        />
-      )}
-
-      <FloatingToolbar
-        activeTool={isSpacePressed ? 'hand' : activeTool}
-        onToolChange={setActiveTool}
-        onAddArtboard={() => {
-          setShowAddArtboard(!showAddArtboard);
-          if (!showAddArtboard) {
-            setShowInspector(false);
-            setSelectedArtboardId(null);
-          }
-        }}
-        onAddCard={handleAddCard}
-      />
+      {/* Floating Toolbar (Zoom/Pan) */}
+      <div className="absolute bottom-6 right-6 flex items-center gap-2 p-2 bg-background/90 backdrop-blur-sm border rounded-lg shadow-lg z-50">
+        <Button variant="ghost" size="icon" onClick={() => setIsPanning(!isPanning)} className={isPanning ? 'bg-muted' : ''}>
+            <Move className="h-4 w-4" />
+        </Button>
+        <div className="w-px h-4 bg-border mx-1" />
+        <Button variant="ghost" size="icon" onClick={zoomOut}>
+            <Minus className="h-4 w-4" />
+        </Button>
+        <span className="text-xs font-medium w-12 text-center select-none">
+            {Math.round(canvasScale * 100)}%
+        </span>
+        <Button variant="ghost" size="icon" onClick={zoomIn}>
+            <Plus className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="icon" onClick={resetZoom} title="Reset Zoom">
+            <Layout className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 }

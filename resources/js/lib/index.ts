@@ -1,73 +1,12 @@
-/**
- * Library Barrel Export
- * Re-exports all utility functions and constants
- */
+// Core utilities
+export * from './artboard-utils';
+export * from './component-sizes';
+export * from './snap-utils';
+export * from './utils';
+// export * from './collision-utils'; // Conflicting with snap-utils
+export * from './selection-utils';
+export * from './use-google-sheets';
 
-// Utilities
-export { cn } from './utils';
-
-// Artboard utilities
-export {
-    generateArtboardId,
-    getDefaultArtboardName,
-    calculateDefaultPosition,
-    createArtboard,
-    getArtboardBounds,
-    isPointInArtboard,
-    doArtboardsOverlap,
-    findArtboardAtPosition,
-    validateArtboardPosition,
-    calculateArtboardGridConfig,
-    calculateEffectiveGridConfig,
-    ARTBOARD_CONTAINER_PADDING,
-    scaleDimensions,
-    canvasToArtboardCoords,
-    artboardToCanvasCoords,
-} from './artboard-utils';
-export type { ArtboardBounds } from './artboard-utils';
-
-// Collision utilities
-export {
-    hasCollision,
-    snapToGrid,
-    snapBoundsToGrid,
-    wouldCollide,
-    clampToContainer,
-    findNearestValidPosition,
-    calculateValidResizeBounds,
-    findValidDropPosition,
-    DEFAULT_SNAP_GRID_SIZE,
-    MIN_COMPONENT_WIDTH,
-    MIN_COMPONENT_HEIGHT,
-} from './collision-utils';
-export type { Bounds, ComponentWithBounds } from './collision-utils';
-
-// Component layout
-export {
-    getComponentIntrinsicSize,
-    calculateComponentDimensions,
-    findNextAvailablePosition,
-    calculateWidgetLayout,
-    gridPositionToPixels,
-    calculateTotalHeight,
-    resizeComponent,
-    DEFAULT_WIDGET_GRID,
-    COMPONENT_INTRINSIC_SIZES,
-    GRID_FINE_GRAIN,
-    GRID_BASE_COLUMNS,
-    GRID_MAX_COLUMNS,
-    upscaleGridUnits,
-    downscaleGridUnits,
-} from './component-layout';
-export type {
-    ComponentSizeMode,
-    ComponentIntrinsicSize,
-    GridPosition,
-    ComponentLayout,
-    WidgetGridConfig,
-    LayoutResult,
-    ComponentInput,
-} from './component-layout';
-
-// Google Sheets hook
-export { useGoogleSheetsData, MOCK_CHART_DATA } from './use-google-sheets';
+// Manually import to check for unique exports in collision-utils if any
+import * as CollisionUtils from './collision-utils';
+export { CollisionUtils };

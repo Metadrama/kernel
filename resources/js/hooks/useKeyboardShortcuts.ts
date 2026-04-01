@@ -9,6 +9,11 @@
  * 
  * Delete:
  * - Delete/Backspace : Remove selected item
+ *
+ * Clipboard:
+ * - Ctrl+C : Copy
+ * - Ctrl+V : Paste
+ * - Ctrl+D : Duplicate
  */
 
 import { useEffect, useCallback } from 'react';
@@ -22,12 +27,21 @@ export interface UseKeyboardShortcutsOptions {
     onZOrderChange?: (operation: ZOrderOperation) => void;
     /** Callback for delete key */
     onDelete?: () => void;
+    /** Callback for copy */
+    onCopy?: () => void;
+    /** Callback for paste */
+    onPaste?: () => void;
+    /** Callback for duplicate */
+    onDuplicate?: () => void;
 }
 
 export function useKeyboardShortcuts({
     enabled = true,
     onZOrderChange,
     onDelete,
+    onCopy,
+    onPaste,
+    onDuplicate,
 }: UseKeyboardShortcutsOptions) {
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
         if (!enabled) return;
@@ -38,9 +52,9 @@ export function useKeyboardShortcuts({
             return;
         }
 
-        // Z-order shortcuts with Ctrl key
+        // Shortcuts with Ctrl/Meta key
         if (e.ctrlKey || e.metaKey) {
-            // Ctrl+] or Ctrl+Shift+]
+            // Z-Order
             if (e.key === ']') {
                 e.preventDefault();
                 if (e.shiftKey) {
@@ -51,13 +65,38 @@ export function useKeyboardShortcuts({
                 return;
             }
 
-            // Ctrl+[ or Ctrl+Shift+[
             if (e.key === '[') {
                 e.preventDefault();
                 if (e.shiftKey) {
                     onZOrderChange?.('sendToBack');
                 } else {
                     onZOrderChange?.('sendBackward');
+                }
+                return;
+            }
+
+            // Clipboard
+            if (e.key === 'c' || e.key === 'C') {
+                if (onCopy) {
+                    e.preventDefault();
+                    onCopy();
+                }
+                return;
+            }
+
+            if (e.key === 'v' || e.key === 'V') {
+                if (onPaste) {
+                    // Don't prevent default paste if we want system paste behavior?
+                    // Usually for canvas we handle it manually.
+                    onPaste();
+                }
+                return;
+            }
+
+            if (e.key === 'd' || e.key === 'D') {
+                if (onDuplicate) {
+                    e.preventDefault();
+                    onDuplicate();
                 }
                 return;
             }
@@ -72,7 +111,7 @@ export function useKeyboardShortcuts({
             e.preventDefault();
             onDelete?.();
         }
-    }, [enabled, onZOrderChange, onDelete]);
+    }, [enabled, onZOrderChange, onDelete, onCopy, onPaste, onDuplicate]);
 
     useEffect(() => {
         window.addEventListener('keydown', handleKeyDown);
