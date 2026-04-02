@@ -210,6 +210,7 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
     const showLegend = config?.showLegend ?? false;
     const legendPosition = config?.legendPosition || 'bottom';
     const showTooltip = config?.showTooltip ?? true;
+    const enableAnimation = config?.enableAnimation ?? true;
     const containerRef = useRef<HTMLDivElement>(null);
 
     // Check if we should use Google Sheets data
@@ -415,8 +416,8 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                     innerRadius={dConfig?.innerRadius ?? 0.65}
                     padAngle={dConfig?.padAngle ?? 1.2}
                     cornerRadius={dConfig?.cornerRadius ?? 4}
-                    activeOuterRadiusOffset={12}
-                    activeInnerRadiusOffset={8}
+                    activeOuterRadiusOffset={0}
+                    activeInnerRadiusOffset={0}
                     colors={colors}
                     borderWidth={0}
                     borderColor={{ from: 'color', modifiers: [['darker', 0.2]] }}
@@ -436,8 +437,8 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                         : `${d.value}`}
 
                     theme={theme}
-                    animate={true}
-                    motionConfig="wobbly"
+                    animate={enableAnimation}
+                    motionConfig="stiff"
                     transitionMode="middleAngle"
                     legends={getLegends('circle') as any}
                     tooltip={showTooltip ? ({ datum: d }) => (
@@ -534,8 +535,8 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                     enableGridY={bConfig?.yAxis?.showGridLines ?? true}
                     enableLabel={false}
 
-                    animate={true}
-                    motionConfig="gentle"
+                    animate={enableAnimation}
+                    motionConfig="stiff"
                     tooltip={showTooltip ? ({ id, value, color, indexValue }) => (
                         <ChartTooltip
                             color={color}
@@ -560,7 +561,7 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
 
         // LINE CHART
         const lConfig = config as LineChartConfig;
-        const curve = lConfig?.tension === 0 ? 'linear' : 'catmullRom';
+        const curve = (lConfig?.tension ?? 0) === 0 ? 'linear' : 'catmullRom';
         const showPoints = lConfig?.showPoints ?? true;
         const pointSize = (lConfig?.pointRadius ?? 4) * 2;
         const enableArea = lConfig?.fill ?? true;
@@ -620,8 +621,8 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                 areaOpacity={0.1}
                 areaBaselineValue={0}
 
-                animate={true}
-                motionConfig="gentle"
+                animate={enableAnimation}
+                motionConfig="stiff"
                 enableCrosshair={true}
                 crosshairType="cross"
 
