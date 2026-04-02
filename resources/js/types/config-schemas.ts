@@ -119,7 +119,7 @@ export const LINE_CHART_SCHEMA: ComponentConfigSchema = {
       key: 'tension',
       label: 'Line Smoothing',
       type: 'range',
-      defaultValue: 0.4,
+      defaultValue: 0,
       min: 0,
       max: 1,
       step: 0.1,

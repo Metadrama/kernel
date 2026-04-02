@@ -210,6 +210,18 @@ export default function ArtboardCanvas() {
     setSelectedComponent(null);
   }, []);
 
+  const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    // Only dismiss when clicking empty canvas space (outside any artboard)
+    if (target.closest('[data-artboard-id]')) {
+      return;
+    }
+
+    setSelectedComponent(null);
+    setShowInspector(false);
+    setSelectedArtboardId(null);
+  }, [setSelectedArtboardId]);
+
   // Persistence - save to database
   const handleSave = useCallback(async () => {
     setIsSaving(true);
@@ -275,6 +287,7 @@ export default function ArtboardCanvas() {
           ref={canvasRef}
           className={`relative flex-1 overflow-hidden ${isHandMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
           onMouseDown={handleCanvasMouseDown}
+          onClick={handleCanvasClick}
         >
           {artboards.length === 0 && <CanvasEmptyState />}
 
@@ -312,9 +325,14 @@ export default function ArtboardCanvas() {
                   onSelect={() => {
                     setSelectedArtboardId(artboard.id);
                     bringArtboardToFront(artboard.id);
+                    setShowInspector(false);
+                    setSelectedComponent(null);
                   }}
                   onSelectComponent={handleSelectComponent}
-                  onDeselectComponent={() => setSelectedComponent(null)}
+                  onDeselectComponent={() => {
+                    setSelectedComponent(null);
+                    setShowInspector(false);
+                  }}
                   selectedComponentId={
                     selectedComponent?.artboardId === artboard.id
                       ? selectedComponent.component.instanceId
@@ -348,7 +366,7 @@ export default function ArtboardCanvas() {
         />
       )}
 
-      {selectedArtboard && (
+      {selectedArtboard && !showInspector && (
         <ArtboardInspector
           artboard={selectedArtboard}
           onUpdate={(updates) => selectedArtboardId && handleUpdateArtboard(selectedArtboardId, updates)}

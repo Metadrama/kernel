@@ -310,7 +310,7 @@ export const DEFAULT_LINE_CHART_CONFIG: LineChartConfig = {
   legendPosition: 'bottom',
   showTooltip: true,
   enableAnimation: true,
-  tension: 0.4,
+  tension: 0,
   fill: true,
   showPoints: true,
   pointRadius: 4,
