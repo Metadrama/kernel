@@ -143,6 +143,13 @@ export default function ComponentSidebar({ savedDashboards = [], currentDashboar
     moveArtboardLayer(id, direction);
   };
 
+  const handleDeleteArtboard = (id: string) => {
+    setArtboards((prev) => prev.filter((artboard) => artboard.id !== id));
+    if (selectedArtboardId === id) {
+      setSelectedArtboardId(null);
+    }
+  };
+
   if (isCollapsed) {
     return (
       <div className="flex h-screen w-12 flex-col border-r bg-card">
@@ -265,6 +272,7 @@ export default function ComponentSidebar({ savedDashboards = [], currentDashboar
           onToggleVisibility={handleToggleVisibility}
           onToggleLock={handleToggleLock}
           onMoveLayer={handleMoveLayer}
+          onDeleteArtboard={handleDeleteArtboard}
         />
       )}
 

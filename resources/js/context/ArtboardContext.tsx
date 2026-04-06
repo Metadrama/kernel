@@ -30,8 +30,8 @@ interface ArtboardProviderProps {
 }
 
 const loadArtboards = (initialData?: InitialData): ArtboardSchema[] => {
-  // Prefer server data if provided
-  if (initialData?.artboards && initialData.artboards.length > 0) {
+  // Prefer server data if provided, even when it is intentionally empty.
+  if (initialData?.artboards !== undefined) {
     return initialData.artboards;
   }
 
@@ -50,8 +50,8 @@ const loadArtboards = (initialData?: InitialData): ArtboardSchema[] => {
 };
 
 const loadArchivedWidgets = (initialData?: InitialData): WidgetSchema[] => {
-  // Prefer server data if provided
-  if (initialData?.archivedWidgets && initialData.archivedWidgets.length > 0) {
+  // Prefer server data if provided, even when it is intentionally empty.
+  if (initialData?.archivedWidgets !== undefined) {
     return initialData.archivedWidgets;
   }
 

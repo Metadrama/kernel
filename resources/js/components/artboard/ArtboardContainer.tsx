@@ -338,6 +338,7 @@ function ArtboardContainer({
       if (isTransferring) return;
 
       const currentArtboard = artboardRef.current;
+      let hasChanges = false;
       const updatedWidgets = currentArtboard.widgets.map((widget) => {
         const updated = items.find((item) => (item.id ?? item.el?.id) === widget.id);
         if (!updated) return widget;
@@ -364,12 +365,8 @@ function ArtboardContainer({
           newH = effectiveGridConfig.maxRows - newY;
         }
 
-        // If constraints changed the values, update GridStack
-        if (newX !== updated.x || newY !== updated.y || newW !== updated.w || newH !== updated.h) {
-          const element = document.getElementById(widget.id);
-          if (element && grid) {
-            grid.update(element, { x: newX, y: newY, w: newW, h: newH });
-          }
+        if (newX !== widget.x || newY !== widget.y || newW !== widget.w || newH !== widget.h) {
+          hasChanges = true;
         }
 
         return {
@@ -380,6 +377,8 @@ function ArtboardContainer({
           h: newH,
         };
       });
+
+      if (!hasChanges) return;
 
       onUpdate(currentArtboard.id, { widgets: updatedWidgets });
     });
@@ -558,6 +557,8 @@ function ArtboardContainer({
       {/* Counter-Scaled Header - transparent overlay above artboard */}
       <div
         className="artboard-header group absolute flex h-13 items-center justify-between px-0.5 cursor-move"
+        data-artboard-header="true"
+        data-artboard-id={artboard.id}
         style={{
           left: displayPosition.x,
           top: displayPosition.y - HEADER_OFFSET_PX / canvasScale,
@@ -572,6 +573,12 @@ function ArtboardContainer({
           backgroundColor: 'transparent',
         }}
         onMouseDown={handleArtboardMouseDown}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setContextMenuPosition({ x: e.clientX, y: e.clientY });
+          setContextMenuOpen(true);
+        }}
       >
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <span className="text-sm font-semibold truncate">{artboard.name}</span>

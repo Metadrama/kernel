@@ -72,7 +72,7 @@ export default function CanvasTopBar({
                     </Button>
                 </div>
 
-                <Button variant="outline" size="sm">Preview</Button>
+                <Button variant="outline" size="sm" className="h-8">Preview</Button>
                 <Button
                     size="sm"
                     className={`min-w-[70px] transition-all ${saveStatus === 'saved'

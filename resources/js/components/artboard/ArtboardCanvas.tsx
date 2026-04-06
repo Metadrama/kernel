@@ -19,7 +19,7 @@ import CanvasTopBar from './CanvasTopBar';
 import CanvasScrollbars, { Universe } from './CanvasScrollbars';
 import CanvasEmptyState from './CanvasEmptyState';
 import { useCanvasZoom, useCanvasPan, useWidgetTransfer } from '@/hooks';
-import type { ArtboardSchema } from '@/types/artboard';
+import type { ArtboardSchema, ArtboardFormat } from '@/types/artboard';
 import type { WidgetComponent, WidgetSchema } from '@/types/dashboard';
 import { createArtboard } from '@/lib/artboard-utils';
 import { useArtboardContext } from '@/context/ArtboardContext';
@@ -69,6 +69,12 @@ export default function ArtboardCanvas() {
   } | null>(null);
 
   const selectedArtboard = artboards.find(a => a.id === selectedArtboardId) || null;
+
+  useEffect(() => {
+    if (selectedArtboardId) {
+      setShowAddArtboard(false);
+    }
+  }, [selectedArtboardId]);
 
   // Hand tool panning
   const isHandMode = activeTool === 'hand' || isSpacePressed;
@@ -212,15 +218,39 @@ export default function ArtboardCanvas() {
 
   const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
-    // Only dismiss when clicking empty canvas space (outside any artboard)
-    if (target.closest('[data-artboard-id]')) {
+    // Only dismiss when clicking empty canvas space (outside any artboard/header)
+    if (target.closest('[data-artboard-id]') || target.closest('[data-artboard-header]')) {
       return;
     }
 
     setSelectedComponent(null);
     setShowInspector(false);
     setSelectedArtboardId(null);
+    setShowAddArtboard(false);
   }, [setSelectedArtboardId]);
+
+  const handleAddArtboard = useCallback((format: ArtboardFormat) => {
+    const tempArtboard = createArtboard({ format }, artboards);
+    const centeredArtboard = createArtboard(
+      {
+        format,
+        position: viewportSize.width > 0 && viewportSize.height > 0
+          ? {
+              x: (-pan.x / scale) + (viewportSize.width / (2 * scale)) - (tempArtboard.dimensions.widthPx / 2),
+              y: (-pan.y / scale) + (viewportSize.height / (2 * scale)) - (tempArtboard.dimensions.heightPx / 2),
+            }
+          : tempArtboard.position,
+      },
+      artboards
+    );
+
+    setArtboards((prev) => [...prev, centeredArtboard]);
+    setSelectedArtboardId(centeredArtboard.id);
+    bringArtboardToFront(centeredArtboard.id);
+    setShowAddArtboard(false);
+    setShowInspector(false);
+    setSelectedComponent(null);
+  }, [artboards, bringArtboardToFront, pan.x, pan.y, scale, setArtboards, setSelectedArtboardId, viewportSize.height, viewportSize.width]);
 
   // Persistence - save to database
   const handleSave = useCallback(async () => {
@@ -325,6 +355,7 @@ export default function ArtboardCanvas() {
                   onSelect={() => {
                     setSelectedArtboardId(artboard.id);
                     bringArtboardToFront(artboard.id);
+                    setShowAddArtboard(false);
                     setShowInspector(false);
                     setSelectedComponent(null);
                   }}
@@ -332,6 +363,7 @@ export default function ArtboardCanvas() {
                   onDeselectComponent={() => {
                     setSelectedComponent(null);
                     setShowInspector(false);
+                    setShowAddArtboard(false);
                   }}
                   selectedComponentId={
                     selectedComponent?.artboardId === artboard.id
@@ -376,10 +408,7 @@ export default function ArtboardCanvas() {
 
       {showAddArtboard && (
         <AddArtboardPanel
-          onAddArtboard={(format) => {
-            const newArtboard = createArtboard({ format }, artboards);
-            setArtboards((prev) => [...prev, newArtboard]);
-          }}
+          onAddArtboard={handleAddArtboard}
           onClose={() => setShowAddArtboard(false)}
         />
       )}
@@ -392,6 +421,7 @@ export default function ArtboardCanvas() {
           if (!showAddArtboard) {
             setShowInspector(false);
             setSelectedArtboardId(null);
+            setSelectedComponent(null);
           }
         }}
         onAddCard={handleAddCard}

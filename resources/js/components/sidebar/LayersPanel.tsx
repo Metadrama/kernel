@@ -3,7 +3,7 @@
  */
 
 import { useMemo } from 'react';
-import { ArrowUp, ArrowDown, Eye, EyeOff, Lock, Unlock } from 'lucide-react';
+import { ArrowUp, ArrowDown, Eye, EyeOff, Lock, Unlock, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { ArtboardSchema } from '@/types/artboard';
@@ -18,6 +18,7 @@ interface LayersPanelProps {
     onToggleVisibility: (id: string) => void;
     onToggleLock: (id: string) => void;
     onMoveLayer: (id: string, direction: 'up' | 'down') => void;
+    onDeleteArtboard: (id: string) => void;
 }
 
 export default function LayersPanel({
@@ -28,6 +29,7 @@ export default function LayersPanel({
     onToggleVisibility,
     onToggleLock,
     onMoveLayer,
+    onDeleteArtboard,
 }: LayersPanelProps) {
     const componentNameMap = useMemo(() => {
         const map: Record<string, string> = {};
@@ -131,6 +133,15 @@ export default function LayersPanel({
                                                 onClick={() => onToggleVisibility(artboard.id)}
                                             >
                                                 {artboard.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-7 w-7 text-destructive hover:text-destructive"
+                                                onClick={() => onDeleteArtboard(artboard.id)}
+                                                title="Delete artboard"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
                                             </Button>
                                         </div>
                                     </div>
