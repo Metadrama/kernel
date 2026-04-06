@@ -7,7 +7,6 @@ import WidgetShell from '@/components/WidgetShell';
 import { ComponentInspector } from '@/components/config-panel';
 import type { WidgetSchema, WidgetComponent } from '@/types/dashboard';
 import type { ComponentCard } from '@/types/dashboard';
-import type { GridPosition } from '@/lib/component-layout';
 import {
   GRID_FINE_GRAIN,
   GRID_MAX_COLUMNS,
@@ -179,7 +178,10 @@ export default function DashboardCanvas() {
     const newComponent: WidgetComponent = {
       instanceId: `comp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       componentType: component.id,
-      // gridPosition will be calculated by the layout system
+      x: 0,
+      y: 0,
+      width: 280,
+      height: 200,
       config: {
         name: component.name,
         description: component.description,
@@ -227,8 +229,12 @@ export default function DashboardCanvas() {
     );
   };
 
-  // Update a component's grid layout within a widget
-  const handleUpdateComponentLayout = (widgetId: string, instanceId: string, gridPosition: GridPosition) => {
+  // Update a component's freeform bounds within a widget
+  const handleUpdateComponentBounds = (
+    widgetId: string,
+    instanceId: string,
+    bounds: { x: number; y: number; width: number; height: number }
+  ) => {
     setWidgets((prev) =>
       prev.map((widget) =>
         widget.id === widgetId
@@ -236,7 +242,13 @@ export default function DashboardCanvas() {
             ...widget,
             components: (widget.components || []).map(c =>
               c.instanceId === instanceId
-                ? { ...c, gridPosition }
+                ? {
+                  ...c,
+                  x: bounds.x,
+                  y: bounds.y,
+                  width: bounds.width,
+                  height: bounds.height,
+                }
                 : c
             ),
           }
@@ -305,6 +317,10 @@ export default function DashboardCanvas() {
       const newComponent: WidgetComponent = {
         instanceId: `comp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         componentType: componentData.id,
+        x: 0,
+        y: 0,
+        width: 280,
+        height: 200,
         config: {
           name: componentData.name,
           description: componentData.description,
@@ -509,9 +525,10 @@ export default function DashboardCanvas() {
                           onAddComponent={(component) => handleAddComponentToWidget(widget.id, component)}
                           onRemoveComponent={(instanceId) => handleRemoveComponentFromWidget(widget.id, instanceId)}
                           onReorderComponents={(components) => handleReorderComponents(widget.id, components)}
-                          onUpdateComponentLayout={(instanceId, gridPosition) => handleUpdateComponentLayout(widget.id, instanceId, gridPosition)}
+                          onUpdateComponentBounds={(instanceId, bounds) => handleUpdateComponentBounds(widget.id, instanceId, bounds)}
                           onSelectComponent={(component) => handleSelectComponent(widget.id, component)}
                           selectedComponentId={selectedComponent?.widgetId === widget.id ? selectedComponent.component.instanceId : undefined}
+                          scale={scale}
                         />
                       </div>
                     </div>

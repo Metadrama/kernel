@@ -32,6 +32,57 @@ interface ComponentInspectorProps {
   onClose: () => void;
 }
 
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function validateFieldValue(field: ConfigFieldSchema, value: unknown): boolean {
+  if (value === undefined || value === null) {
+    return true;
+  }
+
+  switch (field.type) {
+    case 'text':
+    case 'color':
+      return typeof value === 'string';
+    case 'boolean':
+      return typeof value === 'boolean';
+    case 'number':
+    case 'range': {
+      if (!isFiniteNumber(value)) {
+        return false;
+      }
+
+      if (typeof field.min === 'number' && value < field.min) {
+        return false;
+      }
+
+      if (typeof field.max === 'number' && value > field.max) {
+        return false;
+      }
+
+      return true;
+    }
+    case 'select':
+      return typeof value === 'string';
+    case 'data-source':
+      return typeof value === 'object';
+    case 'column-picker':
+      return typeof value === 'string';
+    default:
+      return true;
+  }
+}
+
+function isValidDataSource(value: unknown): value is DataSource {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  return candidate.type === 'static' || candidate.type === 'google-sheets' || candidate.type === 'api';
+}
+
 // Get nested value from object using dot notation
 function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
   return path.split('.').reduce((acc: unknown, key) => {
@@ -123,13 +174,19 @@ export function ComponentInspector({
   const handleFieldChange = useCallback((fieldKey: string, value: unknown) => {
     if (!component) return;
 
+    const fieldSchema = schema?.fields.find((field) => field.key === fieldKey);
+    if (fieldSchema && !validateFieldValue(fieldSchema, value)) {
+      return;
+    }
+
     const newConfig = setNestedValue(config, fieldKey, value);
     onConfigChange(component.instanceId, newConfig);
-  }, [component, config, onConfigChange]);
+  }, [component, config, onConfigChange, schema]);
 
   // Handle data source change
   const handleDataSourceChange = useCallback((dataSource: DataSource) => {
     if (!component) return;
+    if (!isValidDataSource(dataSource)) return;
 
     const newConfig = { ...config, dataSource };
     onConfigChange(component.instanceId, newConfig);

@@ -3,6 +3,7 @@
  * Used to dynamically render configuration UI panels
  */
 
+import { getComponentCatalogEntry } from '@/constants/component-catalog';
 import type { ConfigFieldSchema, ComponentConfigSchema } from './component-config';
 
 // ============================================================================
@@ -727,7 +728,10 @@ export const CONFIG_SCHEMAS: Record<string, ComponentConfigSchema> = {
 };
 
 export function getConfigSchema(componentType: string): ComponentConfigSchema | undefined {
-  return CONFIG_SCHEMAS[componentType];
+  const catalogEntry = getComponentCatalogEntry(componentType);
+  const schemaType = catalogEntry?.configSchemaType || componentType;
+
+  return CONFIG_SCHEMAS[schemaType] || CONFIG_SCHEMAS[componentType];
 }
 
 // ============================================================================

@@ -194,10 +194,10 @@ export function useComponentResize({
             newY = startBounds.y + startBounds.height - newHeight;
         }
 
-        const container = containerRef.current.getBoundingClientRect();
         const containerSize = {
-            width: container.width / scale,
-            height: container.height / scale
+            // Use logical box dimensions to avoid fractional transform drift at non-100% zoom.
+            width: containerRef.current.clientWidth,
+            height: containerRef.current.clientHeight
         };
 
         // Apply snapping if enabled and shift not pressed
@@ -220,14 +220,24 @@ export function useComponentResize({
             containerSize
         );
 
-        setLocalBounds(constrained);
+        setLocalBounds({
+            x: Math.round(constrained.x),
+            y: Math.round(constrained.y),
+            width: Math.round(constrained.width),
+            height: Math.round(constrained.height),
+        });
         setActiveGuides(guides);
     }, [isResizing, containerRef, minSize, maxSize, aspectRatio, scale, siblings, enableSnapping, shiftPressed, snapThreshold]);
 
     const handleMouseUp = useCallback(() => {
         if (isResizing && localBounds) {
             // Simply commit the snapped bounds (no collision detection)
-            onBoundsChange(localBounds);
+            onBoundsChange({
+                x: Math.round(localBounds.x),
+                y: Math.round(localBounds.y),
+                width: Math.round(localBounds.width),
+                height: Math.round(localBounds.height),
+            });
         }
 
         setIsResizing(false);

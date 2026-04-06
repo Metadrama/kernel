@@ -71,7 +71,10 @@ export default function ComponentsPanel() {
     const pushLevel = (next: NavLevel) => {
         setNavStack((prev) => {
             const last = prev[prev.length - 1];
-            if (last.view === next.view && (last.view === 'root' || last.category === next.category)) return prev;
+            if (last.view === next.view) {
+                if (last.view === 'root') return prev;
+                if (next.view === 'category' && last.category === next.category) return prev;
+            }
             return [...prev, next];
         });
     };

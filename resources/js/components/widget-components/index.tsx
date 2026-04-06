@@ -2,11 +2,13 @@
 // Maps component IDs to their React component implementations
 
 import { lazy, Suspense } from 'react';
+import { getRenderableComponentEntries } from '@/constants/component-catalog';
 
 // Lazy load components for better performance
 const ChartComponent = lazy(() => import('./ChartComponent'));
 const ChartLegendComponent = lazy(() => import('./ChartLegendComponent'));
 const HeadingComponent = lazy(() => import('./HeadingComponent'));
+const KpiComponent = lazy(() => import('./KpiComponent'));
 
 // Loading placeholder
 function ComponentLoader() {
@@ -20,29 +22,36 @@ function ComponentLoader() {
   );
 }
 
-// Component registry - maps component type IDs to renderers
-export const COMPONENT_REGISTRY: Record<string, React.ComponentType<{ config?: Record<string, unknown> }>> = {
-  'chart': ({ config }) => (
+export interface WidgetRendererProps {
+  config?: Record<string, unknown>;
+  canvasScale?: number;
+}
+
+const RENDERER_MAP: Record<string, React.ComponentType<WidgetRendererProps>> = {
+  chart: ({ config, canvasScale }) => (
     <Suspense fallback={<ComponentLoader />}>
-      <ChartComponent config={{ ...config, chartType: (config?.chartType as 'line' | 'bar' | 'doughnut') || 'line' }} />
+      <ChartComponent
+        config={{ ...config, chartType: (config?.chartType as 'line' | 'bar' | 'doughnut') || 'line' }}
+        canvasScale={canvasScale}
+      />
     </Suspense>
   ),
-  'chart-line': ({ config }) => (
+  'chart-line': ({ config, canvasScale }) => (
     <Suspense fallback={<ComponentLoader />}>
-      <ChartComponent config={{ ...config, chartType: 'line' }} />
+      <ChartComponent config={{ ...config, chartType: 'line' }} canvasScale={canvasScale} />
     </Suspense>
   ),
-  'chart-bar': ({ config }) => (
+  'chart-bar': ({ config, canvasScale }) => (
     <Suspense fallback={<ComponentLoader />}>
-      <ChartComponent config={{ ...config, chartType: 'bar' }} />
+      <ChartComponent config={{ ...config, chartType: 'bar' }} canvasScale={canvasScale} />
     </Suspense>
   ),
-  'chart-doughnut': ({ config }) => (
+  'chart-doughnut': ({ config, canvasScale }) => (
     <Suspense fallback={<ComponentLoader />}>
-      <ChartComponent config={{ ...config, chartType: 'doughnut' }} />
+      <ChartComponent config={{ ...config, chartType: 'doughnut' }} canvasScale={canvasScale} />
     </Suspense>
   ),
-  'heading': ({ config }) => (
+  heading: ({ config }) => (
     <Suspense fallback={<ComponentLoader />}>
       <HeadingComponent config={config} />
     </Suspense>
@@ -52,7 +61,30 @@ export const COMPONENT_REGISTRY: Record<string, React.ComponentType<{ config?: R
       <ChartLegendComponent config={config} />
     </Suspense>
   ),
+  kpi: ({ config }) => (
+    <Suspense fallback={<ComponentLoader />}>
+      <KpiComponent config={config} />
+    </Suspense>
+  ),
 };
+
+// Component registry - maps catalog component IDs to renderers.
+export const COMPONENT_REGISTRY: Record<string, React.ComponentType<WidgetRendererProps>> =
+  getRenderableComponentEntries().reduce((registry, component) => {
+    if (!component.rendererType) {
+      return registry;
+    }
+
+    const renderer = RENDERER_MAP[component.rendererType];
+    if (renderer) {
+      registry[component.id] = renderer;
+    }
+
+    return registry;
+  }, {} as Record<string, React.ComponentType<WidgetRendererProps>>);
+
+// Legacy alias for historical dashboards.
+COMPONENT_REGISTRY.chart = RENDERER_MAP.chart;
 
 // Check if a component type is registered
 export function isComponentRegistered(componentType: string): boolean {
@@ -60,6 +92,6 @@ export function isComponentRegistered(componentType: string): boolean {
 }
 
 // Get a component by type
-export function getComponent(componentType: string): React.ComponentType<{ config?: Record<string, unknown> }> | null {
+export function getComponent(componentType: string): React.ComponentType<WidgetRendererProps> | null {
   return COMPONENT_REGISTRY[componentType] || null;
 }

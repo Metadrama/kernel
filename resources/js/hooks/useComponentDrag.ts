@@ -128,10 +128,10 @@ export function useComponentDrag({
         const deltaX = (e.clientX - dragStartRef.current.mouseX) / scale;
         const deltaY = (e.clientY - dragStartRef.current.mouseY) / scale;
 
-        const container = containerRef.current.getBoundingClientRect();
         const containerSize = {
-            width: container.width / scale,
-            height: container.height / scale
+            // Use logical box dimensions to avoid fractional transform drift at non-100% zoom.
+            width: containerRef.current.clientWidth,
+            height: containerRef.current.clientHeight
         };
 
         // Calculate raw position
@@ -171,7 +171,7 @@ export function useComponentDrag({
             containerSize
         );
 
-        setLocalPosition({ x: constrained.x, y: constrained.y });
+        setLocalPosition({ x: Math.round(constrained.x), y: Math.round(constrained.y) });
         setActiveGuides(guides);
         setDistributionGuides(distGuides);
     }, [isDragging, containerRef, size, scale, siblings, enableSnapping, shiftPressed, snapThreshold]);
@@ -179,7 +179,10 @@ export function useComponentDrag({
     const handleMouseUp = useCallback(() => {
         if (isDragging && localPosition) {
             // Simply commit the snapped position (no collision detection)
-            onPositionChange(localPosition);
+            onPositionChange({
+                x: Math.round(localPosition.x),
+                y: Math.round(localPosition.y),
+            });
         }
 
         setIsDragging(false);

@@ -215,7 +215,7 @@ function ComponentItem({
             {/* Render the actual component */}
             <div className="h-full w-full overflow-hidden rounded-md">
               {isRegistered && ComponentToRender ? (
-                <ComponentToRender config={component.config} />
+                <ComponentToRender config={component.config} canvasScale={scale} />
               ) : (
                 <div className="flex h-full items-center justify-center p-2">
                   <p className="text-xs text-muted-foreground">

@@ -3,6 +3,8 @@
  * Defines typed schemas for all component configurations
  */
 
+import { getComponentCatalogEntry } from '@/constants/component-catalog';
+
 // ============================================================================
 // Data Source Types
 // ============================================================================
@@ -372,15 +374,8 @@ export const DEFAULT_KPI_CONFIG: KpiConfig = {
 // ============================================================================
 
 export function getDefaultConfig(componentType: string): ComponentConfig | undefined {
-  const defaults: Record<string, ComponentConfig> = {
-    'chart-line': DEFAULT_LINE_CHART_CONFIG,
-    'chart-bar': DEFAULT_BAR_CHART_CONFIG,
-    'chart-doughnut': DEFAULT_DOUGHNUT_CHART_CONFIG,
-    'heading': DEFAULT_HEADING_CONFIG,
-    'kpi': DEFAULT_KPI_CONFIG,
-  };
-
-  return defaults[componentType];
+  const catalogEntry = getComponentCatalogEntry(componentType);
+  return catalogEntry?.defaultConfig as ComponentConfig | undefined;
 }
 
 // ============================================================================

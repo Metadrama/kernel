@@ -192,6 +192,7 @@ const ChartTooltip = ({ color, title, subtitle }: { color: string; title: React.
 };
 
 export interface ChartComponentConfigProps {
+    canvasScale?: number;
     config?: Partial<ChartConfig> & {
         chartType?: 'line' | 'bar' | 'doughnut';
         title?: string;
@@ -203,7 +204,7 @@ export interface ChartComponentConfigProps {
     };
 }
 
-export default function ChartComponent({ config }: ChartComponentConfigProps) {
+export default function ChartComponent({ config, canvasScale = 1 }: ChartComponentConfigProps) {
     const chartType = config?.chartType || 'line';
     const showTitle = config?.showTitle ?? false;
     const title = config?.title;
@@ -658,6 +659,8 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
     }[chartType];
 
     const bg = config?.colors?.backgroundColor || 'transparent';
+    const normalizedScale = Number.isFinite(canvasScale) && canvasScale > 0 ? canvasScale : 1;
+    const needsScaleCompensation = Math.abs(normalizedScale - 1) > 0.001;
 
     return (
         <div
@@ -672,8 +675,21 @@ export default function ChartComponent({ config }: ChartComponentConfigProps) {
                     <h3 className="text-sm font-semibold text-foreground tracking-tight">{displayTitle}</h3>
                 </div>
             )}
-            <div className="flex-1 relative min-h-0 min-w-0">
-                {renderChart()}
+            <div className="flex-1 relative min-h-0 min-w-0 overflow-hidden">
+                {needsScaleCompensation ? (
+                    <div
+                        className="absolute inset-0 origin-top-left"
+                        style={{
+                            transform: `scale(${1 / normalizedScale})`,
+                            width: `${normalizedScale * 100}%`,
+                            height: `${normalizedScale * 100}%`,
+                        }}
+                    >
+                        {renderChart()}
+                    </div>
+                ) : (
+                    renderChart()
+                )}
             </div>
         </div>
     );
