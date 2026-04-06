@@ -150,6 +150,14 @@ export default function ComponentSidebar({ savedDashboards = [], currentDashboar
     }
   };
 
+  const handleDeleteWidget = (artboardId: string, widgetId: string) => {
+    setArtboards((prev) => prev.map((artboard) => (
+      artboard.id === artboardId
+        ? { ...artboard, widgets: artboard.widgets.filter((widget) => widget.id !== widgetId), updatedAt: new Date().toISOString() }
+        : artboard
+    )));
+  };
+
   if (isCollapsed) {
     return (
       <div className="flex h-screen w-12 flex-col border-r bg-card">
@@ -273,6 +281,7 @@ export default function ComponentSidebar({ savedDashboards = [], currentDashboar
           onToggleLock={handleToggleLock}
           onMoveLayer={handleMoveLayer}
           onDeleteArtboard={handleDeleteArtboard}
+          onDeleteWidget={handleDeleteWidget}
         />
       )}
 
